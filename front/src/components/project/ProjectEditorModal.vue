@@ -121,7 +121,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, defineProps, defineEmits, computed } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { VueMonacoEditor } from '@guolao/vue-monaco-editor'
 import FileTree, { TreeItem } from '@/components/project/FileTree.vue'
 

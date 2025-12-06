@@ -11,7 +11,7 @@
       </div>
       <div v-if="item.type === 'dir' && item.isOpen" class="children">
         <FileTree 
-          :items="item.children" 
+          :items="item.children || []" 
           :active-path="activePath" 
           @select="onSelect"
         />
@@ -21,8 +21,6 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue'
-
 export interface TreeItem {
   label: string
   path: string

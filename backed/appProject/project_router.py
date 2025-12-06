@@ -63,7 +63,9 @@ async def create_project(
     db_project = models.Project(
         name=name,
         path=project_path,
-        work_dir=work_dir
+        work_dir=work_dir,
+        created_at=datetime.datetime.now(),
+        updated_at=datetime.datetime.now()
     )
     db.add(db_project)
     db.commit()
