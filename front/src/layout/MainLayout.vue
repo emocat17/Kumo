@@ -17,39 +17,39 @@
 
       <nav class="sidebar-nav">
         <router-link to="/" class="nav-item" active-class="active">
-          <i class="icon-dashboard"></i>
+          <LayoutDashboardIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">仪表盘</span>
         </router-link>
         <a href="#" class="nav-item">
-          <i class="icon-cron"></i>
+          <ClockIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">定时任务</span>
         </a>
         <router-link to="/projects" class="nav-item" active-class="active">
-          <i class="icon-project"></i>
+          <FolderIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">项目</span>
         </router-link>
         <router-link to="/python-environments" class="nav-item" active-class="active">
-          <i class="icon-python"></i>
+          <BoxIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">Python环境</span>
         </router-link>
         <router-link to="/python-versions" class="nav-item" active-class="active">
-          <i class="icon-version"></i>
+          <Code2Icon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">Python版本</span>
         </router-link>
         <a href="#" class="nav-item">
-          <i class="icon-user"></i>
+          <UsersIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">用户管理</span>
         </a>
         <a href="#" class="nav-item">
-          <i class="icon-node"></i>
+          <NetworkIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">分布式节点</span>
         </a>
         <a href="#" class="nav-item">
-          <i class="icon-log"></i>
+          <FileTextIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">日志管理</span>
         </a>
         <a href="#" class="nav-item">
-          <i class="icon-setting"></i>
+          <SettingsIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">设置</span>
         </a>
       </nav>
@@ -79,6 +79,17 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { 
+  LayoutDashboardIcon, 
+  ClockIcon, 
+  FolderIcon, 
+  BoxIcon, 
+  Code2Icon, 
+  UsersIcon, 
+  NetworkIcon, 
+  FileTextIcon, 
+  SettingsIcon 
+} from 'lucide-vue-next'
 
 const isCollapsed = ref(false)
 
@@ -94,9 +105,9 @@ const toggleCollapse = () => {
   background-color: #f3f4f6;
   color: #1f2937;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  max-width: 1440px;
+  max-width: 1350px; /* Increased from 1200px to 1350px */
   margin: 0 auto;
-  box-shadow: 0 0 15px rgba(0,0,0,0.03);
+  box-shadow: 0 0 25px rgba(0,0,0,0.08);
 }
 
 /* Sidebar */
@@ -115,7 +126,7 @@ const toggleCollapse = () => {
 }
 
 .sidebar-header {
-  height: 64px;
+  height: 80px; /* Increased from 64px */
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -148,8 +159,8 @@ const toggleCollapse = () => {
 }
 
 .logo {
-  width: 32px;
-  height: 32px;
+  width: 40px; /* Increased from 32px */
+  height: 40px; /* Increased from 32px */
 }
 
 .brand-text {
@@ -160,12 +171,12 @@ const toggleCollapse = () => {
 
 .title {
   font-weight: 700;
-  font-size: 1.125rem;
+  font-size: 1.5rem; /* Increased from 1.125rem */
   color: #111827;
 }
 
 .version {
-  font-size: 0.75rem;
+  font-size: 0.875rem; /* Increased from 0.75rem */
   color: #6b7280;
   margin-left: 4px;
 }
@@ -179,39 +190,33 @@ const toggleCollapse = () => {
 .nav-item {
   display: flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: 12px 16px; /* Increased padding */
   margin-bottom: 4px;
   border-radius: 6px;
   color: #4b5563;
   text-decoration: none;
-  font-size: 0.875rem;
+  font-size: 1rem; /* Increased font size */
   transition: background-color 0.2s;
 }
 
 .nav-item:hover, .nav-item.active {
-  background-color: #f3f4f6;
-  color: #111827;
+  background-color: #eff6ff; /* Light blue background for active/hover */
+  color: #1d4ed8; /* Blue text for active/hover */
 }
 
-.nav-item i {
-  width: 20px;
-  height: 20px;
-  background-color: #9ca3af; /* Placeholder for icon */
+.nav-icon {
   margin-right: 12px;
-  border-radius: 4px;
+  color: inherit;
 }
 
 .sidebar.collapsed .nav-item {
   justify-content: center;
-  padding: 8px;
+  padding: 12px;
 }
 
-.sidebar.collapsed .nav-item i {
+.sidebar.collapsed .nav-icon {
   margin-right: 0;
 }
-
-/* Removed Sidebar Footer Styles */
-
 
 /* Main Content */
 .main-wrapper {
@@ -235,26 +240,6 @@ const toggleCollapse = () => {
   display: flex;
   align-items: center;
   gap: 16px;
-}
-
-.header-link {
-  color: #6b7280;
-  text-decoration: none;
-  font-size: 0.875rem;
-}
-
-.header-btn {
-  padding: 6px 12px;
-  border: 1px solid #e5e7eb;
-  background: white;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  color: #374151;
-}
-
-.header-btn:hover {
-  background-color: #f9fafb;
 }
 
 .content-area {

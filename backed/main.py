@@ -11,6 +11,7 @@ from appEnv.python_version_router import router as python_version_router
 from appEnv.env_router import router as env_router
 from appProject.project_router import router as project_router
 from appSystem.system_router import router as system_router
+from appSystem.fs_router import router as fs_router
 
 app = FastAPI()
 
@@ -26,6 +27,7 @@ app.include_router(python_version_router, prefix="/api/python/versions")
 app.include_router(env_router, prefix="/api/python/environments")
 app.include_router(project_router, prefix="/api/projects")
 app.include_router(system_router, prefix="/api/system")
+app.include_router(fs_router, prefix="/api")
 
 if __name__ == "__main__":
     import uvicorn

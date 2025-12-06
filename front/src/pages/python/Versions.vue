@@ -1,6 +1,6 @@
 <template>
   <div class="versions-page">
-    <PageHeader title="Python 版本" description="管理服务器上可用的 Python 版本。" />
+    <PageHeader title="Python 版本" description="管理服务器上可用的 Python 版本。推荐使用 Conda 环境(需要预先配置)。" />
 
     <div class="content-grid">
       <!-- Add Version Tabs -->
@@ -26,14 +26,19 @@
         <form v-if="activeTab === 'path'" @submit.prevent="handleAddVersion" class="add-form">
           <div class="form-group">
             <label for="path">Python 解释器路径</label>
-            <input 
-              id="path" 
-              v-model="newVersion.path" 
-              type="text" 
-              placeholder="例如: D:\env\miniconda3\envs\Kumo\" 
-              class="form-input"
-              required
-            />
+            <div class="input-with-button">
+              <input 
+                id="path" 
+                v-model="newVersion.path" 
+                type="text" 
+                placeholder="例如: D:\env\miniconda3\envs\Kumo\" 
+                class="form-input"
+                required
+              />
+              <button type="button" class="btn btn-secondary browse-btn" @click="isPathSelectorOpen = true">
+                浏览
+              </button>
+            </div>
             <small class="form-hint">请输入 python.exe 所在的文件夹路径或完整路径。</small>
           </div>
 
@@ -98,34 +103,29 @@
             </thead>
             <tbody>
               <tr v-if="versions.length === 0">
-                <td colspan="5" class="empty-cell">暂无已添加的 Python 版本</td>
+                <td colspan="5" class="empty-cell">暂无 Python 版本，请在左侧添加。</td>
               </tr>
               <tr v-for="ver in versions" :key="ver.id">
-                <td>{{ ver.name }}</td>
-                <td>{{ ver.version }}</td>
+                <td>
+                   <div class="ver-name">{{ ver.name || 'Python' }}</div>
+                   <div class="ver-source" :class="ver.source_type">
+                     {{ ver.source_type === 'conda' ? 'Conda Env' : 'System/Path' }}
+                   </div>
+                </td>
+                <td>{{ ver.version_number || '-' }}</td>
                 <td>
                   <span :class="['status-badge', ver.status]">
-                    {{ getStatusLabel(ver.status) }}
+                    {{ ver.status }}
                   </span>
                 </td>
                 <td class="path-cell" :title="ver.path">{{ ver.path }}</td>
                 <td>
                   <div class="action-buttons">
-                    <button 
-                      @click="openTerminal(ver)" 
-                      class="btn-icon terminal"
-                      title="打开终端"
-                      :disabled="ver.status !== 'ready'"
-                    >
-                      <i class="icon-terminal">💻</i>
+                    <button @click="openTerminal(ver)" class="btn-icon" title="Open Terminal">
+                       Terminal
                     </button>
-                    <button 
-                      @click="deleteVersion(ver)" 
-                      class="btn-icon delete"
-                      title="删除"
-                      :disabled="ver.status === 'deleting' || ver.status === 'installing'"
-                    >
-                      <i class="icon-trash">🗑️</i>
+                    <button @click="deleteVersion(ver)" class="btn-icon delete" title="Remove">
+                       Delete
                     </button>
                   </div>
                 </td>
@@ -135,49 +135,40 @@
         </div>
       </div>
     </div>
+
+    <FileSelectorModal 
+      :isOpen="isPathSelectorOpen" 
+      @close="isPathSelectorOpen = false" 
+      @select="onPathSelected" 
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import FileSelectorModal from '@/components/common/FileSelectorModal.vue'
 
 interface PythonVersion {
-  id: string
-  name: string
-  version: string
+  id: number
   path: string
-  status: 'ready' | 'installing' | 'deleting' | 'error'
+  version_number: string
+  source_type: string
+  status: string
+  name: string
 }
 
+const activeTab = ref<'path' | 'conda'>('path')
 const versions = ref<PythonVersion[]>([])
-const activeTab = ref('path')
-let pollInterval: number | null = null
-
-// Path Form Data
-const newVersion = reactive({
-  path: ''
-})
-
-// Conda Form Data
-const condaForm = reactive({
-  name: '',
-  version: ''
-})
-const condaMessage = ref('')
-const isCreatingConda = ref(false)
+const newVersion = ref({ path: '' })
+const condaForm = ref({ name: '', version: '' })
 
 const isInstalling = ref(false)
+const isCreatingConda = ref(false)
+const condaMessage = ref('')
+const isPathSelectorOpen = ref(false)
 
-const getStatusLabel = (status: string) => {
-  const map: Record<string, string> = {
-    ready: '就绪',
-    installing: '配置中...',
-    deleting: '删除中...',
-    error: '错误'
-  }
-  return map[status] || status
-}
+let pollInterval: number | null = null
 
 const fetchVersions = async () => {
   try {
@@ -331,6 +322,10 @@ const deleteVersion = async (ver: PythonVersion) => {
   }
 }
 
+const onPathSelected = (path: string) => {
+  newVersion.value.path = path
+}
+
 onMounted(() => {
   fetchVersions()
 })
@@ -377,35 +372,37 @@ onUnmounted(() => {
   border-bottom: 1px solid #f3f4f6;
 }
 
-/* Tabs */
 .tabs {
   display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
-  border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 12px;
+  gap: 4px;
+  margin-bottom: 20px;
+  background-color: #f3f4f6;
+  padding: 4px;
+  border-radius: 8px;
 }
 
 .tab-btn {
-  background: none;
+  flex: 1;
+  padding: 8px 16px;
   border: none;
-  padding: 8px 12px;
+  background: none;
+  border-radius: 6px;
   font-size: 0.875rem;
   font-weight: 500;
   color: #6b7280;
   cursor: pointer;
-  border-radius: 6px;
   transition: all 0.2s;
 }
 
 .tab-btn:hover {
-  background-color: #f3f4f6;
+  background-color: #e5e7eb;
   color: #374151;
 }
 
 .tab-btn.active {
-  background-color: #e0e7ff;
-  color: #4f46e5;
+  background-color: white;
+  color: #3b82f6; /* Changed to Blue */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
 /* Form Styles */
@@ -421,6 +418,11 @@ onUnmounted(() => {
   margin-bottom: 6px;
 }
 
+.input-with-button {
+  display: flex;
+  gap: 8px;
+}
+
 .form-input {
   width: 100%;
   padding: 8px 12px;
@@ -428,6 +430,7 @@ onUnmounted(() => {
   border-radius: 6px;
   font-size: 0.875rem;
   transition: border-color 0.2s;
+  flex: 1;
 }
 
 .form-input:focus {
@@ -476,12 +479,26 @@ onUnmounted(() => {
 
 .btn-primary:hover {
   background-color: #2563eb;
-  color: #2563eb;
 }
 
 .btn-primary:disabled {
   background-color: #93c5fd;
   cursor: not-allowed;
+}
+
+.btn-secondary {
+  background-color: white;
+  border: 1px solid #d1d5db;
+  color: #374151;
+}
+
+.btn-secondary:hover {
+  background-color: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.browse-btn {
+  white-space: nowrap;
 }
 
 /* Table Styles */
@@ -500,7 +517,7 @@ onUnmounted(() => {
   padding: 12px 16px;
   background-color: #f9fafb;
   color: #6b7280;
-  font-weight: 500;
+  font-weight: 600;
   border-bottom: 1px solid #e5e7eb;
 }
 
@@ -508,62 +525,60 @@ onUnmounted(() => {
   padding: 12px 16px;
   border-bottom: 1px solid #f3f4f6;
   color: #374151;
+  vertical-align: middle;
+}
+
+.ver-name {
+  font-weight: 500;
+  color: #111827;
+}
+
+.ver-source {
+  font-size: 0.75rem;
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+.ver-source.conda {
+  background-color: #ecfdf5;
+  color: #059669;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.status-badge.ready {
+  background-color: #eff6ff;
+  color: #3b82f6;
+}
+
+.status-badge.installing {
+  background-color: #fff7ed;
+  color: #ea580c;
+}
+
+.status-badge.error {
+  background-color: #fef2f2;
+  color: #dc2626;
 }
 
 .path-cell {
+  font-family: monospace;
+  color: #6b7280;
   max-width: 200px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-family: monospace;
-  color: #6b7280;
-}
-
-.data-table tr:last-child td {
-  border-bottom: none;
-}
-
-.empty-cell {
-  text-align: center;
-  padding: 32px;
-  color: #9ca3af;
-}
-
-.status-badge {
-  display: inline-flex;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.status-badge.ready {
-  background-color: #d1fae5;
-  color: #065f46;
-}
-
-.status-badge.installing {
-  background-color: #dbeafe;
-  color: #1e40af;
-  animation: pulse 2s infinite;
-}
-
-.status-badge.deleting {
-  background-color: #fee2e2;
-  color: #991b1b;
-  animation: pulse 2s infinite;
-}
-
-.status-badge.error {
-  background-color: #f3f4f6;
-  color: #374151;
-  border: 1px solid #d1d5db;
-}
-
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.6; }
-  100% { opacity: 1; }
 }
 
 .action-buttons {
@@ -572,35 +587,28 @@ onUnmounted(() => {
 }
 
 .btn-icon {
-  background: none;
-  border: none;
-  cursor: pointer;
-  opacity: 0.6;
-  transition: opacity 0.2s;
-  padding: 4px;
+  padding: 4px 8px;
+  border: 1px solid #e5e7eb;
+  background: white;
   border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: #4b5563;
 }
 
-.btn-icon:hover:not(:disabled) {
-  opacity: 1;
+.btn-icon:hover {
   background-color: #f3f4f6;
 }
 
-.btn-icon:disabled {
-  cursor: not-allowed;
-  opacity: 0.3;
+.btn-icon.delete:hover {
+  background-color: #fef2f2;
+  color: #dc2626;
+  border-color: #fee2e2;
 }
 
-.btn-icon.delete {
-  color: #ef4444;
-}
-
-.btn-icon.terminal {
-  color: #10b981;
-}
-
-.icon-trash, .icon-terminal {
-  font-style: normal;
-  font-size: 1.1rem;
+.empty-cell {
+  text-align: center;
+  padding: 32px;
+  color: #9ca3af;
 }
 </style>
