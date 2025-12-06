@@ -94,6 +94,9 @@ const toggleCollapse = () => {
   background-color: #f3f4f6;
   color: #1f2937;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  max-width: 1440px;
+  margin: 0 auto;
+  box-shadow: 0 0 15px rgba(0,0,0,0.03);
 }
 
 /* Sidebar */

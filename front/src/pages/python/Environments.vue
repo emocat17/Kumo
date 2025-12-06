@@ -1,6 +1,6 @@
 <template>
   <div class="environments-page">
-    <PageHeader title="Python 环境与依赖管理" description="管理 Python 环境及其依赖包。">
+    <PageHeader title="Python 环境" description="管理 Python 环境及其依赖包。">
       <!-- <template #actions>
         <button class="btn btn-primary" @click="showCreateModal = true">
           <i class="icon-plus">+</i> 新建环境
@@ -475,6 +475,8 @@ const formatDate = (dateStr?: string) => {
 
 <style scoped>
 .environments-page {
+  max-width: 1200px;
+  margin: 0 auto;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -488,14 +490,25 @@ const formatDate = (dateStr?: string) => {
   border: 1px solid #eef0f2;
 }
 
+.icon-search {
+  font-style: normal;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0; /* Prevent icon from shrinking/stretching */
+  width: 20px;
+  height: 20px;
+}
+
 .search-wrapper {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #f8f9fa;
+  background: #f3f4f6; /* Lighter gray background */
   padding: 8px 15px;
   border-radius: 6px;
   width: 300px;
+  border: 1px solid #e5e7eb; /* Subtle border to define the input area */
 }
 
 .search-input {

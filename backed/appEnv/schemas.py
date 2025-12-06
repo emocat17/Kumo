@@ -20,25 +20,3 @@ class PythonVersion(PythonVersionBase):
 
     class Config:
         orm_mode = True
-
-class PythonEnvBase(BaseModel):
-    name: str
-    path: str
-    description: Optional[str] = ""
-    status: str = "installing"
-    packages: Optional[str] = ""
-    python_version_id: int
-
-class PythonEnvCreate(BaseModel):
-    name: str
-    python_version_id: int
-    description: Optional[str] = ""
-    packages: Optional[str] = "" 
-    install_method: str = "pip" 
-
-class PythonEnv(PythonEnvBase):
-    id: int
-    python_version: Optional[PythonVersion] = None
-
-    class Config:
-        orm_mode = True
