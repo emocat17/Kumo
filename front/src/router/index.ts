@@ -19,6 +19,11 @@ const routes: RouteRecordRaw[] = [
         path: 'python-environments',
         name: 'python-environments',
         component: () => import('@/pages/python/Environments.vue')
+      },
+      {
+        path: 'projects',
+        name: 'projects',
+        component: () => import('@/pages/project/Projects.vue')
       }
     ]
   },

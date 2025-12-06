@@ -2,12 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
 from appEnv import models as env_models # Import models to ensure they are registered with Base
+from appProject import models as project_models # Register Project models
 
 # Initialize DB tables
 init_db()
 
 from appEnv.python_version_router import router as python_version_router
 from appEnv.env_router import router as env_router
+from appProject.project_router import router as project_router
 
 app = FastAPI()
 
@@ -21,6 +23,7 @@ app.add_middleware(
 
 app.include_router(python_version_router, prefix="/api/python/versions")
 app.include_router(env_router, prefix="/api/python/environments")
+app.include_router(project_router, prefix="/api/projects")
 
 if __name__ == "__main__":
     import uvicorn

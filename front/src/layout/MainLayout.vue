@@ -24,10 +24,10 @@
           <i class="icon-cron"></i>
           <span v-if="!isCollapsed">定时任务</span>
         </a>
-        <a href="#" class="nav-item">
+        <router-link to="/projects" class="nav-item" active-class="active">
           <i class="icon-project"></i>
           <span v-if="!isCollapsed">项目</span>
-        </a>
+        </router-link>
         <router-link to="/python-environments" class="nav-item" active-class="active">
           <i class="icon-python"></i>
           <span v-if="!isCollapsed">Python环境</span>
