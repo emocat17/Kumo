@@ -12,7 +12,7 @@
         </div>
         
         <div class="search-box">
-            <input type="text" placeholder="搜索文件..." v-model="searchQuery" disabled title="暂不支持搜索"/>
+            <input v-model="searchQuery" type="text" placeholder="搜索文件..." disabled title="暂不支持搜索"/>
         </div>
 
         <div class="sidebar-label">
@@ -36,14 +36,14 @@
          <!-- Header -->
         <header class="editor-header">
           <div class="left">
-            <div class="file-info" v-if="currentFilePath">
+            <div v-if="currentFilePath" class="file-info">
                 <span class="file-icon">📄</span>
                 <div class="file-details">
                     <div class="file-name">文件内容</div>
                     <div class="file-path">{{ currentFilePath }}</div>
                 </div>
             </div>
-            <div class="no-file" v-else>未选择文件</div>
+            <div v-else class="no-file">未选择文件</div>
           </div>
           
           <div class="right">
@@ -52,24 +52,24 @@
              <div class="actions">
                 <button 
                     class="btn-action" 
-                    @click="downloadCurrentFile" 
                     :disabled="!currentFilePath" 
-                    title="下载文件"
+                    title="下载文件" 
+                    @click="downloadCurrentFile"
                 >
                     📥
                 </button>
                 <button 
                     class="btn-action" 
-                    @click="saveFile" 
-                    :disabled="!currentFilePath || isSaving"
+                    :disabled="!currentFilePath || isSaving" 
                     title="保存 (Ctrl+S)"
+                    @click="saveFile"
                 >
                     💾
                 </button>
                 
                 <div class="divider"></div>
 
-                <select class="lang-select" v-model="language">
+                <select v-model="language" class="lang-select">
                     <option value="python">Python</option>
                     <option value="javascript">JavaScript</option>
                     <option value="json">JSON</option>
@@ -86,7 +86,7 @@
 
         <!-- Editor -->
         <div class="editor-container">
-            <div class="editor-toolbar" v-if="currentFilePath">
+            <div v-if="currentFilePath" class="editor-toolbar">
                  <span class="file-meta">{{ currentFilePath.split('/').pop() }}</span>
                  <div class="editor-stats">
                      <span>{{ code.split('\n').length }}行</span>
@@ -104,9 +104,9 @@
               v-model:value="code"
               theme="vs-dark"
               :options="editorOptions"
-              @mount="handleMount"
               class="monaco-editor"
               :language="language"
+              @mount="handleMount"
             />
             <div v-else class="empty-editor">
               <div class="empty-content">
@@ -121,7 +121,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { VueMonacoEditor } from '@guolao/vue-monaco-editor'
 import FileTree, { TreeItem } from './FileTree.vue'
 
@@ -176,6 +176,7 @@ watch(code, (newVal) => {
 })
 
 // Keyboard shortcuts
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const handleMount = (editor: any, monaco: any) => {
   editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
     saveFile()

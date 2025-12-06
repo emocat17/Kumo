@@ -5,7 +5,7 @@
       <div class="sidebar-header">
         <div class="brand-wrapper">
           <img src="@/assets/Kumo.png" alt="Logo" class="logo" />
-          <div class="brand-text" v-if="!isCollapsed">
+          <div v-if="!isCollapsed" class="brand-text">
             <span class="title">Kumo</span>
             <span class="version">v1.0.0</span>
           </div>

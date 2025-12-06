@@ -15,7 +15,7 @@ PROJECTS_DIR = os.path.abspath(os.path.join(os.getcwd(), "projects"))
 if not os.path.exists(PROJECTS_DIR):
     os.makedirs(PROJECTS_DIR)
 
-@router.get("/", response_model=List[schemas.Project])
+@router.get("", response_model=List[schemas.Project])
 async def list_projects(db: Session = Depends(get_db)):
     return db.query(models.Project).all()
 

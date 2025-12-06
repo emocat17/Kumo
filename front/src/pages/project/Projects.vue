@@ -9,7 +9,7 @@
     </PageHeader>
 
     <!-- Projects Grid -->
-    <div class="project-grid" v-if="projects.length > 0">
+    <div v-if="projects.length > 0" class="project-grid">
       <div v-for="proj in projects" :key="proj.id" class="project-card">
         <div class="card-header">
           <h3 class="project-name" :title="proj.name">{{ proj.name }}</h3>
@@ -26,7 +26,7 @@
           
           <div class="actions-row">
             <!-- Future actions: Edit, Delete, Run -->
-             <button class="btn btn-primary btn-sm" @click="openEditor(proj)" style="margin-right: 8px;">浏览</button>
+             <button class="btn btn-primary btn-sm" style="margin-right: 8px;" @click="openEditor(proj)">浏览</button>
              <button class="btn btn-danger btn-sm" @click="deleteProject(proj)">删除</button>
           </div>
         </div>
@@ -42,7 +42,7 @@
 
     <!-- Create Project Modal -->
     <BaseModal v-model="showCreateModal" title="新建项目" width="500px">
-      <form @submit.prevent="handleCreateProject" class="create-form">
+      <form class="create-form" @submit.prevent="handleCreateProject">
         <div class="form-group">
           <label for="name">项目名称 <span class="required">*</span></label>
           <input 
@@ -73,12 +73,12 @@
           <div class="file-upload-wrapper">
             <input 
               id="file" 
-              type="file" 
+              ref="fileInput" 
+              type="file"
               accept=".zip"
-              @change="handleFileChange"
               class="file-input"
-              ref="fileInput"
               required
+              @change="handleFileChange"
             />
             <div class="file-display" @click="triggerFileSelect">
                 <span v-if="selectedFile">{{ selectedFile.name }}</span>
@@ -108,7 +108,6 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import ProjectEditorModal from '@/components/project/ProjectEditorModal.vue'
@@ -121,8 +120,6 @@ interface Project {
   description: string
   created_at: string
 }
-
-const router = useRouter()
 
 const projects = ref<Project[]>([])
 const showCreateModal = ref(false)

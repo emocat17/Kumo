@@ -8,7 +8,7 @@
         <slot name="actions"></slot>
       </div>
     </div>
-    <div class="header-description" v-if="description || $slots.description">
+    <div v-if="description || $slots.description" class="header-description">
       <slot name="description">{{ description }}</slot>
     </div>
   </div>

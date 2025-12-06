@@ -199,14 +199,14 @@ interface SystemInfo {
   env_count: number
   project_count: number
   uptime_minutes: number
-  system_info: any
+  system_info: Record<string, string | number>
 }
 
 interface SystemStats {
-  cpu: any
-  memory: any
-  disk: any
-  network: any
+  cpu: { percent: number; count: number }
+  memory: { percent: number; total: string; used: string }
+  disk: { percent: number; total: string; used: string }
+  network: { bytes_sent: string; bytes_recv: string }
 }
 
 const systemInfo = ref<SystemInfo>({} as SystemInfo)

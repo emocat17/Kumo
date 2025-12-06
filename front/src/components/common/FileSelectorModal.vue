@@ -1,12 +1,12 @@
 <template>
-  <BaseModal :modelValue="isOpen" @close="onClose" title="选择路径" width="600px">
+  <BaseModal :model-value="isOpen" title="选择路径" width="600px" @close="onClose">
     <div class="file-selector">
       <div class="current-path">
-        <button @click="loadPath(parentPath)" :disabled="!parentPath" class="nav-btn">
+        <button :disabled="!parentPath" class="nav-btn" @click="loadPath(parentPath)">
           <ArrowUpIcon :size="16" />
         </button>
-        <input type="text" v-model="currentPath" @keyup.enter="loadPath(currentPath)" class="path-input" />
-        <button @click="loadPath(currentPath)" class="nav-btn">Go</button>
+        <input v-model="currentPath" type="text" class="path-input" @keyup.enter="loadPath(currentPath)" />
+        <button class="nav-btn" @click="loadPath(currentPath)">Go</button>
       </div>
 
       <div class="file-list">
@@ -14,7 +14,7 @@
         <div v-else-if="error" class="error">{{ error }}</div>
         <ul v-else>
            <!-- Drives (Windows) or Root -->
-           <li v-for="item in items" :key="item.path" @click="onItemClick(item)" class="file-item" :class="{ selected: selectedPath === item.path }">
+           <li v-for="item in items" :key="item.path" class="file-item" :class="{ selected: selectedPath === item.path }" @click="onItemClick(item)">
              <span class="icon">
                <HardDriveIcon v-if="item.type === 'drive'" :size="16" color="#1890ff" />
                <FolderIcon v-else-if="item.type === 'dir'" :size="16" color="#faad14" />
@@ -32,7 +32,7 @@
         </div>
         <div class="buttons">
             <button class="btn btn-secondary" @click="onClose">取消</button>
-            <button class="btn btn-primary" @click="onConfirm" :disabled="!selectedPath">确定</button>
+            <button class="btn btn-primary" :disabled="!selectedPath" @click="onConfirm">确定</button>
         </div>
       </div>
     </div>
@@ -40,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import BaseModal from './BaseModal.vue'
 import { FolderIcon, FileIcon, ArrowUpIcon, HardDriveIcon } from 'lucide-vue-next'
 
@@ -50,9 +50,17 @@ const props = defineProps<{
 
 const emit = defineEmits(['close', 'select'])
 
+interface FileSystemItem {
+    name: string
+    type: 'file' | 'dir' | 'drive'
+    path: string
+    size?: number
+    mtime?: number
+}
+
 const currentPath = ref('')
 const parentPath = ref('')
-const items = ref<any[]>([])
+const items = ref<FileSystemItem[]>([])
 const loading = ref(false)
 const error = ref('')
 const selectedPath = ref('')
@@ -72,35 +80,20 @@ const loadPath = async (path: string = '') => {
     parentPath.value = data.parent
     items.value = data.items
     
-    // Clear selection when changing directory, unless the directory itself was selected?
-    // Usually in a folder picker, you navigate INTO a folder to see it, but select it from outside or inside?
-    // Here: Navigate to browse. Click to select. Double click to enter.
     selectedPath.value = '' 
-  } catch (e: any) {
-    error.value = e.message || 'Failed to load directory'
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    error.value = msg || 'Failed to load directory'
   } finally {
     loading.value = false
   }
 }
 
-const onItemClick = (item: any) => {
-    if (item.type === 'dir' || item.type === 'drive') {
-        // Single click selects it
-        selectedPath.value = item.path
-        // Double click logic could be added here, but for now let's just have click to select, and maybe a separate "Enter" button or just re-click?
-        // Let's make single click select, and we need a way to enter.
-        // Let's assume single click selects. To enter, user can click "Go" if path updates?
-        // Better UX: Single click selects. Double click enters.
-    } else {
-        selectedPath.value = item.path
-    }
-}
-
 // Simple double click simulation
 let lastClickTime = 0
-let lastClickItem: any = null
+let lastClickItem: FileSystemItem | null = null
 
-const handleItemClick = (item: any) => {
+const onItemClick = (item: FileSystemItem) => {
     const now = Date.now()
     if (lastClickItem === item && now - lastClickTime < 300) {
         // Double click
@@ -113,11 +106,6 @@ const handleItemClick = (item: any) => {
     }
     lastClickTime = now
     lastClickItem = item
-}
-
-// Override onItemClick with double click logic
-const onItemClickWrapper = (item: any) => {
-    handleItemClick(item)
 }
 
 const onConfirm = () => {

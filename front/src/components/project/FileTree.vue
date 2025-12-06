@@ -33,6 +33,8 @@ const props = defineProps<{
   items: TreeItem[]
   activePath: string
 }>()
+// Use props to avoid unused variable warning (though defineProps returns props, it's fine)
+void props
 
 const emit = defineEmits(['select'])
 

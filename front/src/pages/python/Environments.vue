@@ -22,7 +22,7 @@
     </div>
 
     <!-- Environments Grid -->
-    <div class="env-grid" v-if="filteredEnvironments.length > 0">
+    <div v-if="filteredEnvironments.length > 0" class="env-grid">
       <div v-for="env in filteredEnvironments" :key="env.id" class="env-card">
         <div class="card-header">
           <h3 class="env-name" :title="env.path">{{ env.name || 'Default' }}</h3>
@@ -49,7 +49,7 @@
           </div>
           
           <div class="actions-row">
-             <button class="btn btn-primary btn-edit" @click="openInstallModal(env)" :disabled="env.status === 'installing'">
+             <button class="btn btn-primary btn-edit" :disabled="env.status === 'installing'" @click="openInstallModal(env)">
                 {{ env.status === 'installing' ? '配置中...' : '编辑' }}
              </button>
           </div>
@@ -72,7 +72,7 @@
 
     <!-- Install Packages Modal -->
     <BaseModal v-model="showInstallModal" title="编辑环境依赖" width="600px">
-        <div class="install-container" v-if="selectedEnv">
+        <div v-if="selectedEnv" class="install-container">
             <div class="env-summary">
                 <div class="summary-item">
                     <span class="label">Python 版本:</span>
@@ -106,7 +106,7 @@
             </div>
 
             <!-- Tab 1: Install -->
-            <form v-if="activeTab === 'install'" @submit.prevent="installPackages" class="install-form">
+            <form v-if="activeTab === 'install'" class="install-form" @submit.prevent="installPackages">
                 <div class="form-group">
                     <label>包名 (支持多个，换行或空格分隔)</label>
                     <div class="textarea-wrapper">
@@ -121,14 +121,14 @@
                         ></textarea>
                         <div v-if="isFileUploaded" class="upload-badge">
                             <span class="filename">📄 requirements.txt</span>
-                            <button type="button" class="remove-btn" @click="removeUploadedFile" title="移除文件">×</button>
+                            <button type="button" class="remove-btn" title="移除文件" @click="removeUploadedFile">×</button>
                         </div>
                     </div>
                     
                     <div class="upload-controls">
                          <input 
-                            type="file" 
                             ref="fileInput" 
+                            type="file" 
                             accept=".txt" 
                             style="display: none" 
                             @change="handleFileUpload"
@@ -136,16 +136,16 @@
                         <button 
                             type="button" 
                             class="btn btn-upload" 
-                            @click="triggerFileUpload"
                             :disabled="installing || isFileUploaded"
+                            @click="triggerFileUpload"
                         >
                             上传 requirements.txt
                         </button>
                     </div>
                 </div>
-                <div class="form-group" v-if="selectedEnv?.is_conda">
+                <div v-if="selectedEnv?.is_conda" class="form-group">
                     <label>
-                        <input type="checkbox" v-model="installForm.is_conda"> 使用 Conda 安装 (默认 pip)
+                        <input v-model="installForm.is_conda" type="checkbox"> 使用 Conda 安装 (默认 pip)
                     </label>
                 </div>
                 <div class="form-actions">
@@ -161,8 +161,8 @@
                     <input v-model="pkgSearch" placeholder="搜索已安装包..." class="pkg-search" />
                 </div>
 
-                <div class="pkg-list-container" v-if="!loadingPkgs">
-                    <table class="pkg-table" v-if="filteredPackages.length > 0">
+                <div v-if="!loadingPkgs" class="pkg-list-container">
+                    <table v-if="filteredPackages.length > 0" class="pkg-table">
                         <thead>
                             <tr>
                                 <th>包名</th>
@@ -239,7 +239,7 @@ const pkgSearch = ref('')
 const installing = ref(false)
 const installLog = ref('')
 const activeTab = ref<'install' | 'list' | 'log'>('install')
-const pollingInterval = ref<any>(null)
+const pollingInterval = ref<number | null>(null)
 
 const filters = reactive({
   search: '',
@@ -391,8 +391,9 @@ const installPackages = async () => {
         } else {
             alert(`启动失败: ${data.detail || 'Unknown error'}`)
         }
-    } catch (e: any) {
-        alert(`Error: ${e.message}`)
+    } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        alert(`Error: ${msg}`)
     } finally {
         installing.value = false
     }

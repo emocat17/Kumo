@@ -14,7 +14,7 @@
         </div>
 
         <!-- Footer -->
-        <div class="modal-footer" v-if="$slots.footer">
+        <div v-if="$slots.footer" class="modal-footer">
           <slot name="footer"></slot>
         </div>
       </div>

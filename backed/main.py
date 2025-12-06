@@ -25,7 +25,7 @@ app.add_middleware(
 
 app.include_router(python_version_router, prefix="/api/python/versions")
 app.include_router(env_router, prefix="/api/python/environments")
-app.include_router(project_router, prefix="/api/projects")
+app.include_router(project_router, prefix="/api/projects", tags=["Projects"])
 app.include_router(system_router, prefix="/api/system")
 app.include_router(fs_router, prefix="/api")
 

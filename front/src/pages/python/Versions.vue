@@ -23,7 +23,7 @@
         </div>
 
         <!-- Tab 1: Add by Path -->
-        <form v-if="activeTab === 'path'" @submit.prevent="handleAddVersion" class="add-form">
+        <form v-if="activeTab === 'path'" class="add-form" @submit.prevent="handleAddVersion">
           <div class="form-group">
             <label for="path">Python 解释器路径</label>
             <div class="input-with-button">
@@ -50,7 +50,7 @@
         </form>
 
         <!-- Tab 2: Create Conda Env -->
-        <form v-if="activeTab === 'conda'" @submit.prevent="handleCreateConda" class="add-form">
+        <form v-if="activeTab === 'conda'" class="add-form" @submit.prevent="handleCreateConda">
           <div class="form-group">
             <label for="conda-name">环境名称</label>
             <input 
@@ -94,7 +94,7 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th>名称/别名</th>
+                <th>名称</th>
                 <th>版本号</th>
                 <th>状态</th>
                 <th>路径</th>
@@ -108,24 +108,21 @@
               <tr v-for="ver in versions" :key="ver.id">
                 <td>
                    <div class="ver-name">{{ ver.name || 'Python' }}</div>
-                   <div class="ver-source" :class="ver.source_type">
-                     {{ ver.source_type === 'conda' ? 'Conda Env' : 'System/Path' }}
-                   </div>
                 </td>
-                <td>{{ ver.version_number || '-' }}</td>
+                <td>{{ ver.version || '-' }}</td>
                 <td>
                   <span :class="['status-badge', ver.status]">
-                    {{ ver.status }}
+                    {{ statusMap[ver.status] || ver.status }}
                   </span>
                 </td>
                 <td class="path-cell" :title="ver.path">{{ ver.path }}</td>
                 <td>
                   <div class="action-buttons">
-                    <button @click="openTerminal(ver)" class="btn-icon" title="Open Terminal">
-                       Terminal
+                    <button class="btn-icon" title="打开终端" @click="openTerminal(ver)">
+                       <Terminal :size="16" />
                     </button>
-                    <button @click="deleteVersion(ver)" class="btn-icon delete" title="Remove">
-                       Delete
+                    <button class="btn-icon delete" title="删除" @click="deleteVersion(ver)">
+                       <Trash2 :size="16" />
                     </button>
                   </div>
                 </td>
@@ -137,7 +134,7 @@
     </div>
 
     <FileSelectorModal 
-      :isOpen="isPathSelectorOpen" 
+      :is-open="isPathSelectorOpen" 
       @close="isPathSelectorOpen = false" 
       @select="onPathSelected" 
     />
@@ -148,11 +145,12 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import FileSelectorModal from '@/components/common/FileSelectorModal.vue'
+import { Terminal, Trash2 } from 'lucide-vue-next'
 
 interface PythonVersion {
   id: number
   path: string
-  version_number: string
+  version: string
   source_type: string
   status: string
   name: string
@@ -162,6 +160,13 @@ const activeTab = ref<'path' | 'conda'>('path')
 const versions = ref<PythonVersion[]>([])
 const newVersion = ref({ path: '' })
 const condaForm = ref({ name: '', version: '' })
+
+const statusMap: Record<string, string> = {
+  ready: '就绪',
+  installing: '安装中',
+  error: '错误',
+  deleting: '删除中'
+}
 
 const isInstalling = ref(false)
 const isCreatingConda = ref(false)
@@ -227,9 +232,10 @@ const handleAddVersion = async () => {
     // Refresh list
     await fetchVersions()
     newVersion.value.path = ''
-  } catch (error: any) {
+  } catch (error) {
     console.error(error)
-    alert(`添加失败: ${error.message}`)
+    const msg = error instanceof Error ? error.message : String(error)
+    alert(`添加失败: ${msg}`)
   } finally {
     isInstalling.value = false
   }
@@ -274,9 +280,10 @@ const handleCreateConda = async () => {
         isCreatingConda.value = false
     }, 3000)
 
-  } catch (error: any) {
+  } catch (error) {
     console.error(error)
-    condaMessage.value = `错误: ${error.message}`
+    const msg = error instanceof Error ? error.message : String(error)
+    condaMessage.value = `错误: ${msg}`
     isCreatingConda.value = false
   }
 }
@@ -575,7 +582,7 @@ onUnmounted(() => {
 .path-cell {
   font-family: monospace;
   color: #6b7280;
-  max-width: 200px;
+  max-width: 150px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -587,13 +594,27 @@ onUnmounted(() => {
 }
 
 .btn-icon {
-  padding: 4px 8px;
+  padding: 6px;
   border: 1px solid #e5e7eb;
   background: white;
   border-radius: 4px;
-  font-size: 0.75rem;
   cursor: pointer;
   color: #4b5563;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-icon:hover {
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+.btn-icon.delete:hover {
+  background-color: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
 }
 
 .btn-icon:hover {
