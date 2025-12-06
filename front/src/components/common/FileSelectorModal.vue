@@ -1,9 +1,9 @@
 <template>
-  <BaseModal :isOpen="isOpen" @close="onClose" title="选择路径" width="600px">
+  <BaseModal :modelValue="isOpen" @close="onClose" title="选择路径" width="600px">
     <div class="file-selector">
       <div class="current-path">
         <button @click="loadPath(parentPath)" :disabled="!parentPath" class="nav-btn">
-          <ArrowUpIcon size="16" />
+          <ArrowUpIcon :size="16" />
         </button>
         <input type="text" v-model="currentPath" @keyup.enter="loadPath(currentPath)" class="path-input" />
         <button @click="loadPath(currentPath)" class="nav-btn">Go</button>
@@ -16,9 +16,9 @@
            <!-- Drives (Windows) or Root -->
            <li v-for="item in items" :key="item.path" @click="onItemClick(item)" class="file-item" :class="{ selected: selectedPath === item.path }">
              <span class="icon">
-               <HardDriveIcon v-if="item.type === 'drive'" size="16" color="#1890ff" />
-               <FolderIcon v-else-if="item.type === 'dir'" size="16" color="#faad14" />
-               <FileIcon v-else size="16" color="#8c8c8c" />
+               <HardDriveIcon v-if="item.type === 'drive'" :size="16" color="#1890ff" />
+               <FolderIcon v-else-if="item.type === 'dir'" :size="16" color="#faad14" />
+               <FileIcon v-else :size="16" color="#8c8c8c" />
              </span>
              <span class="name">{{ item.name }}</span>
            </li>

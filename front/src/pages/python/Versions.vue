@@ -206,7 +206,7 @@ const stopPolling = () => {
 }
 
 const handleAddVersion = async () => {
-  if (!newVersion.path) return
+  if (!newVersion.value.path) return
   
   isInstalling.value = true
   
@@ -216,7 +216,7 @@ const handleAddVersion = async () => {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ path: newVersion.path })
+      body: JSON.stringify({ path: newVersion.value.path })
     })
 
     if (!response.ok) {
@@ -226,7 +226,7 @@ const handleAddVersion = async () => {
 
     // Refresh list
     await fetchVersions()
-    newVersion.path = ''
+    newVersion.value.path = ''
   } catch (error: any) {
     console.error(error)
     alert(`添加失败: ${error.message}`)
@@ -236,7 +236,7 @@ const handleAddVersion = async () => {
 }
 
 const handleCreateConda = async () => {
-  if (!condaForm.name || !condaForm.version) return
+  if (!condaForm.value.name || !condaForm.value.version) return
   
   isCreatingConda.value = true
   condaMessage.value = '正在提交创建请求...'
@@ -248,8 +248,8 @@ const handleCreateConda = async () => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ 
-        name: condaForm.name,
-        version: condaForm.version
+        name: condaForm.value.name,
+        version: condaForm.value.version
       })
     })
 
@@ -265,8 +265,8 @@ const handleCreateConda = async () => {
     await fetchVersions()
     
     // Reset form
-    condaForm.name = ''
-    condaForm.version = ''
+    condaForm.value.name = ''
+    condaForm.value.version = ''
     
     // Wait a bit and clear message
     setTimeout(() => {

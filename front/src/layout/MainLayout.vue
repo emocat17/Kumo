@@ -4,7 +4,7 @@
     <aside :class="['sidebar', { collapsed: isCollapsed }]">
       <div class="sidebar-header">
         <div class="brand-wrapper">
-          <img src="@/assets/Kumo.jpg" alt="Logo" class="logo" />
+          <img src="@/assets/Kumo.png" alt="Logo" class="logo" />
           <div class="brand-text" v-if="!isCollapsed">
             <span class="title">Kumo</span>
             <span class="version">v1.0.0</span>

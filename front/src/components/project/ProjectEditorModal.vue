@@ -123,7 +123,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
 import { VueMonacoEditor } from '@guolao/vue-monaco-editor'
-import FileTree, { TreeItem } from '@/components/project/FileTree.vue'
+import FileTree, { TreeItem } from './FileTree.vue'
 
 const props = defineProps<{
   projectId: number | string
@@ -319,8 +319,8 @@ onBeforeUnmount(() => {
 }
 
 .editor-modal {
-  width: 90vw;
-  height: 85vh;
+  width: 75vw;
+  height: 75vh;
   background-color: #fff;
   border-radius: 12px;
   box-shadow: 0 10px 25px rgba(0,0,0,0.2);
