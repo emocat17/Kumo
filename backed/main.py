@@ -10,6 +10,7 @@ init_db()
 from appEnv.python_version_router import router as python_version_router
 from appEnv.env_router import router as env_router
 from appProject.project_router import router as project_router
+from appSystem.system_router import router as system_router
 
 app = FastAPI()
 
@@ -24,6 +25,7 @@ app.add_middleware(
 app.include_router(python_version_router, prefix="/api/python/versions")
 app.include_router(env_router, prefix="/api/python/environments")
 app.include_router(project_router, prefix="/api/projects")
+app.include_router(system_router, prefix="/api/system")
 
 if __name__ == "__main__":
     import uvicorn
