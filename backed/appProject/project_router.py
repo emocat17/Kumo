@@ -88,3 +88,88 @@ async def delete_project(project_id: int, db: Session = Depends(get_db)):
     db.delete(project)
     db.commit()
     return {"message": "Project deleted"}
+
+def build_file_tree(base_path, rel_path=""):
+    items = []
+    # Ensure base_path doesn't end with slash to avoid double slash issues, though join handles it
+    full_path = os.path.join(base_path, rel_path)
+    
+    if not os.path.exists(full_path):
+        return []
+
+    try:
+        for entry in os.scandir(full_path):
+            if entry.name == '__pycache__' or entry.name.startswith('.'):
+                continue
+                
+            entry_rel_path = os.path.join(rel_path, entry.name).replace("\\", "/")
+            item = {
+                "label": entry.name,
+                "path": entry_rel_path,
+                "type": "dir" if entry.is_dir() else "file",
+            }
+            if entry.is_dir():
+                item["children"] = build_file_tree(base_path, entry_rel_path)
+            items.append(item)
+    except PermissionError:
+        pass # Skip unreadable directories
+    
+    # Sort: directories first, then files
+    items.sort(key=lambda x: (0 if x["type"] == "dir" else 1, x["label"].lower()))
+    return items
+
+@router.get("/{project_id}/files")
+async def get_project_files(project_id: int, db: Session = Depends(get_db)):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    if not os.path.exists(project.path):
+        return []
+        
+    return build_file_tree(project.path)
+
+@router.get("/{project_id}/files/content")
+async def get_file_content(project_id: int, path: str, db: Session = Depends(get_db)):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    # Security check: Ensure path is within project.path
+    full_path = os.path.abspath(os.path.join(project.path, path))
+    if not full_path.startswith(os.path.abspath(project.path)):
+        raise HTTPException(status_code=403, detail="Access denied: Path traversal attempt")
+        
+    if not os.path.exists(full_path) or not os.path.isfile(full_path):
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    try:
+        with open(full_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return {"content": content}
+    except UnicodeDecodeError:
+         raise HTTPException(status_code=400, detail="Binary or non-UTF-8 file cannot be opened")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading file: {str(e)}")
+
+@router.post("/{project_id}/files/save")
+async def save_file_content(
+    project_id: int, 
+    body: schemas.FileSaveRequest,
+    db: Session = Depends(get_db)
+):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    # Security check
+    full_path = os.path.abspath(os.path.join(project.path, body.path))
+    if not full_path.startswith(os.path.abspath(project.path)):
+        raise HTTPException(status_code=403, detail="Access denied: Path traversal attempt")
+    
+    try:
+        with open(full_path, "w", encoding="utf-8") as f:
+            f.write(body.content)
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error writing file: {str(e)}")

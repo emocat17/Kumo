@@ -18,3 +18,7 @@ class Project(ProjectBase):
 
     class Config:
         from_attributes = True
+
+class FileSaveRequest(BaseModel):
+    path: str
+    content: str

@@ -26,6 +26,7 @@
           
           <div class="actions-row">
             <!-- Future actions: Edit, Delete, Run -->
+             <button class="btn btn-primary btn-sm" @click="openEditor(proj)" style="margin-right: 8px;">浏览</button>
              <button class="btn btn-danger btn-sm" @click="deleteProject(proj)">删除</button>
           </div>
         </div>
@@ -94,13 +95,23 @@
         </div>
       </form>
     </BaseModal>
+    
+    <!-- Project Editor Modal -->
+    <ProjectEditorModal
+        v-if="showEditorModal && currentProject"
+        :project-id="currentProject.id"
+        :project-name="currentProject.name"
+        @close="closeEditor"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
+import ProjectEditorModal from '@/components/project/ProjectEditorModal.vue'
 
 interface Project {
   id: number
@@ -111,8 +122,12 @@ interface Project {
   created_at: string
 }
 
+const router = useRouter()
+
 const projects = ref<Project[]>([])
 const showCreateModal = ref(false)
+const showEditorModal = ref(false)
+const currentProject = ref<Project | null>(null)
 const isSubmitting = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
@@ -186,6 +201,16 @@ const handleCreateProject = async () => {
   } finally {
     isSubmitting.value = false
   }
+}
+
+const openEditor = (proj: Project) => {
+  currentProject.value = proj
+  showEditorModal.value = true
+}
+
+const closeEditor = () => {
+    showEditorModal.value = false
+    currentProject.value = null
 }
 
 const deleteProject = async (proj: Project) => {
