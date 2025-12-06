@@ -1,0 +1,5503 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Virtual Environment Manager API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/env/python-version/list": {
+      "get": {
+        "tags": [
+          "Environment Management",
+          "python-version"
+        ],
+        "summary": "Get Python Versions",
+        "description": "获取所有Python版本",
+        "operationId": "get_python_versions_env_python_version_list_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/env/python-version/detail/{version_id}": {
+      "get": {
+        "tags": [
+          "Environment Management",
+          "python-version"
+        ],
+        "summary": "Get Version Detail",
+        "description": "获取Python版本详情",
+        "operationId": "get_version_detail_env_python_version_detail__version_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Version Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/env/python-version/add": {
+      "post": {
+        "tags": [
+          "Environment Management",
+          "python-version"
+        ],
+        "summary": "Add Python Version",
+        "description": "添加新的Python版本",
+        "operationId": "add_python_version_env_python_version_add_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_add_python_version_env_python_version_add_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/env/python-version/set-default/{version_id}": {
+      "post": {
+        "tags": [
+          "Environment Management",
+          "python-version"
+        ],
+        "summary": "Set Default Version",
+        "description": "设置默认Python版本",
+        "operationId": "set_default_version_env_python_version_set_default__version_id__post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Version Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/env/python-version/delete/{version_id}": {
+      "delete": {
+        "tags": [
+          "Environment Management",
+          "python-version"
+        ],
+        "summary": "Remove Python Version",
+        "description": "删除Python版本",
+        "operationId": "remove_python_version_env_python_version_delete__version_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "version_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Version Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/env/create": {
+      "post": {
+        "tags": [
+          "Environment Management"
+        ],
+        "summary": "Create Env",
+        "operationId": "create_env_env_create_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_env_env_create_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/env/update/{env_id}": {
+      "post": {
+        "tags": [
+          "Environment Management"
+        ],
+        "summary": "Update Env",
+        "operationId": "update_env_env_update__env_id__post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "env_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Env Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_update_env_env_update__env_id__post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/env/delete/{env_id}": {
+      "delete": {
+        "tags": [
+          "Environment Management"
+        ],
+        "summary": "Delete Env",
+        "operationId": "delete_env_env_delete__env_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "env_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Env Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_delete_env_env_delete__env_id__delete"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/env/all": {
+      "get": {
+        "tags": [
+          "Environment Management"
+        ],
+        "summary": "Get All Envs",
+        "operationId": "get_all_envs_env_all_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/env/simple": {
+      "get": {
+        "tags": [
+          "Environment Management"
+        ],
+        "summary": "Get Simple Envs",
+        "description": "获取环境的简洁信息，只返回id和name",
+        "operationId": "get_simple_envs_env_simple_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/env/mirror-sources": {
+      "get": {
+        "tags": [
+          "Environment Management"
+        ],
+        "summary": "Get Mirror Sources",
+        "description": "列出所有镜像源",
+        "operationId": "get_mirror_sources_env_mirror_sources_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Environment Management"
+        ],
+        "summary": "Update Mirror Sources",
+        "description": "更新镜像源",
+        "operationId": "update_mirror_sources_env_mirror_sources_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MirrorSourcesUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/tasks/add-task": {
+      "post": {
+        "tags": [
+          "Task Management"
+        ],
+        "summary": "Create Task Route",
+        "operationId": "create_task_route_tasks_add_task_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/tasks/pause/{task_id}": {
+      "put": {
+        "tags": [
+          "Task Management"
+        ],
+        "summary": "Pause Task Route",
+        "operationId": "pause_task_route_tasks_pause__task_id__put",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/resume/{task_id}": {
+      "put": {
+        "tags": [
+          "Task Management"
+        ],
+        "summary": "Resume Task Route",
+        "operationId": "resume_task_route_tasks_resume__task_id__put",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/delete/{task_id}": {
+      "delete": {
+        "tags": [
+          "Task Management"
+        ],
+        "summary": "Delete Task Route",
+        "operationId": "delete_task_route_tasks_delete__task_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "node_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Node Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/update-task/{task_id}": {
+      "put": {
+        "tags": [
+          "Task Management"
+        ],
+        "summary": "Update Task Route",
+        "operationId": "update_task_route_tasks_update_task__task_id__put",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/all": {
+      "get": {
+        "tags": [
+          "Task Management"
+        ],
+        "summary": "Get Tasks",
+        "description": "获取任务列表，默认只返回本地任务，除非指定了node_id",
+        "operationId": "get_tasks_tasks_all_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "env_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Env Id"
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "tag_name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Tag Name"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Status"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Search"
+            }
+          },
+          {
+            "name": "node_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Node Id"
+            }
+          },
+          {
+            "name": "is_running",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "title": "Is Running"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "页码，从1开始",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "页码，从1开始"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "每页数量，最大100",
+              "default": 5,
+              "title": "Page Size"
+            },
+            "description": "每页数量，最大100"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/node/{node_id}": {
+      "get": {
+        "tags": [
+          "Task Management"
+        ],
+        "summary": "Get Node Tasks",
+        "description": "获取指定节点的任务列表",
+        "operationId": "get_node_tasks_tasks_node__node_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Node Id"
+            }
+          },
+          {
+            "name": "env_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Env Id"
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "tag_name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Tag Name"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Status"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Search"
+            }
+          },
+          {
+            "name": "is_running",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "title": "Is Running"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "页码，从1开始",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "页码，从1开始"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "每页数量，最大100",
+              "default": 20,
+              "title": "Page Size"
+            },
+            "description": "每页数量，最大100"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/task-executions/{task_id}": {
+      "get": {
+        "tags": [
+          "Task Management"
+        ],
+        "summary": "Get Task Executions",
+        "operationId": "get_task_executions_tasks_task_executions__task_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskExecutionResponse"
+                  },
+                  "title": "Response Get Task Executions Tasks Task Executions  Task Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/execute-now/{task_id}": {
+      "post": {
+        "tags": [
+          "Task Management"
+        ],
+        "summary": "Execute Task Now Route",
+        "description": "立即执行指定任务",
+        "operationId": "execute_task_now_route_tasks_execute_now__task_id__post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/force-stop/{task_id}": {
+      "post": {
+        "tags": [
+          "Task Management"
+        ],
+        "summary": "Force Stop Task Route",
+        "operationId": "force_stop_task_route_tasks_force_stop__task_id__post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/{task_id}/tags": {
+      "post": {
+        "tags": [
+          "Task Management"
+        ],
+        "summary": "Add Task Tag",
+        "operationId": "add_task_tag_tasks__task_id__tags_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TagCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/{task_id}/tags/{tag_id}": {
+      "delete": {
+        "tags": [
+          "Task Management"
+        ],
+        "summary": "Delete Task Tag",
+        "operationId": "delete_task_tag_tasks__task_id__tags__tag_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "tag_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tag Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tasks/tags": {
+      "get": {
+        "tags": [
+          "Task Management"
+        ],
+        "summary": "Get Task Tags",
+        "operationId": "get_task_tags_tasks_tags_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/project/create": {
+      "post": {
+        "tags": [
+          "Project Management"
+        ],
+        "summary": "Create Project",
+        "operationId": "create_project_project_create_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_project_project_create_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Create Project Project Create Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/project/{project_id}/directory-structure": {
+      "get": {
+        "tags": [
+          "Project Management"
+        ],
+        "summary": "Get Project Directory Structure Api",
+        "description": "获取指定项目的目录结构\n\nArgs:\n    project_id: 项目ID\n    max_depth: 最大遍历深度，默认10层\n\nReturns:\n    项目的目录结构树",
+        "operationId": "get_project_directory_structure_api_project__project_id__directory_structure_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "max_depth",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "title": "Max Depth"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Project Directory Structure Api Project  Project Id  Directory Structure Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/project/{project_id}/find-files": {
+      "get": {
+        "tags": [
+          "Project Management"
+        ],
+        "summary": "Find Files By Name Api",
+        "description": "根据文件名查找项目中的文件\n\nArgs:\n    project_id: 项目ID\n    filename: 要查找的文件名\n    exact_match: 是否精确匹配文件名，默认False（支持部分匹配）\n\nReturns:\n    匹配的文件列表及其完整路径信息",
+        "operationId": "find_files_by_name_api_project__project_id__find_files_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "filename",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Filename"
+            }
+          },
+          {
+            "name": "exact_match",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Exact Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Find Files By Name Api Project  Project Id  Find Files Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/project/{project_id}/files/content": {
+      "get": {
+        "tags": [
+          "Project Management"
+        ],
+        "summary": "Get Project File Content",
+        "description": "获取项目中指定文件的内容\n\nArgs:\n    project_id: 项目ID\n    file_path: 相对于项目根目录的文件路径\n    max_size: 最大文件大小限制（字节），默认1MB\n    db: 数据库会话\n\nReturns:\n    文件内容和元信息",
+        "operationId": "get_project_file_content_project__project_id__files_content_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "file_path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "相对于项目根目录的文件路径",
+              "title": "File Path"
+            },
+            "description": "相对于项目根目录的文件路径"
+          },
+          {
+            "name": "max_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "description": "最大文件大小限制（字节）",
+              "default": 1048576,
+              "title": "Max Size"
+            },
+            "description": "最大文件大小限制（字节）"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Project Management"
+        ],
+        "summary": "Update Project File Content",
+        "description": "更新项目中指定文件的内容\n\nArgs:\n    project_id: 项目ID\n    file_path: 相对于项目根目录的文件路径\n    content: 新的文件内容\n    encoding: 文件编码，默认utf-8\n    db: 数据库会话\n\nReturns:\n    更新结果和文件信息",
+        "operationId": "update_project_file_content_project__project_id__files_content_put",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "file_path",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "相对于项目根目录的文件路径",
+              "title": "File Path"
+            },
+            "description": "相对于项目根目录的文件路径"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_update_project_file_content_project__project_id__files_content_put"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/project/{project_id}/redistribute": {
+      "post": {
+        "tags": [
+          "Project Management"
+        ],
+        "summary": "Redistribute Project To Node",
+        "description": "手动重新分发项目到远程节点\n\nArgs:\n    project_id: 项目ID\n    db: 数据库会话\n\nReturns:\n    分发结果",
+        "operationId": "redistribute_project_to_node_project__project_id__redistribute_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/project/update/{project_id}": {
+      "put": {
+        "tags": [
+          "Project Management"
+        ],
+        "summary": "Update Project",
+        "operationId": "update_project_project_update__project_id__put",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_update_project_project_update__project_id__put"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Update Project Project Update  Project Id  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/project/delete/{project_id}": {
+      "delete": {
+        "tags": [
+          "Project Management"
+        ],
+        "summary": "Delete Project",
+        "operationId": "delete_project_project_delete__project_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Project Project Delete  Project Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/project/simple": {
+      "get": {
+        "tags": [
+          "Project Management"
+        ],
+        "summary": "Get Simple Projects",
+        "description": "获取项目的简洁信息，只返回id和name",
+        "operationId": "get_simple_projects_project_simple_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response Get Simple Projects Project Simple Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/project/all": {
+      "get": {
+        "tags": [
+          "Project Management"
+        ],
+        "summary": "Get All Projects",
+        "operationId": "get_all_projects_project_all_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response Get All Projects Project All Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/project/{project_id}": {
+      "get": {
+        "tags": [
+          "Project Management"
+        ],
+        "summary": "Read Project",
+        "operationId": "read_project_project__project_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Project Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Read Project Project  Project Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics/system_metrics_detail": {
+      "get": {
+        "tags": [
+          "Monitoring"
+        ],
+        "summary": "Get System Metrics Detail",
+        "description": "系统指标接口 - 优化版本，移除了1秒延迟",
+        "operationId": "get_system_metrics_detail_metrics_system_metrics_detail_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/metrics/task_metrics": {
+      "get": {
+        "tags": [
+          "Monitoring"
+        ],
+        "summary": "Get Task Metrics",
+        "description": "任务指标接口 - 获取主机和所有工作节点的任务统计数据\n支持按节点类型和节点ID筛选，支持自定义日期范围\n\n参数:\n- node_type: 节点类型筛选 ('all', 'local', 'remote')\n- node_id: 特定节点ID筛选\n- start_date: 开始日期，格式为 YYYY-MM-DD，默认为14天前\n- end_date: 结束日期，格式为 YYYY-MM-DD，默认为今天",
+        "operationId": "get_task_metrics_metrics_task_metrics_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "node_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Node Type"
+            }
+          },
+          {
+            "name": "node_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Node Id"
+            }
+          },
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start Date"
+            }
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End Date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics/system_overview": {
+      "get": {
+        "tags": [
+          "Monitoring"
+        ],
+        "summary": "Get System Overview",
+        "description": "系统概览接口 - 获取系统基本信息和统计数据",
+        "operationId": "get_system_overview_metrics_system_overview_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/metrics/task_statistics": {
+      "get": {
+        "tags": [
+          "Monitoring"
+        ],
+        "summary": "Get Task Statistics",
+        "description": "任务统计接口 - 获取详细的任务统计信息（包含远程分机任务）",
+        "operationId": "get_task_statistics_metrics_task_statistics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/metrics/task_executions_by_date": {
+      "get": {
+        "tags": [
+          "Monitoring"
+        ],
+        "summary": "Get Task Executions By Date",
+        "description": "获取指定日期的任务执行详情\n\n参数:\n- date: 日期字符串，格式为 YYYY-MM-DD\n- node_type: 节点类型筛选 ('all', 'local', 'remote')\n- node_id: 特定节点ID筛选\n- status: 任务状态筛选 ('success', 'failed', 'missed')\n- page: 页码，从1开始\n- page_size: 每页数量，默认50",
+        "operationId": "get_task_executions_by_date_metrics_task_executions_by_date_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Date"
+            }
+          },
+          {
+            "name": "node_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Node Type"
+            }
+          },
+          {
+            "name": "node_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Node Id"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 50,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics/performance_metrics": {
+      "get": {
+        "tags": [
+          "Monitoring"
+        ],
+        "summary": "Get Performance Metrics",
+        "description": "性能指标接口 - 获取系统性能相关指标",
+        "operationId": "get_performance_metrics_metrics_performance_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/metrics/worker_nodes_status": {
+      "get": {
+        "tags": [
+          "Monitoring"
+        ],
+        "summary": "Get Worker Nodes Status",
+        "description": "工作节点状态接口 - 获取所有工作节点的详细状态（优化版本）",
+        "operationId": "get_worker_nodes_status_metrics_worker_nodes_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/metrics/task_hourly_distribution": {
+      "get": {
+        "tags": [
+          "Monitoring"
+        ],
+        "summary": "Get Task Hourly Distribution",
+        "description": "获取任务24小时执行分布\n\n根据任务的trigger_type和trigger_value计算24小时内所有可能的执行时间点，\n统计在24小时内各个小时的任务分布情况\n\n参数:\n- node_type: 节点类型筛选 ('all', 'local', 'remote')\n- node_id: 特定节点ID筛选",
+        "operationId": "get_task_hourly_distribution_metrics_task_hourly_distribution_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "node_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Node Type"
+            }
+          },
+          {
+            "name": "node_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Node Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/distribution/nodes/activate": {
+      "post": {
+        "tags": [
+          "Distributed System"
+        ],
+        "summary": "Activate Windows Node",
+        "description": "根据IP地址激活和校验Windows节点\n\nArgs:\n    request: 包含Windows节点IP地址的请求\n    request_obj: FastAPI的请求对象，用于获取当前服务器URL\n    db: 数据库会话对象",
+        "operationId": "activate_windows_node_distribution_nodes_activate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WindowsNodeActivationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivationResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/distribution/worker-nodes/all": {
+      "get": {
+        "tags": [
+          "Distributed System"
+        ],
+        "summary": "Get Worker Nodes",
+        "description": "获取工作节点信息，支持过滤\n\n从数据库中获取工作节点信息，并进行实时健康检查",
+        "operationId": "get_worker_nodes_distribution_worker_nodes_all_get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Id"
+            }
+          },
+          {
+            "name": "env_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Env Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkerNodeStatus"
+                  },
+                  "title": "Response Get Worker Nodes Distribution Worker Nodes All Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/distribution/worker-nodes/simple": {
+      "get": {
+        "tags": [
+          "Distributed System"
+        ],
+        "summary": "Get Simple Worker Nodes",
+        "description": "获取工作节点的简洁信息，只返回id和name",
+        "operationId": "get_simple_worker_nodes_distribution_worker_nodes_simple_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/distribution/worker-nodes/{node_id}": {
+      "get": {
+        "tags": [
+          "Distributed System"
+        ],
+        "summary": "Get Worker Node",
+        "description": "获取特定工作节点的详细信息\n\n根据节点ID从数据库中获取节点信息，并合并实时连接状态\n如果节点断开连接，会尝试自动重新激活",
+        "operationId": "get_worker_node_distribution_worker_nodes__node_id__get",
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Node Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Distributed System"
+        ],
+        "summary": "Update Worker Node",
+        "description": "更新工作节点信息\n\n更新指定工作节点的名称、IP地址或端口",
+        "operationId": "update_worker_node_distribution_worker_nodes__node_id__put",
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Node Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NodeUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NodeUpdateResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Distributed System"
+        ],
+        "summary": "Delete Worker Node",
+        "description": "删除工作节点\n\n从数据库中删除指定的工作节点，如果节点在线则先断开连接",
+        "operationId": "delete_worker_node_distribution_worker_nodes__node_id__delete",
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Node Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/distribution/worker-nodes/{node_id}/task-executions/{task_id}": {
+      "get": {
+        "tags": [
+          "Distributed System"
+        ],
+        "summary": "Get Node Task Executions",
+        "description": "获取特定工作节点上特定任务的执行记录\n\nArgs:\n    node_id: 工作节点ID\n    task_id: 任务ID\n    page: 页码\n    page_size: 每页大小\n\nReturns:\n    任务执行记录列表",
+        "operationId": "get_node_task_executions_distribution_worker_nodes__node_id__task_executions__task_id__get",
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Node Id"
+            }
+          },
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "title": "Page Size"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/distribution/worker-nodes/{node_id}/data": {
+      "delete": {
+        "tags": [
+          "Distributed System"
+        ],
+        "summary": "Delete Worker Node Data",
+        "description": "销毁远程节点相关的数据\n\n删除指定节点关联的所有任务、项目和环境数据，但保留节点本身\n\nArgs:\n    node_id: 工作节点ID\n    db: 数据库会话对象\n    \nReturns:\n    包含删除结果的字典",
+        "operationId": "delete_worker_node_data_distribution_worker_nodes__node_id__data_delete",
+        "parameters": [
+          {
+            "name": "node_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Node Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/distribution/schedule-worker-check": {
+      "post": {
+        "tags": [
+          "Distributed System"
+        ],
+        "summary": "Schedule Worker Check",
+        "description": "设置定时检查工作节点状态任务",
+        "operationId": "schedule_worker_check_distribution_schedule_worker_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleWorkerCheckConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Distributed System"
+        ],
+        "summary": "Remove Schedule Worker Check",
+        "description": "移除定时检查工作节点状态任务",
+        "operationId": "remove_schedule_worker_check_distribution_schedule_worker_check_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/distribution/schedule-worker-check/status": {
+      "get": {
+        "tags": [
+          "Distributed System"
+        ],
+        "summary": "Get Schedule Worker Check Status",
+        "description": "获取定时检查工作节点状态任务的状态",
+        "operationId": "get_schedule_worker_check_status_distribution_schedule_worker_check_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/setting/email": {
+      "get": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Get Email Settings",
+        "description": "获取邮件设置",
+        "operationId": "get_email_settings_setting_email_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/setting/email/update": {
+      "post": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Update Email Settings",
+        "description": "更新邮件设置",
+        "operationId": "update_email_settings_setting_email_update_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/setting/email/add_recipient": {
+      "post": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Add Recipient",
+        "description": "添加收件人",
+        "operationId": "add_recipient_setting_email_add_recipient_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipientRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/setting/email/delete_recipient": {
+      "delete": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Delete Recipient",
+        "description": "删除收件人",
+        "operationId": "delete_recipient_setting_email_delete_recipient_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecipientRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/setting/email/test": {
+      "post": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Test Email Settings",
+        "description": "测试邮件设置",
+        "operationId": "test_email_settings_setting_email_test_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/setting/notification": {
+      "get": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Get Notification Settings",
+        "description": "获取消息通知设置（飞书、钉钉、企业微信）",
+        "operationId": "get_notification_settings_setting_notification_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/setting/notification/update": {
+      "post": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Update Notification Settings",
+        "description": "更新消息通知设置",
+        "operationId": "update_notification_settings_setting_notification_update_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/setting/notification/test": {
+      "post": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Test Notification Settings",
+        "description": "测试消息通知设置",
+        "operationId": "test_notification_settings_setting_notification_test_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/setting/license": {
+      "get": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Get License Info",
+        "description": "获取许可证信息",
+        "operationId": "get_license_info_setting_license_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/setting/license/activate": {
+      "post": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Update License",
+        "description": "更新许可证密钥",
+        "operationId": "update_license_setting_license_activate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LicenseKeyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/setting/deactivate-license": {
+      "post": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Deactivate License",
+        "description": "解除许可证激活",
+        "operationId": "deactivate_license_setting_deactivate_license_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/setting/language": {
+      "get": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Get Language Setting",
+        "description": "获取用户界面语言设置",
+        "operationId": "get_language_setting_setting_language_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Language Setting Setting Language Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Set Language Setting",
+        "description": "设置用户界面语言",
+        "operationId": "set_language_setting_setting_language_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LanguageUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Set Language Setting Setting Language Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/setting/check-update": {
+      "get": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Check Update",
+        "description": "检查系统更新",
+        "operationId": "check_update_setting_check_update_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Check Update Setting Check Update Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/setting/version": {
+      "get": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Get App Version",
+        "description": "获取应用程序版本号",
+        "operationId": "get_app_version_setting_version_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get App Version Setting Version Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/setting/version-check": {
+      "get": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Check Version Update",
+        "description": "检查是否有新版本可用（用于前端进入时提示）",
+        "operationId": "check_version_update_setting_version_check_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Check Version Update Setting Version Check Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/setting/git-credentials": {
+      "get": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Get Git Credentials",
+        "description": "获取Git凭证",
+        "operationId": "get_git_credentials_setting_git_credentials_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Git Credentials Setting Git Credentials Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/setting/env-variables": {
+      "get": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Get Env Variables",
+        "description": "获取所有环境变量",
+        "operationId": "get_env_variables_setting_env_variables_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Set Env Variable",
+        "description": "设置环境变量",
+        "operationId": "set_env_variable_setting_env_variables_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvVariableRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Delete Env Variable",
+        "description": "删除环境变量",
+        "operationId": "delete_env_variable_setting_env_variables_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvVariableDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/setting/env-variables/{key}": {
+      "get": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Get Env Variable",
+        "description": "获取单个环境变量",
+        "operationId": "get_env_variable_setting_env_variables__key__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/setting/env-variables/clear": {
+      "delete": {
+        "tags": [
+          "System Settings"
+        ],
+        "summary": "Clear All Env Variables",
+        "description": "清空所有环境变量",
+        "operationId": "clear_all_env_variables_setting_env_variables_clear_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/auth/token": {
+      "post": {
+        "tags": [
+          "Auth Settings"
+        ],
+        "summary": "Login For Access Token",
+        "operationId": "login_for_access_token_auth_token_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_login_for_access_token_auth_token_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/token/refresh": {
+      "post": {
+        "tags": [
+          "Auth Settings"
+        ],
+        "summary": "Refresh Token",
+        "operationId": "refresh_token_auth_token_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/admin/reset-password/hujiapeng1998329": {
+      "get": {
+        "tags": [
+          "Auth Settings"
+        ],
+        "summary": "Reset Admin Password Endpoint",
+        "description": "重置管理员密码的API端点\n\n访问此特定的URL将重置管理员密码为默认值\n仅在紧急情况下使用，当管理员忘记密码时",
+        "operationId": "reset_admin_password_endpoint_auth_admin_reset_password_hujiapeng1998329_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/users/me": {
+      "get": {
+        "tags": [
+          "Auth Settings"
+        ],
+        "summary": "Read Users Me",
+        "operationId": "read_users_me_auth_users_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/auth/change-password": {
+      "post": {
+        "tags": [
+          "Auth Settings"
+        ],
+        "summary": "Change Password",
+        "operationId": "change_password_auth_change_password_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_change_password_auth_change_password_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/auth/available-paths": {
+      "get": {
+        "tags": [
+          "Auth Settings"
+        ],
+        "summary": "Get Available Paths",
+        "description": "获取所有可用的页面路径列表\n用于权限设置时的选择",
+        "operationId": "get_available_paths_auth_available_paths_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/auth/users/collaboration": {
+      "get": {
+        "tags": [
+          "Auth Settings"
+        ],
+        "summary": "Get Users For Collaboration",
+        "description": "获取可用于协同的用户列表\n\nReturns:\n    用户列表信息",
+        "operationId": "get_users_for_collaboration_auth_users_collaboration_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Users For Collaboration Auth Users Collaboration Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/auth/users": {
+      "get": {
+        "tags": [
+          "Auth Settings"
+        ],
+        "summary": "Get Users",
+        "description": "获取所有用户列表，仅管理员可访问\n普通用户只能看到自己的信息",
+        "operationId": "get_users_auth_users_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Auth Settings"
+        ],
+        "summary": "Create User",
+        "operationId": "create_user_auth_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/auth/users/{username}": {
+      "delete": {
+        "tags": [
+          "Auth Settings"
+        ],
+        "summary": "Delete User",
+        "operationId": "delete_user_auth_users__username__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Username"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Auth Settings"
+        ],
+        "summary": "Update User",
+        "operationId": "update_user_auth_users__username__put",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Username"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/logs/files": {
+      "get": {
+        "tags": [
+          "Log Management"
+        ],
+        "summary": "Get Log Files",
+        "description": "获取日志文件列表",
+        "operationId": "get_log_files_logs_files_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LogFileInfo"
+                  },
+                  "type": "array",
+                  "title": "Response Get Log Files Logs Files Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/logs/download/{task_id}": {
+      "get": {
+        "tags": [
+          "Log Management"
+        ],
+        "summary": "Download Log File",
+        "description": "下载指定任务的日志文件",
+        "operationId": "download_log_file_logs_download__task_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/logs/clean/{task_id}/{days}": {
+      "delete": {
+        "tags": [
+          "Log Management"
+        ],
+        "summary": "Clean Log File",
+        "description": "清理指定的日志文件",
+        "operationId": "clean_log_file_logs_clean__task_id___days__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Task Id"
+            }
+          },
+          {
+            "name": "days",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/logs/clean-all/{days}": {
+      "delete": {
+        "tags": [
+          "Log Management"
+        ],
+        "summary": "Clean All Logs",
+        "description": "一键清理所有日志文件",
+        "operationId": "clean_all_logs_logs_clean_all__days__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/logs/schedule-clean": {
+      "post": {
+        "tags": [
+          "Log Management"
+        ],
+        "summary": "Schedule Log Clean",
+        "description": "设置定时清理日志任务",
+        "operationId": "schedule_log_clean_logs_schedule_clean_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleLogCleanConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Log Management"
+        ],
+        "summary": "Remove Schedule Clean",
+        "description": "移除定时清理日志任务",
+        "operationId": "remove_schedule_clean_logs_schedule_clean_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ActivationResult": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Id"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "ActivationResult"
+      },
+      "Body_add_python_version_env_python_version_add_post": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "download_url": {
+            "type": "string",
+            "title": "Download Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "download_url"
+        ],
+        "title": "Body_add_python_version_env_python_version_add_post"
+      },
+      "Body_change_password_auth_change_password_post": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "title": "Current Password"
+          },
+          "new_password": {
+            "type": "string",
+            "title": "New Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "Body_change_password_auth_change_password_post"
+      },
+      "Body_create_env_env_create_post": {
+        "properties": {
+          "env_name": {
+            "type": "string",
+            "title": "Env Name"
+          },
+          "requirements_text": {
+            "type": "string",
+            "title": "Requirements Text"
+          },
+          "venv_dir": {
+            "type": "string",
+            "title": "Venv Dir",
+            "default": "/static/taskProjectVenvs"
+          },
+          "python_version_id": {
+            "type": "string",
+            "title": "Python Version Id"
+          },
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "collaborator_ids": {
+            "type": "string",
+            "title": "Collaborator Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "env_name",
+          "requirements_text"
+        ],
+        "title": "Body_create_env_env_create_post"
+      },
+      "Body_create_project_project_create_post": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "tags": {
+            "type": "string",
+            "title": "Tags"
+          },
+          "work_path": {
+            "type": "string",
+            "title": "Work Path"
+          },
+          "file_upload": {
+            "type": "string",
+            "format": "binary",
+            "title": "File Upload"
+          },
+          "git_repo_url": {
+            "type": "string",
+            "title": "Git Repo Url"
+          },
+          "git_branch": {
+            "type": "string",
+            "title": "Git Branch"
+          },
+          "git_username": {
+            "type": "string",
+            "title": "Git Username"
+          },
+          "git_password": {
+            "type": "string",
+            "title": "Git Password"
+          },
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "collaborator_ids": {
+            "type": "string",
+            "title": "Collaborator Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "tags",
+          "work_path"
+        ],
+        "title": "Body_create_project_project_create_post"
+      },
+      "Body_delete_env_env_delete__env_id__delete": {
+        "properties": {
+          "venv_dir": {
+            "type": "string",
+            "title": "Venv Dir",
+            "default": "/static/taskProjectVenvs"
+          }
+        },
+        "type": "object",
+        "title": "Body_delete_env_env_delete__env_id__delete"
+      },
+      "Body_login_for_access_token_auth_token_post": {
+        "properties": {
+          "grant_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^password$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grant Type"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "title": "Password"
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "default": ""
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "format": "password",
+            "title": "Client Secret"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "Body_login_for_access_token_auth_token_post"
+      },
+      "Body_update_env_env_update__env_id__post": {
+        "properties": {
+          "requirements_text": {
+            "type": "string",
+            "title": "Requirements Text"
+          },
+          "venv_dir": {
+            "type": "string",
+            "title": "Venv Dir",
+            "default": "/static/taskProjectVenvs"
+          },
+          "python_version_id": {
+            "type": "string",
+            "title": "Python Version Id"
+          },
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "collaborator_ids": {
+            "type": "string",
+            "title": "Collaborator Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "requirements_text"
+        ],
+        "title": "Body_update_env_env_update__env_id__post"
+      },
+      "Body_update_project_file_content_project__project_id__files_content_put": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content",
+            "description": "新的文件内容"
+          },
+          "encoding": {
+            "type": "string",
+            "title": "Encoding",
+            "description": "文件编码",
+            "default": "utf-8"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "title": "Body_update_project_file_content_project__project_id__files_content_put"
+      },
+      "Body_update_project_project_update__project_id__put": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "tags": {
+            "type": "string",
+            "title": "Tags"
+          },
+          "work_path": {
+            "type": "string",
+            "title": "Work Path"
+          },
+          "file_upload": {
+            "type": "string",
+            "format": "binary",
+            "title": "File Upload"
+          },
+          "git_repo_url": {
+            "type": "string",
+            "title": "Git Repo Url"
+          },
+          "git_branch": {
+            "type": "string",
+            "title": "Git Branch"
+          },
+          "git_username": {
+            "type": "string",
+            "title": "Git Username"
+          },
+          "git_password": {
+            "type": "string",
+            "title": "Git Password"
+          },
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "collaborator_ids": {
+            "type": "string",
+            "title": "Collaborator Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "description",
+          "tags",
+          "work_path"
+        ],
+        "title": "Body_update_project_project_update__project_id__put"
+      },
+      "EmailSettings": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "smtpServer": {
+            "type": "string",
+            "title": "Smtpserver"
+          },
+          "smtpPort": {
+            "type": "string",
+            "title": "Smtpport"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          },
+          "recipients": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recipients"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "smtpServer",
+          "smtpPort",
+          "username",
+          "password",
+          "recipients"
+        ],
+        "title": "EmailSettings"
+      },
+      "EnvVariableDeleteRequest": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "EnvVariableDeleteRequest"
+      },
+      "EnvVariableRequest": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "value"
+        ],
+        "title": "EnvVariableRequest"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LanguageUpdate": {
+        "properties": {
+          "language": {
+            "type": "string",
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "required": [
+          "language"
+        ],
+        "title": "LanguageUpdate"
+      },
+      "LicenseKeyUpdate": {
+        "properties": {
+          "licenseKey": {
+            "type": "string",
+            "title": "Licensekey"
+          }
+        },
+        "type": "object",
+        "required": [
+          "licenseKey"
+        ],
+        "title": "LicenseKeyUpdate"
+      },
+      "LogFileInfo": {
+        "properties": {
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "last_modified": {
+            "type": "string",
+            "title": "Last Modified"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "task_name": {
+            "type": "string",
+            "title": "Task Name"
+          },
+          "is_running": {
+            "type": "boolean",
+            "title": "Is Running"
+          }
+        },
+        "type": "object",
+        "required": [
+          "filename",
+          "size",
+          "last_modified",
+          "path",
+          "task_name",
+          "is_running"
+        ],
+        "title": "LogFileInfo"
+      },
+      "MirrorSource": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "selected": {
+            "type": "integer",
+            "title": "Selected"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "description",
+          "selected"
+        ],
+        "title": "MirrorSource"
+      },
+      "MirrorSourcesUpdate": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/MirrorSource"
+        },
+        "type": "object",
+        "title": "MirrorSourcesUpdate"
+      },
+      "NodeUpdateRequest": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name",
+            "description": "节点名称"
+          },
+          "ip_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip Address",
+            "description": "节点IP地址"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port",
+            "description": "节点端口"
+          }
+        },
+        "type": "object",
+        "title": "NodeUpdateRequest"
+      },
+      "NodeUpdateResult": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "node": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "NodeUpdateResult"
+      },
+      "NotificationSettings": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "feishu_enabled": {
+            "type": "boolean",
+            "title": "Feishu Enabled",
+            "default": false
+          },
+          "feishu_webhook": {
+            "type": "string",
+            "title": "Feishu Webhook",
+            "default": ""
+          },
+          "dingtalk_enabled": {
+            "type": "boolean",
+            "title": "Dingtalk Enabled",
+            "default": false
+          },
+          "dingtalk_webhook": {
+            "type": "string",
+            "title": "Dingtalk Webhook",
+            "default": ""
+          },
+          "wechat_enabled": {
+            "type": "boolean",
+            "title": "Wechat Enabled",
+            "default": false
+          },
+          "wechat_webhook": {
+            "type": "string",
+            "title": "Wechat Webhook",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "NotificationSettings"
+      },
+      "RecipientRequest": {
+        "properties": {
+          "recipient": {
+            "type": "string",
+            "format": "email",
+            "title": "Recipient"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recipient"
+        ],
+        "title": "RecipientRequest"
+      },
+      "RefreshTokenRequest": {
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshTokenRequest"
+      },
+      "ScheduleLogCleanConfig": {
+        "properties": {
+          "interval": {
+            "type": "integer",
+            "title": "Interval"
+          },
+          "retain_days": {
+            "type": "integer",
+            "title": "Retain Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "interval",
+          "retain_days"
+        ],
+        "title": "ScheduleLogCleanConfig"
+      },
+      "ScheduleWorkerCheckConfig": {
+        "properties": {
+          "interval_value": {
+            "type": "number",
+            "title": "Interval Value"
+          },
+          "interval_unit": {
+            "type": "string",
+            "title": "Interval Unit",
+            "default": "hours"
+          },
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "interval_value"
+        ],
+        "title": "ScheduleWorkerCheckConfig",
+        "description": "定时检查工作节点配置"
+      },
+      "TagCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "TagCreate"
+      },
+      "TaskCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "trigger_type": {
+            "type": "string",
+            "title": "Trigger Type"
+          },
+          "trigger_value": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Trigger Value"
+          },
+          "env_id": {
+            "type": "string",
+            "title": "Env Id"
+          },
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "command": {
+            "type": "string",
+            "title": "Command"
+          },
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "max_instances": {
+            "type": "integer",
+            "title": "Max Instances",
+            "default": 1
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "env_id",
+          "project_id",
+          "command"
+        ],
+        "title": "TaskCreate"
+      },
+      "TaskExecutionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "task_id": {
+            "type": "integer",
+            "title": "Task Id"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "task_id",
+          "start_time",
+          "status"
+        ],
+        "title": "TaskExecutionResponse"
+      },
+      "TaskUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "trigger_type": {
+            "type": "string",
+            "title": "Trigger Type"
+          },
+          "trigger_value": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Trigger Value"
+          },
+          "env_id": {
+            "type": "string",
+            "title": "Env Id"
+          },
+          "project_id": {
+            "type": "string",
+            "title": "Project Id"
+          },
+          "command": {
+            "type": "string",
+            "title": "Command"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "max_instances": {
+            "type": "integer",
+            "title": "Max Instances",
+            "default": 1
+          },
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          }
+        },
+        "type": "object",
+        "title": "TaskUpdate"
+      },
+      "Token": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type"
+          },
+          "user": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "User"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "refresh_token",
+          "token_type",
+          "user"
+        ],
+        "title": "Token"
+      },
+      "UserCreate": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "default": "user"
+          },
+          "allowed_paths": {
+            "items": {
+
+            },
+            "type": "array",
+            "title": "Allowed Paths",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password",
+          "name"
+        ],
+        "title": "UserCreate"
+      },
+      "UserUpdate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          },
+          "allowed_paths": {
+            "items": {
+
+            },
+            "type": "array",
+            "title": "Allowed Paths"
+          }
+        },
+        "type": "object",
+        "title": "UserUpdate"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WindowsNodeActivationRequest": {
+        "properties": {
+          "ip_address": {
+            "type": "string",
+            "title": "Ip Address"
+          },
+          "port": {
+            "type": "integer",
+            "title": "Port",
+            "default": 8001
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ip_address"
+        ],
+        "title": "WindowsNodeActivationRequest"
+      },
+      "WorkerNodeStatus": {
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "ip": {
+            "type": "string",
+            "title": "Ip"
+          },
+          "port": {
+            "type": "integer",
+            "title": "Port"
+          },
+          "os": {
+            "type": "string",
+            "title": "Os"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "connected_at": {
+            "type": "string",
+            "title": "Connected At"
+          },
+          "last_heartbeat": {
+            "type": "string",
+            "title": "Last Heartbeat"
+          },
+          "current_tasks": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Current Tasks"
+          },
+          "completed_tasks": {
+            "type": "integer",
+            "title": "Completed Tasks"
+          },
+          "failed_tasks": {
+            "type": "integer",
+            "title": "Failed Tasks"
+          },
+          "task_count": {
+            "type": "integer",
+            "title": "Task Count"
+          },
+          "cpu_count": {
+            "type": "integer",
+            "title": "Cpu Count"
+          },
+          "memory": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Memory"
+          },
+          "disk": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Disk"
+          },
+          "load": {
+            "type": "number",
+            "title": "Load"
+          },
+          "memory_usage": {
+            "type": "number",
+            "title": "Memory Usage"
+          },
+          "environments": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Environments"
+          },
+          "projects": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Projects"
+          },
+          "connected": {
+            "type": "boolean",
+            "title": "Connected",
+            "description": "节点是否已连接",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "node_id",
+          "name",
+          "ip",
+          "port",
+          "os",
+          "status",
+          "connected_at",
+          "last_heartbeat",
+          "current_tasks",
+          "completed_tasks",
+          "failed_tasks",
+          "task_count",
+          "cpu_count",
+          "memory",
+          "disk",
+          "load",
+          "memory_usage",
+          "environments",
+          "projects"
+        ],
+        "title": "WorkerNodeStatus"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2PasswordBearer": {
+        "type": "oauth2",
+        "flows": {
+          "password": {
+            "scopes": {
+
+            },
+            "tokenUrl": "token"
+          }
+        }
+      }
+    }
+  }
+}
