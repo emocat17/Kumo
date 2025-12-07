@@ -199,14 +199,50 @@ interface SystemInfo {
   env_count: number
   project_count: number
   uptime_minutes: number
-  system_info: Record<string, string | number>
+  system_info: {
+    system?: string
+    release?: string
+    machine?: string
+    processor?: string
+    python_version?: string
+    [key: string]: string | number | undefined
+  }
 }
 
 interface SystemStats {
-  cpu: { percent: number; count: number }
-  memory: { percent: number; total: string; used: string }
-  disk: { percent: number; total: string; used: string }
-  network: { bytes_sent: string; bytes_recv: string }
+  cpu: { 
+      percent: number
+      count: number
+      cores: number
+      threads: number
+      freq_current: string | number
+      per_cpu: number[]
+  }
+  memory: { 
+      percent: number
+      total: string
+      used: string
+      available: string
+      swap_used: string
+      swap_total: string
+      swap_percent: number
+  }
+  disk: { 
+      partitions: Array<{
+          mountpoint: string
+          percent: number
+          used: string
+          total: string
+      }>
+      read_bytes: string
+      write_bytes: string
+  }
+  network: { 
+      bytes_sent: string
+      bytes_recv: string
+      packets_recv: number | string
+      packets_sent: number | string
+  }
 }
 
 const systemInfo = ref<SystemInfo>({} as SystemInfo)
@@ -237,10 +273,10 @@ const fetchSystemStats = async () => {
   }
 }
 
-const formatProcessor = (proc: string) => {
+const formatProcessor = (proc: string | number | undefined) => {
     if (!proc) return 'Unknown'
     // Simplify processor name if too long
-    return proc.split(' ')[0] + '...' 
+    return String(proc).split(' ')[0] + '...' 
 }
 
 const getUsageColor = (percent: number) => {
