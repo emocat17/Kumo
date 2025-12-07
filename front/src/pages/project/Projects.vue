@@ -295,11 +295,6 @@ onMounted(() => {
 
 /* .project-grid removed */
 
-.project-card {
-  /* Base card styles from common.css */
-  /* height: 100%; if needed to stretch */
-}
-
 /* .card-header from common.css handles layout */
 
 /* .project-name removed, using .card-title */
@@ -342,9 +337,6 @@ onMounted(() => {
 /* .empty-state removed */
 
 /* Form Styles - mostly removed, kept specific ones */
-.create-form {
-  /* padding? */
-}
 
 /* .form-group, label, required, .form-input removed */
 

@@ -11,7 +11,7 @@
     <!-- Filter Bar -->
     <div class="filter-bar">
       <div class="search-wrapper">
-        <i class="icon-search">🔍</i>
+        <Search :size="16" class="icon-search" />
         <input 
           v-model="filters.search" 
           type="text" 
@@ -158,7 +158,10 @@
             <!-- Tab 2: List Packages -->
             <div v-if="activeTab === 'list'" class="pkg-manager">
                 <div class="pkg-toolbar">
-                    <input v-model="pkgSearch" placeholder="搜索已安装包..." class="pkg-search" />
+                    <div class="search-wrapper" style="width: 100%">
+                        <Search :size="16" class="icon-search" />
+                        <input v-model="pkgSearch" placeholder="搜索已安装包..." class="search-input" />
+                    </div>
                 </div>
 
                 <div v-if="!loadingPkgs" class="pkg-list-container">
@@ -176,7 +179,7 @@
                                 <td>{{ pkg.version }}</td>
                                 <td>
                                     <button class="btn-icon delete" title="卸载" @click="uninstallPackage(pkg.name)">
-                                        🗑️
+                                        <Trash2 :size="16" />
                                     </button>
                                 </td>
                             </tr>
@@ -211,6 +214,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
+import { Trash2, Search } from 'lucide-vue-next'
 
 // --- Data Models ---
 interface Environment {
@@ -424,7 +428,7 @@ onMounted(() => {
   fetchEnvironments()
   
   // Poll for status updates if any env is installing
-  pollingInterval.value = setInterval(() => {
+  pollingInterval.value = window.setInterval(() => {
       const hasInstalling = environments.value.some(e => e.status === 'installing')
       if (hasInstalling) {
           fetchEnvironments()
@@ -481,15 +485,7 @@ const formatDate = (dateStr?: string) => {
 
 /* .env-grid removed */
 
-.env-card {
-  /* Base card styles from common.css */
-}
-
 /* .card-header from common.css */
-
-.env-name {
-  /* font-size etc handled by .card-title */
-}
 
 /* .status-badge handled by common.css */
 
