@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
 from appEnv import models as env_models # Import models to ensure they are registered with Base
 from appProject import models as project_models # Register Project models
+from appTask import models as task_models # Register Task models
+from appTask.task_manager import task_manager
 
 # Initialize DB tables
 init_db()
@@ -12,6 +14,7 @@ from appEnv.env_router import router as env_router
 from appProject.project_router import router as project_router
 from appSystem.system_router import router as system_router
 from appSystem.fs_router import router as fs_router
+from appTask.task_router import router as task_router
 
 app = FastAPI()
 
@@ -28,6 +31,11 @@ app.include_router(env_router, prefix="/api/python/environments")
 app.include_router(project_router, prefix="/api/projects", tags=["Projects"])
 app.include_router(system_router, prefix="/api/system")
 app.include_router(fs_router, prefix="/api")
+app.include_router(task_router, prefix="/api/tasks", tags=["Tasks"])
+
+@app.on_event("startup")
+def startup_event():
+    task_manager.load_jobs_from_db()
 
 if __name__ == "__main__":
     import uvicorn

@@ -20,10 +20,10 @@
           <LayoutDashboardIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">仪表盘</span>
         </router-link>
-        <a href="#" class="nav-item">
+        <router-link to="/tasks" class="nav-item" active-class="active">
           <ClockIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">定时任务</span>
-        </a>
+        </router-link>
         <router-link to="/projects" class="nav-item" active-class="active">
           <FolderIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">项目</span>
