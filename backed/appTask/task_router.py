@@ -23,6 +23,7 @@ async def list_tasks(db: Session = Depends(get_db)):
         if latest_exec:
             task.last_execution_status = latest_exec.status
             task.latest_execution_id = latest_exec.id
+            task.latest_execution_time = latest_exec.start_time
             
     return tasks
 

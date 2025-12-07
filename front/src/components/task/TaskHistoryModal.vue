@@ -3,13 +3,35 @@
     <div class="history-container">
        <div class="history-header">
           <span class="history-title">任务: {{ taskName }}</span>
-          <button class="btn btn-sm btn-secondary" @click="fetchHistory">刷新</button>
+          <div class="controls">
+            <button class="btn btn-secondary" title="编辑/多选" @click="toggleEdit">
+              <EditIcon :size="16" :class="{ 'text-blue': isEditing }" />
+            </button>
+            <button class="btn btn-secondary" title="刷新" @click="fetchHistory">
+               <RefreshCwIcon :size="16" />
+            </button>
+          </div>
+       </div>
+
+       <div v-if="isEditing" class="batch-actions">
+          <span class="selection-info">已选 {{ selectedIds.size }} 项</span>
+          <div class="batch-buttons">
+             <button class="btn btn-danger btn-sm" :disabled="selectedIds.size === 0" @click="deleteSelected">
+                <Trash2Icon :size="14" /> 删除
+             </button>
+             <button class="btn btn-primary btn-sm" :disabled="selectedIds.size === 0" @click="exportSelected">
+                <DownloadIcon :size="14" /> 导出
+             </button>
+          </div>
        </div>
        
        <div class="table-container">
           <table class="data-table">
              <thead>
                 <tr>
+                   <th v-if="isEditing" class="checkbox-col">
+                      <input type="checkbox" :checked="selectedIds.size === executions.length && executions.length > 0" @change="toggleAll">
+                   </th>
                    <th>ID</th>
                    <th>状态</th>
                    <th>开始时间</th>
@@ -20,9 +42,12 @@
              </thead>
              <tbody>
                 <tr v-if="executions.length === 0">
-                   <td colspan="6" class="empty-cell">暂无执行记录</td>
+                   <td :colspan="isEditing ? 7 : 6" class="empty-cell">暂无执行记录</td>
                 </tr>
                 <tr v-for="exec in executions" :key="exec.id">
+                   <td v-if="isEditing" class="checkbox-col">
+                      <input type="checkbox" :checked="selectedIds.has(exec.id)" @change="toggleSelection(exec.id)">
+                   </td>
                    <td>#{{ exec.id }}</td>
                    <td>
                       <span :class="['status-badge', exec.status]">{{ exec.status }}</span>
@@ -44,9 +69,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
-import { TerminalIcon } from 'lucide-vue-next'
+import { TerminalIcon, RefreshCwIcon, EditIcon, Trash2Icon, DownloadIcon } from 'lucide-vue-next'
 
 const props = defineProps<{
   taskId: string | number
@@ -55,14 +80,10 @@ const props = defineProps<{
 
 const emit = defineEmits(['view-log', 'close'])
 
-const isOpen = ref(true) // Controlled by v-model in parent, but BaseModal handles it via v-model too. 
-// Actually BaseModal expects v-model="isOpen". 
-// In Tasks.vue: <TaskHistoryModal v-if="show" ... /> so it's mounted when shown.
-// We should just set isOpen to true on mount or expose a prop.
-// The BaseModal inside uses v-model="isOpen".
-// If we use v-if in parent, onMounted works.
-
+const isOpen = ref(true)
 const executions = ref<any[]>([])
+const isEditing = ref(false)
+const selectedIds = ref<Set<number>>(new Set())
 
 const API_BASE = 'http://localhost:8000/api'
 
@@ -79,6 +100,8 @@ const fetchHistory = async () => {
     const res = await fetch(`${API_BASE}/tasks/${props.taskId}/executions`)
     if (res.ok) {
       executions.value = await res.json()
+      // Clear selection on refresh
+      selectedIds.value.clear()
     }
   } catch (e) {
     console.error(e)
@@ -87,6 +110,60 @@ const fetchHistory = async () => {
 
 const viewLog = (execId: number) => {
    emit('view-log', execId)
+}
+
+const toggleEdit = () => {
+  isEditing.value = !isEditing.value
+  selectedIds.value.clear()
+}
+
+const toggleSelection = (id: number) => {
+  if (selectedIds.value.has(id)) {
+    selectedIds.value.delete(id)
+  } else {
+    selectedIds.value.add(id)
+  }
+}
+
+const toggleAll = () => {
+  if (selectedIds.value.size === executions.value.length) {
+    selectedIds.value.clear()
+  } else {
+    executions.value.forEach(e => selectedIds.value.add(e.id))
+  }
+}
+
+const deleteSelected = async () => {
+  if (selectedIds.value.size === 0) return
+  if (!confirm(`确定要删除选中的 ${selectedIds.value.size} 条记录吗？`)) return
+  
+  try {
+    // Delete one by one for now (or implement batch API)
+    // Batch API is better but user didn't ask for backend changes.
+    // I'll do concurrent requests.
+    const promises = Array.from(selectedIds.value).map(id => 
+       fetch(`${API_BASE}/tasks/executions/${id}`, { method: 'DELETE' })
+    )
+    await Promise.all(promises)
+    await fetchHistory()
+    isEditing.value = false
+  } catch (e) {
+    console.error(e)
+    alert('删除失败')
+  }
+}
+
+const exportSelected = () => {
+  if (selectedIds.value.size === 0) return
+  
+  const selectedExecs = executions.value.filter(e => selectedIds.value.has(e.id))
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(selectedExecs, null, 2))
+  const downloadAnchorNode = document.createElement('a')
+  downloadAnchorNode.setAttribute("href", dataStr)
+  downloadAnchorNode.setAttribute("download", `task_${props.taskId}_history_export.json`)
+  document.body.appendChild(downloadAnchorNode)
+  downloadAnchorNode.click()
+  downloadAnchorNode.remove()
 }
 
 const formatTime = (iso: string) => new Date(iso).toLocaleString()
@@ -108,6 +185,33 @@ defineExpose({})
   padding-bottom: 12px;
   border-bottom: 1px solid #eee;
   margin-bottom: 12px;
+}
+
+.controls {
+  display: flex;
+  gap: 8px;
+}
+
+.batch-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f9fafb;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  border: 1px solid #e5e7eb;
+}
+
+.selection-info {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+}
+
+.batch-buttons {
+  display: flex;
+  gap: 8px;
 }
 
 .table-container {
@@ -161,4 +265,37 @@ defineExpose({})
 .btn-icon:hover {
   background: #f5f5f5;
 }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.btn-secondary { background: white; border-color: #d1d5db; color: #374151; }
+.btn-secondary:hover { background: #f9fafb; border-color: #9ca3af; }
+
+.btn-primary { background: #3b82f6; color: white; border-color: transparent; }
+.btn-primary:hover { background: #2563eb; }
+
+.btn-danger { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+.btn-danger:hover { background: #fee2e2; border-color: #fca5a5; }
+
+.btn-sm {
+  width: auto;
+  height: auto;
+  padding: 4px 10px;
+  font-size: 12px;
+  gap: 4px;
+}
+
+.text-blue { color: #3b82f6; }
+.checkbox-col { width: 40px; text-align: center; }
 </style>

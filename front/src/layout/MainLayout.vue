@@ -145,12 +145,14 @@ const toggleCollapse = () => {
   cursor: pointer;
   font-size: 1.2rem;
   color: #6b7280;
-  padding: 4px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
   transition: background-color 0.2s;
+  flex-shrink: 0;
 }
 
 .toggle-btn:hover {

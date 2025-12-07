@@ -1,5 +1,5 @@
 <template>
-  <div class="tasks-page">
+  <div class="page-container">
     <PageHeader title="定时任务" description="管理和调度您的自动化任务。">
       <template #actions>
         <button class="btn btn-secondary" @click="refreshTasks" title="刷新">
@@ -14,8 +14,8 @@
 
     <!-- Filter Bar -->
     <div class="filter-bar">
-      <div class="search-box">
-        <SearchIcon :size="16" class="search-icon" />
+      <div class="search-wrapper">
+        <SearchIcon :size="16" class="icon-search" />
         <input 
           v-model="searchQuery" 
           type="text" 
@@ -35,90 +35,105 @@
       </div>
 
       <div v-else class="task-cards">
-        <div v-for="task in tasks" :key="task.id" class="task-card">
-          <div class="card-main">
-            <div class="task-header">
+        <div v-for="task in tasks" :key="task.id" class="task-card card">
+          <!-- Top Row: Title, Status, Actions -->
+          <div class="task-header-row">
+            <div class="task-title-group">
               <h3 class="task-name">{{ task.name }}</h3>
               <span :class="['status-badge', task.status]">
                 {{ statusText[task.status] }}
               </span>
             </div>
-
-            <div class="task-details">
-              <div class="detail-item command">
-                <span class="prompt">>_</span>
-                <span class="code">{{ task.command }}</span>
-              </div>
+            
+            <div class="task-actions">
+              <button class="btn-icon" title="查看历史" @click="viewHistory(task)">
+                <HistoryIcon :size="16" />
+              </button>
+              <button class="btn-icon" title="任务日志" @click="viewLogs(task)">
+                <TerminalIcon :size="16" />
+              </button>
               
-              <div class="detail-item">
-                <CalendarIcon :size="14" />
-                <span>{{ formatTrigger(task) }}</span>
-              </div>
+              <button 
+                v-if="task.status === 'active'" 
+                class="btn-icon" 
+                title="暂停任务" 
+                @click="toggleTaskStatus(task)"
+              >
+                <PauseIcon :size="16" class="text-orange" />
+              </button>
+              <button 
+                v-else 
+                class="btn-icon" 
+                title="恢复任务" 
+                @click="toggleTaskStatus(task)"
+              >
+                <PlayIcon :size="16" class="text-green" />
+              </button>
 
-              <div class="detail-item">
-                <FolderIcon :size="14" />
-                <span>{{ getProjectName(task.project_id) }}</span>
-              </div>
-
-              <div class="detail-item" v-if="task.env_id">
-                <BoxIcon :size="14" />
-                <span>{{ getEnvName(task.env_id) }}</span>
-              </div>
-            </div>
-
-            <div class="next-run" v-if="task.next_run">
-              <ClockIcon :size="14" />
-              <span>下次运行: {{ formatNextRun(task.next_run) }}</span>
+              <button 
+                v-if="isRunning(task)" 
+                class="btn-icon delete" 
+                title="停止执行" 
+                @click="stopTaskNow(task)"
+              >
+                <SquareIcon :size="16" fill="currentColor" />
+              </button>
+              <button 
+                v-else 
+                class="btn-icon" 
+                title="立即执行" 
+                @click="runTaskNow(task)"
+              >
+                <ZapIcon :size="16" class="text-yellow" />
+              </button>
+              
+              <button class="btn-icon" title="编辑任务" @click="editTask(task)">
+                <EditIcon :size="16" class="text-blue" />
+              </button>
+              <button class="btn-icon delete" title="删除任务" @click="deleteTask(task)">
+                <Trash2Icon :size="16" />
+              </button>
             </div>
           </div>
 
-          <div class="card-actions">
-            <button class="action-btn" title="查看历史" @click="viewHistory(task)">
-              <HistoryIcon :size="18" />
-            </button>
-            <button class="action-btn" title="任务日志" @click="viewLogs(task)">
-              <TerminalIcon :size="18" />
-            </button>
-            
-            <button 
-              v-if="task.status === 'active'" 
-              class="action-btn" 
-              title="暂停任务" 
-              @click="toggleTaskStatus(task)"
-            >
-              <PauseIcon :size="18" class="text-orange" />
-            </button>
-            <button 
-              v-else 
-              class="action-btn" 
-              title="恢复任务" 
-              @click="toggleTaskStatus(task)"
-            >
-              <PlayIcon :size="18" class="text-green" />
-            </button>
+          <!-- Description -->
+          <div class="task-description">
+             {{ task.description || '暂无描述' }}
+          </div>
 
-            <button 
-              v-if="isRunning(task)" 
-              class="action-btn stop" 
-              title="停止执行" 
-              @click="stopTaskNow(task)"
-            >
-              <SquareIcon :size="18" class="text-red" fill="currentColor" />
-            </button>
-            <button 
-              v-else 
-              class="action-btn" 
-              title="立即执行" 
-              @click="runTaskNow(task)"
-            >
-              <ZapIcon :size="18" class="text-yellow" />
-            </button>
-            <button class="action-btn" title="编辑任务" @click="editTask(task)">
-              <EditIcon :size="18" class="text-blue" />
-            </button>
-            <button class="action-btn delete" title="删除任务" @click="deleteTask(task)">
-              <Trash2Icon :size="18" class="text-red" />
-            </button>
+          <!-- Info Pills -->
+          <div class="task-info-pills">
+            <div class="pill command-pill">
+              <span class="prompt">>_</span>
+              <span class="code">{{ task.command }}</span>
+            </div>
+            
+            <div class="pill">
+              <CalendarIcon :size="14" />
+              <span>{{ formatTrigger(task) }}</span>
+            </div>
+
+            <div class="pill">
+              <FolderIcon :size="14" />
+              <span>{{ getProjectName(task.project_id) }}</span>
+            </div>
+
+            <div class="pill" v-if="task.env_id">
+              <BoxIcon :size="14" />
+              <span>{{ getEnvName(task.env_id) }}</span>
+            </div>
+          </div>
+
+          <!-- Times -->
+          <div class="task-times">
+            <div class="time-item">
+               <ClockIcon :size="14" />
+               <span>上次运行: {{ task.latest_execution_time ? formatNextRun(task.latest_execution_time) : '从未运行' }}</span>
+            </div>
+            <div v-if="task.next_run" class="time-item">
+               <ClockIcon :size="14" />
+               <span>下次运行: {{ formatNextRun(task.next_run) }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -176,6 +191,17 @@
         </div>
 
         <div class="form-group">
+          <label for="description">任务简述</label>
+          <textarea 
+            id="description" 
+            v-model="form.description" 
+            class="form-textarea" 
+            placeholder="请输入任务描述"
+            rows="3"
+          ></textarea>
+        </div>
+
+        <div class="form-group">
           <label>调度方式 <span class="required">*</span></label>
           <select v-model="form.trigger_type" class="form-select mb-2">
             <option value="date">一次性 (Date)</option>
@@ -229,8 +255,8 @@
                  placeholder="* * * * *"
                  required
                />
-               <button type="button" class="preview-btn" @click="previewCron" title="预览运行时间">
-                 <InfoIcon :size="16" class="text-blue" />
+               <button type="button" class="btn btn-primary" @click="previewCron" title="预览运行时间">
+                 预览
                </button>
             </div>
             <div v-if="cronPreview.length > 0" class="cron-preview">
@@ -272,7 +298,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import TaskHistoryModal from '@/components/task/TaskHistoryModal.vue'
@@ -296,6 +322,8 @@ interface Task {
   next_run?: string
   last_execution_status?: string
   latest_execution_id?: number
+  latest_execution_time?: string
+  description?: string
 }
 
 interface Project {
@@ -328,6 +356,7 @@ const form = reactive({
   project_id: '' as string | number,
   env_id: '' as string | number,
   command: '',
+  description: '',
   trigger_type: 'interval',
   trigger_value_date: '',
   trigger_value_interval: 1,
@@ -376,6 +405,9 @@ const loadData = async () => {
 
 onMounted(() => {
   loadData()
+  // Poll for task status updates
+  const interval = setInterval(loadData, 3000)
+  onUnmounted(() => clearInterval(interval))
 })
 
 // Actions
@@ -397,6 +429,7 @@ const editTask = (task: Task) => {
   form.project_id = task.project_id
   form.env_id = task.env_id || ''
   form.command = task.command
+  form.description = task.description || ''
   
   // Parse trigger info back to form
   form.trigger_type = task.trigger_type
@@ -418,6 +451,7 @@ const resetForm = () => {
   form.project_id = ''
   form.env_id = ''
   form.command = ''
+  form.description = ''
   form.trigger_type = 'interval'
   form.trigger_value_date = ''
   form.trigger_value_interval = 1
@@ -444,6 +478,7 @@ const handleSaveTask = async () => {
     command: form.command,
     project_id: form.project_id,
     env_id: form.env_id || null,
+    description: form.description || null,
     trigger_type: form.trigger_type,
     trigger_value: triggerValue
   }
@@ -599,58 +634,9 @@ const formatNextRun = (iso: string) => {
 </script>
 
 <style scoped>
-.tasks-page {
-  max-width: 1200px;
-  margin: 0 auto;
-}
+/* .tasks-page removed, using .page-container from common.css */
 
-.filter-bar {
-  margin-bottom: 20px;
-  display: flex;
-  gap: 12px;
-}
-
-.search-box {
-  position: relative;
-  flex: 1;
-  max-width: 400px;
-}
-
-.search-icon {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #9ca3af;
-}
-
-.search-input {
-  width: 100%;
-  padding: 8px 12px 8px 36px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  font-size: 14px;
-  outline: none;
-}
-
-.search-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
-
-.empty-state {
-  text-align: center;
-  padding: 60px;
-  color: #6b7280;
-  background: white;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-}
-
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
+/* .filter-bar and .search-wrapper removed, using common.css */
 
 .task-list {
   display: flex;
@@ -659,29 +645,23 @@ const formatNextRun = (iso: string) => {
 }
 
 .task-card {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  position: relative;
+}
+
+.task-header-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  transition: all 0.2s;
+  align-items: flex-start;
+  margin-bottom: 12px;
 }
 
-.task-card:hover {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-}
-
-.card-main {
-  flex: 1;
-}
-
-.task-header {
+.task-title-group {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 12px;
 }
 
 .task-name {
@@ -691,79 +671,62 @@ const formatNextRun = (iso: string) => {
   color: #111827;
 }
 
-.status-badge {
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
+.task-actions {
+  display: flex;
+  gap: 8px;
 }
 
-.status-badge.active { background: #ecfdf5; color: #059669; }
-.status-badge.paused { background: #fff7ed; color: #d97706; }
-.status-badge.error { background: #fef2f2; color: #dc2626; }
-.status-badge.finished { background: #f3f4f6; color: #4b5563; }
+.task-description {
+  font-size: 14px;
+  color: #4b5563;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
 
-.task-details {
+.task-info-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  color: #4b5563;
-  font-size: 14px;
-  margin-bottom: 8px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
-.detail-item {
+.pill {
   display: flex;
   align-items: center;
   gap: 6px;
+  background: #f3f4f6;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #4b5563;
 }
 
-.command {
-  background: #f3f4f6;
-  padding: 2px 8px;
-  border-radius: 4px;
+.pill.command-pill {
   font-family: monospace;
 }
 
-.command .prompt { color: #6b7280; margin-right: 4px; }
-.command .code { color: #1f2937; font-weight: 500; }
+.pill .prompt {
+  color: #9ca3af;
+}
 
-.next-run {
-  font-size: 12px;
+.pill .code {
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.task-times {
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
   color: #6b7280;
+  border-top: 1px solid #f3f4f6;
+  padding-top: 12px;
+}
+
+.time-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 8px;
-}
-
-.card-actions {
-  display: flex;
-  gap: 8px;
-  margin-left: 24px;
-}
-
-.action-btn {
-  padding: 8px;
-  border: 1px solid transparent;
-  background: transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  color: #6b7280;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.action-btn:hover {
-  background: #f3f4f6;
-  color: #111827;
-}
-
-.action-btn.delete:hover {
-  background: #fef2f2;
-  color: #dc2626;
 }
 
 .text-orange { color: #f59e0b; }
@@ -777,34 +740,10 @@ const formatNextRun = (iso: string) => {
   padding: 10px 0;
 }
 
-.form-group { margin-bottom: 20px; }
 .form-row { display: flex; gap: 16px; }
 .form-group.half { flex: 1; }
 
-.form-group label {
-  display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-  margin-bottom: 6px;
-}
-
-.required { color: #dc2626; }
-
-.form-input, .form-select {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 14px;
-  outline: none;
-  background: white;
-}
-
-.form-input:focus, .form-select:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
+/* .form-group, label, required, input styles removed, using common.css */
 
 .command-input-wrapper {
   display: flex;
@@ -845,20 +784,6 @@ const formatNextRun = (iso: string) => {
   gap: 8px;
 }
 
-.preview-btn {
-  padding: 0 12px;
-  background: white;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-}
-
-.preview-btn:hover {
-  background: #f3f4f6;
-}
-
 .cron-preview {
   margin-top: 12px;
   font-size: 12px;
@@ -876,24 +801,6 @@ const formatNextRun = (iso: string) => {
   gap: 12px;
   margin-top: 30px;
 }
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: all 0.2s;
-}
-
-.btn-primary { background: #3b82f6; color: white; }
-.btn-primary:hover { background: #2563eb; }
-.btn-secondary { background: white; border-color: #d1d5db; color: #374151; }
-.btn-secondary:hover { background: #f9fafb; border-color: #9ca3af; }
 
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

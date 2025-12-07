@@ -1,5 +1,5 @@
 <template>
-  <div class="environments-page">
+  <div class="page-container">
     <PageHeader title="Python 环境" description="管理 Python 环境及其依赖包。">
       <!-- <template #actions>
         <button class="btn btn-primary" @click="showCreateModal = true">
@@ -22,10 +22,10 @@
     </div>
 
     <!-- Environments Grid -->
-    <div v-if="filteredEnvironments.length > 0" class="env-grid">
-      <div v-for="env in filteredEnvironments" :key="env.id" class="env-card">
+    <div v-if="filteredEnvironments.length > 0" class="grid-container">
+      <div v-for="env in filteredEnvironments" :key="env.id" class="card env-card">
         <div class="card-header">
-          <h3 class="env-name" :title="env.path">{{ env.name || 'Default' }}</h3>
+          <h3 class="card-title env-name" :title="env.path">{{ env.name || 'Default' }}</h3>
           <span :class="['status-badge', env.status]">{{ getStatusLabel(env.status) }}</span>
         </div>
         
@@ -475,101 +475,25 @@ const formatDate = (dateStr?: string) => {
 </script>
 
 <style scoped>
-.environments-page {
-  max-width: 1200px;
-  margin: 0 auto;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
+/* .environments-page removed */
 
-.filter-bar {
-  background: white;
-  padding: 15px 20px;
-  border-radius: 8px;
-  border: 1px solid #eef0f2;
-}
+/* .filter-bar, .search-wrapper, .search-input, .icon-search removed */
 
-.icon-search {
-  font-style: normal;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0; /* Prevent icon from shrinking/stretching */
-  width: 20px;
-  height: 20px;
-}
-
-.search-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #f3f4f6; /* Lighter gray background */
-  padding: 8px 15px;
-  border-radius: 6px;
-  width: 300px;
-  border: 1px solid #e5e7eb; /* Subtle border to define the input area */
-}
-
-.search-input {
-  border: none;
-  background: transparent;
-  outline: none;
-  width: 100%;
-}
-
-.env-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
-  overflow-y: auto;
-  padding-bottom: 20px;
-}
+/* .env-grid removed */
 
 .env-card {
-  background: white;
-  border-radius: 8px;
-  border: 1px solid #eef0f2;
-  display: flex;
-  flex-direction: column;
-  transition: all 0.2s;
+  /* Base card styles from common.css */
 }
 
-.env-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-}
-
-.card-header {
-  padding: 15px 20px;
-  border-bottom: 1px solid #f5f5f5;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+/* .card-header from common.css */
 
 .env-name {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a1a1a;
+  /* font-size etc handled by .card-title */
 }
 
-.status-badge {
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 12px;
-}
-.status-badge.ready { background: #e3f9e5; color: #1f7a34; }
-.status-badge.installing { background: #e3f2fd; color: #1976d2; }
-.status-badge.error { background: #ffebee; color: #c62828; }
-.status-badge.deleting { background: #ffebee; color: #c62828; animation: pulse 1.5s infinite; }
+/* .status-badge handled by common.css */
 
-.card-body {
-  padding: 15px 20px;
-  flex: 1;
-}
+/* .card-body from common.css */
 
 .info-row {
   display: flex;
@@ -600,245 +524,145 @@ const formatDate = (dateStr?: string) => {
 
 .btn-edit {
     width: 100%;
-    justify-content: center;
 }
 
-.card-footer {
-  padding: 10px 20px;
-  border-top: 1px solid #f5f5f5;
-  font-size: 12px;
-  color: #888;
-}
+/* .card-footer from common.css */
 
 .path-info {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-family: monospace;
 }
 
-.empty-state {
-  text-align: center;
-  padding: 60px;
-  background: white;
-  border-radius: 8px;
-  color: #666;
+/* .empty-state removed */
+
+.install-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
 }
 
-.empty-icon { font-size: 48px; margin-bottom: 20px; }
-
-/* Install Modal Styles */
 .env-summary {
-    background: #f8f9fa;
-    padding: 15px;
+    background: #f9fafb;
+    padding: 10px;
     border-radius: 6px;
-    margin-bottom: 20px;
     border: 1px solid #eef0f2;
     display: flex;
-    justify-content: space-between;
+    gap: 20px;
 }
 
 .summary-item {
     display: flex;
-    gap: 10px;
-    font-size: 14px;
+    gap: 8px;
+    font-size: 13px;
 }
 
 .tabs {
     display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 10px;
+    border-bottom: 1px solid #eef0f2;
+    margin-bottom: 10px;
 }
 
 .tab-btn {
     padding: 8px 16px;
-    border: none;
     background: none;
-    border-radius: 6px;
+    border: none;
     cursor: pointer;
-    color: #666;
-    font-weight: 500;
+    font-size: 14px;
+    color: #6b7280;
+    border-bottom: 2px solid transparent;
 }
 
 .tab-btn.active {
-    background: #e3f2fd;
-    color: #1976d2;
+    color: #3b82f6;
+    border-bottom-color: #3b82f6;
+    font-weight: 500;
 }
 
-/* Package Manager Styles */
-.pkg-manager {
+.install-form {
     display: flex;
     flex-direction: column;
-    gap: 15px;
-    max-height: 50vh;
-}
-
-.pkg-toolbar {
-    display: flex;
-    justify-content: space-between;
     gap: 10px;
 }
 
-.pkg-search {
+.install-input-group {
+    display: flex;
+    gap: 10px;
+}
+
+.pkg-input {
     flex: 1;
-    padding: 8px 12px;
-    border: 1px solid #ddd;
+}
+
+.common-packages {
+    margin-top: 10px;
+}
+
+.common-packages p {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 8px;
+}
+
+.tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.pkg-tag {
+    font-size: 12px;
+    padding: 4px 8px;
+    background: #f3f4f6;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+}
+
+.pkg-tag:hover {
+    background: #e5e7eb;
+}
+
+.install-log {
+    margin-top: 15px;
+    background: #1e1e1e;
+    color: #f0f0f0;
+    padding: 12px;
     border-radius: 6px;
+    max-height: 150px;
+    overflow-y: auto;
+    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.install-log pre {
+    margin: 0;
+    font-family: inherit;
 }
 
 .pkg-list-container {
-    flex: 1;
+    max-height: 300px;
     overflow-y: auto;
-    border: 1px solid #eee;
-    border-radius: 6px;
-    min-height: 200px;
 }
 
 .pkg-table {
     width: 100%;
     border-collapse: collapse;
+    font-size: 13px;
 }
 
 .pkg-table th, .pkg-table td {
-    padding: 10px;
+    padding: 8px;
     text-align: left;
-    border-bottom: 1px solid #f5f5f5;
+    border-bottom: 1px solid #f0f0f0;
 }
 
 .pkg-table th {
-    background: #f9f9f9;
-    position: sticky;
-    top: 0;
-}
-
-.btn-icon {
-    background: none;
-    border: none;
-    cursor: pointer;
-    opacity: 0.6;
-}
-.btn-icon:hover { opacity: 1; }
-
-/* Form Styles */
-.form-textarea {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-family: monospace;
-}
-
-.log-viewer {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    height: 400px;
-}
-
-.log-controls {
-    display: flex;
-    justify-content: flex-end;
-}
-
-.install-log {
-    margin-top: 15px;
-    background: #f1f1f1;
-    padding: 10px;
-    border-radius: 4px;
-    max-height: 150px;
-    overflow-y: auto;
-    font-size: 12px;
-}
-
-.install-log.full-height {
-    margin-top: 0;
-    flex: 1;
-    max-height: none;
-}
-
-.empty-log {
-    color: #888;
-    text-align: center;
-    padding-top: 20px;
-}
-
-.btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-weight: 500; }
-.btn-primary { background: #1976d2; color: white; }
-.btn-sm { padding: 4px 12px; font-size: 13px; }
-.btn-outline { background: white; border: 1px solid #ddd; color: #333; }
-.btn-outline:hover { background: #f5f5f5; }
-
-.textarea-wrapper {
-    position: relative;
-}
-
-.form-textarea.readonly {
-    background-color: #f9f9f9;
-    color: #666;
-    cursor: default;
-}
-
-.upload-controls {
-    margin-top: 10px;
-    display: flex;
-    justify-content: flex-end;
-}
-
-.btn-upload {
-    background-color: #ADD8E6; /* Light Blue */
-    color: #333;
-    font-size: 13px;
-    padding: 6px 12px;
-}
-
-.btn-upload:hover:not(:disabled) {
-    background-color: #87CEEB; /* Sky Blue */
-}
-
-.btn-upload:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.upload-badge {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: white;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
-    padding: 4px 8px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.filename {
-    font-size: 12px;
-    color: #555;
+    color: #6b7280;
     font-weight: 500;
-}
-
-.remove-btn {
-    background: none;
-    border: none;
-    color: #ff4d4f; /* Redish */
-    font-size: 16px;
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
-    font-weight: bold;
-}
-
-.remove-btn:hover {
-    color: #d32f2f; /* Darker Red */
-}
-
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.5; }
-  100% { opacity: 1; }
 }
 </style>

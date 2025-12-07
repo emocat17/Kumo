@@ -1,5 +1,5 @@
 <template>
-  <div class="projects-page">
+  <div class="page-container">
     <PageHeader title="项目管理" description="管理您的项目及其工作区。">
       <template #actions>
         <button class="btn btn-primary" @click="openCreateModal">
@@ -8,11 +8,23 @@
       </template>
     </PageHeader>
 
+    <div class="filter-bar">
+      <div class="search-wrapper">
+        <i class="icon-search">🔍</i>
+        <input 
+          v-model="searchQuery" 
+          type="text" 
+          placeholder="按项目名称搜索..." 
+          class="search-input"
+        />
+      </div>
+    </div>
+
     <!-- Projects Grid -->
-    <div v-if="projects.length > 0" class="project-grid">
-      <div v-for="proj in projects" :key="proj.id" class="project-card">
+    <div v-if="filteredProjects.length > 0" class="grid-container">
+      <div v-for="proj in filteredProjects" :key="proj.id" class="card project-card">
         <div class="card-header">
-          <h3 class="project-name" :title="proj.name">{{ proj.name }}</h3>
+          <h3 class="card-title" :title="proj.name">{{ proj.name }}</h3>
           <span class="created-time">{{ formatDate(proj.created_at) }}</span>
         </div>
         
@@ -25,9 +37,20 @@
           </div>
           
           <div class="actions-row">
-            <!-- Future actions: Edit, Delete, Run -->
-             <button class="btn btn-primary btn-sm" style="margin-right: 8px;" @click="openEditor(proj)">浏览</button>
-             <button class="btn btn-danger btn-sm" @click="deleteProject(proj)">删除</button>
+             <button class="btn-icon" title="打开编辑器" @click="openEditor(proj)">
+               <Folder :size="18" />
+             </button>
+             <button class="btn-icon" title="配置项目" @click="openCreateModal">
+               <Edit :size="18" />
+             </button>
+             <button 
+               class="btn-icon delete" 
+               title="删除" 
+               :disabled="!!taskCounts[proj.id]"
+               @click="deleteProject(proj)"
+             >
+               <Trash2 :size="18" />
+             </button>
           </div>
         </div>
       </div>
@@ -107,10 +130,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import ProjectEditorModal from '@/components/project/ProjectEditorModal.vue'
+import { Folder, Edit, Trash2 } from 'lucide-vue-next'
 
 interface Project {
   id: number
@@ -122,6 +146,8 @@ interface Project {
 }
 
 const projects = ref<Project[]>([])
+const taskCounts = ref<Record<number, number>>({})
+const searchQuery = ref('')
 const showCreateModal = ref(false)
 const showEditorModal = ref(false)
 const currentProject = ref<Project | null>(null)
@@ -129,18 +155,41 @@ const isSubmitting = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
 
+const filteredProjects = computed(() => {
+  if (!searchQuery.value) return projects.value
+  const query = searchQuery.value.toLowerCase()
+  return projects.value.filter(p => p.name.toLowerCase().includes(query))
+})
+
 const form = reactive({
   name: '',
   work_dir: './'
 })
 
-const API_BASE = 'http://localhost:8000/api/projects'
+const API_BASE = 'http://localhost:8000/api'
 
 const fetchProjects = async () => {
   try {
-    const res = await fetch(API_BASE)
+    const res = await fetch(`${API_BASE}/projects`)
     if (res.ok) {
       projects.value = await res.json()
+    }
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const fetchTasks = async () => {
+  try {
+    const res = await fetch(`${API_BASE}/tasks`)
+    if (res.ok) {
+      const tasks = await res.json()
+      // Count tasks per project
+      const counts: Record<number, number> = {}
+      tasks.forEach((t: any) => {
+        counts[t.project_id] = (counts[t.project_id] || 0) + 1
+      })
+      taskCounts.value = counts
     }
   } catch (e) {
     console.error(e)
@@ -180,7 +229,7 @@ const handleCreateProject = async () => {
   formData.append('file', selectedFile.value)
 
   try {
-    const res = await fetch(`${API_BASE}/create`, {
+    const res = await fetch(`${API_BASE}/projects/create`, {
       method: 'POST',
       body: formData
     })
@@ -211,10 +260,14 @@ const closeEditor = () => {
 }
 
 const deleteProject = async (proj: Project) => {
+    if (taskCounts.value[proj.id]) {
+      alert('该项目正在被任务使用，无法删除。')
+      return
+    }
     if(!confirm(`确定要删除项目 "${proj.name}" 吗？这将会删除服务器上的文件。`)) return
     
     try {
-        const res = await fetch(`${API_BASE}/${proj.id}`, { method: 'DELETE' })
+        const res = await fetch(`${API_BASE}/projects/${proj.id}`, { method: 'DELETE' })
         if(res.ok) {
             fetchProjects()
         } else {
@@ -231,63 +284,32 @@ const formatDate = (dateStr: string) => {
 
 onMounted(() => {
   fetchProjects()
+  fetchTasks()
 })
 </script>
 
 <style scoped>
-.projects-page {
-  max-width: 1200px;
-  margin: 0 auto;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
+/* .projects-page removed */
 
-.project-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
-}
+/* .filter-bar, .search-wrapper, .search-input, .icon-search removed */
+
+/* .project-grid removed */
 
 .project-card {
-  background: white;
-  border-radius: 8px;
-  border: 1px solid #eef0f2;
-  transition: all 0.2s;
-  display: flex;
-  flex-direction: column;
+  /* Base card styles from common.css */
+  /* height: 100%; if needed to stretch */
 }
 
-.project-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-}
+/* .card-header from common.css handles layout */
 
-.card-header {
-  padding: 15px 20px;
-  border-bottom: 1px solid #f5f5f5;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.project-name {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #1a1a1a;
-}
+/* .project-name removed, using .card-title */
 
 .created-time {
     font-size: 12px;
     color: #888;
 }
 
-.card-body {
-  padding: 15px 20px;
-  flex: 1;
-}
+/* .card-body from common.css */
 
 .description {
     font-size: 14px;
@@ -317,47 +339,14 @@ onMounted(() => {
     justify-content: flex-end;
 }
 
-.empty-state {
-  text-align: center;
-  padding: 40px;
-  color: #6b7280;
+/* .empty-state removed */
+
+/* Form Styles - mostly removed, kept specific ones */
+.create-form {
+  /* padding? */
 }
 
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-/* Form Styles */
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: #374151;
-}
-
-.required {
-  color: #dc2626;
-}
-
-.form-input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.form-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
+/* .form-group, label, required, .form-input removed */
 
 .form-hint {
   display: block;
@@ -396,51 +385,5 @@ onMounted(() => {
   margin-top: 24px;
 }
 
-.btn {
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.btn-primary {
-  background-color: #3b82f6;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background-color: #2563eb;
-}
-
-.btn-secondary {
-  background-color: #f3f4f6;
-  color: #374151;
-}
-
-.btn-secondary:hover {
-  background-color: #e5e7eb;
-}
-
-.btn-danger {
-    background-color: #fee2e2;
-    color: #dc2626;
-}
-.btn-danger:hover {
-    background-color: #fecaca;
-}
-
-.btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.btn-sm {
-    padding: 4px 8px;
-    font-size: 12px;
-}
+/* Button styles removed */
 </style>

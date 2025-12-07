@@ -4,19 +4,19 @@
        <div class="log-header">
           <span class="log-title">任务: {{ taskName }} (ID: {{ taskId }})</span>
           <div class="log-controls">
-             <select v-model="selectedExecutionId" class="form-select sm" @change="handleExecutionChange">
+             <select v-model="selectedExecutionId" class="form-select log-select" @change="handleExecutionChange">
                 <option v-for="exec in executions" :key="exec.id" :value="exec.id">
                    #{{ exec.id }} - {{ formatTime(exec.start_time) }} ({{ exec.status }})
                 </option>
              </select>
-             <button class="btn btn-sm btn-secondary" @click="fetchLog(selectedExecutionId)" :disabled="loading">
-                刷新
+             <button class="btn btn-secondary" @click="fetchLog(selectedExecutionId)" :disabled="loading">
+                <RefreshCwIcon :size="16" />
              </button>
-             <button class="btn btn-sm btn-danger" @click="stopExecution(selectedExecutionId)" v-if="isRunning(selectedExecutionId)">
-                停止
+             <button class="btn btn-danger" @click="stopExecution(selectedExecutionId)" v-if="isRunning(selectedExecutionId)">
+                <SquareIcon :size="16" fill="currentColor" />
              </button>
-             <button class="btn btn-sm btn-danger" @click="deleteExecution(selectedExecutionId)" v-else>
-                删除
+             <button class="btn btn-danger" @click="deleteExecution(selectedExecutionId)" v-else>
+                <Trash2Icon :size="16" />
              </button>
           </div>
        </div>
@@ -33,6 +33,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onUnmounted, onMounted } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
+import { RefreshCwIcon, SquareIcon, Trash2Icon } from 'lucide-vue-next'
 
 const props = defineProps<{
   taskId: string | number
@@ -176,7 +177,7 @@ const startPolling = () => {
   if (pollInterval) return
   pollInterval = window.setInterval(() => {
      fetchLog(selectedExecutionId.value)
-  }, 2000)
+  }, 200) // Polling interval reduced to 200ms
 }
 
 const stopPolling = () => {
@@ -219,13 +220,15 @@ defineExpose({})
 .log-viewer {
   flex: 1;
   background: #1e1e1e;
-  color: #d4d4d4;
+  color: #f0f0f0;
   padding: 12px;
   border-radius: 6px;
   overflow-y: auto;
-  font-family: monospace;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
   font-size: 13px;
+  line-height: 1.5;
   white-space: pre-wrap;
+  margin-top: 12px;
 }
 
 .loading-text, .empty-text {
@@ -234,16 +237,35 @@ defineExpose({})
   margin-top: 20px;
 }
 
-.form-select.sm {
-  padding: 4px 8px;
-  font-size: 12px;
-  width: 250px;
+.log-select {
+  width: 280px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
 }
 
-.btn-sm {
-  padding: 4px 8px;
-  font-size: 12px;
+.log-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.btn-secondary { background: white; border-color: #d1d5db; color: #374151; }
+.btn-secondary:hover { background: #f9fafb; border-color: #9ca3af; }
 
 .btn-danger {
   background: #fef2f2;

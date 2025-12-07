@@ -34,6 +34,7 @@ class Task(TaskBase):
     next_run: Optional[datetime] = None # Calculated field
     last_execution_status: Optional[str] = None
     latest_execution_id: Optional[int] = None
+    latest_execution_time: Optional[datetime] = None
 
     class Config:
         from_attributes = True
