@@ -23,6 +23,7 @@ async def list_projects(db: Session = Depends(get_db)):
 async def create_project(
     name: str = Form(...),
     work_dir: str = Form("./"),
+    description: str = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
@@ -64,6 +65,7 @@ async def create_project(
         name=name,
         path=project_path,
         work_dir=work_dir,
+        description=description,
         created_at=datetime.datetime.now(),
         updated_at=datetime.datetime.now()
     )
@@ -71,6 +73,34 @@ async def create_project(
     db.commit()
     db.refresh(db_project)
     return db_project
+
+@router.put("/{project_id}", response_model=schemas.Project)
+async def update_project(
+    project_id: int,
+    project_in: schemas.ProjectUpdate,
+    db: Session = Depends(get_db)
+):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if project_in.name is not None:
+        # Check if name exists (excluding self)
+        existing = db.query(models.Project).filter(models.Project.name == project_in.name).filter(models.Project.id != project_id).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Project name already exists")
+        project.name = project_in.name
+
+    if project_in.work_dir is not None:
+        project.work_dir = project_in.work_dir
+        
+    if project_in.description is not None:
+        project.description = project_in.description
+
+    project.updated_at = datetime.datetime.now()
+    db.commit()
+    db.refresh(project)
+    return project
 
 @router.delete("/{project_id}")
 async def delete_project(project_id: int, db: Session = Depends(get_db)):

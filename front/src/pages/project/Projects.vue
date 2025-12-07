@@ -2,7 +2,7 @@
   <div class="page-container">
     <PageHeader title="项目管理" description="管理您的项目及其工作区。">
       <template #actions>
-        <button class="btn btn-primary" @click="openCreateModal">
+        <button class="btn btn-primary" @click="openProjectModal()">
           <i class="icon-plus">+</i> 新建项目
         </button>
       </template>
@@ -40,7 +40,7 @@
              <button class="btn-icon" title="打开编辑器" @click="openEditor(proj)">
                <Folder :size="18" />
              </button>
-             <button class="btn-icon" title="配置项目" @click="openCreateModal">
+             <button class="btn-icon" title="配置项目" @click="openProjectModal(proj)">
                <Edit :size="18" />
              </button>
              <button 
@@ -63,9 +63,9 @@
       <p>点击右上角“新建项目”开始您的第一个项目。</p>
     </div>
 
-    <!-- Create Project Modal -->
-    <BaseModal v-model="showCreateModal" title="新建项目" width="500px">
-      <form class="create-form" @submit.prevent="handleCreateProject">
+    <!-- Create/Edit Project Modal -->
+    <BaseModal v-model="showCreateModal" :title="isEditing ? '编辑项目' : '新建项目'" width="500px">
+      <form class="create-form" @submit.prevent="handleProjectSubmit">
         <div class="form-group">
           <label for="name">项目名称 <span class="required">*</span></label>
           <input 
@@ -76,6 +76,17 @@
             class="form-input"
             required
           />
+        </div>
+
+        <div class="form-group">
+          <label for="description">描述</label>
+          <textarea 
+            id="description" 
+            v-model="form.description" 
+            placeholder="项目描述..." 
+            class="form-textarea"
+            rows="3"
+          ></textarea>
         </div>
 
         <div class="form-group">
@@ -91,7 +102,7 @@
           <small class="form-hint">相对于压缩包根目录的执行路径</small>
         </div>
 
-        <div class="form-group">
+        <div v-if="!isEditing" class="form-group">
           <label for="file">项目文件 (ZIP) <span class="required">*</span></label>
           <div class="file-upload-wrapper">
             <input 
@@ -113,7 +124,7 @@
         <div class="form-actions">
           <button type="button" class="btn btn-secondary" @click="showCreateModal = false">取消</button>
           <button type="submit" class="btn btn-primary" :disabled="isSubmitting">
-            {{ isSubmitting ? '保存中...' : '保存' }}
+            {{ isSubmitting ? '提交中...' : (isEditing ? '更新' : '保存') }}
           </button>
         </div>
       </form>
@@ -152,6 +163,8 @@ const showCreateModal = ref(false)
 const showEditorModal = ref(false)
 const currentProject = ref<Project | null>(null)
 const isSubmitting = ref(false)
+const isEditing = ref(false)
+const editingId = ref<number | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
 
@@ -163,7 +176,8 @@ const filteredProjects = computed(() => {
 
 const form = reactive({
   name: '',
-  work_dir: './'
+  work_dir: './',
+  description: ''
 })
 
 const API_BASE = 'http://localhost:8000/api'
@@ -196,12 +210,24 @@ const fetchTasks = async () => {
   }
 }
 
-const openCreateModal = () => {
+const openProjectModal = (proj?: Project) => {
   showCreateModal.value = true
-  form.name = ''
-  form.work_dir = './'
   selectedFile.value = null
   if (fileInput.value) fileInput.value.value = ''
+  
+  if (proj) {
+      isEditing.value = true
+      editingId.value = proj.id
+      form.name = proj.name
+      form.work_dir = proj.work_dir
+      form.description = proj.description || ''
+  } else {
+      isEditing.value = false
+      editingId.value = null
+      form.name = ''
+      form.work_dir = './'
+      form.description = ''
+  }
 }
 
 const triggerFileSelect = () => {
@@ -215,38 +241,69 @@ const handleFileChange = (event: Event) => {
     }
 }
 
-const handleCreateProject = async () => {
-  if (!selectedFile.value) {
-      alert("请选择项目文件")
-      return
-  }
-
-  isSubmitting.value = true
-  
-  const formData = new FormData()
-  formData.append('name', form.name)
-  formData.append('work_dir', form.work_dir)
-  formData.append('file', selectedFile.value)
-
-  try {
-    const res = await fetch(`${API_BASE}/projects/create`, {
-      method: 'POST',
-      body: formData
-    })
-
-    if (res.ok) {
-      await fetchProjects()
-      showCreateModal.value = false
+const handleProjectSubmit = async () => {
+    if (isEditing.value) {
+        if (!editingId.value) return
+        isSubmitting.value = true
+        try {
+            const res = await fetch(`${API_BASE}/projects/${editingId.value}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: form.name,
+                    work_dir: form.work_dir,
+                    description: form.description
+                })
+            })
+            if (res.ok) {
+                await fetchProjects()
+                showCreateModal.value = false
+            } else {
+                const err = await res.json()
+                alert(`更新失败: ${err.detail}`)
+            }
+        } catch(e) {
+            console.error(e)
+            alert('更新失败: 网络错误')
+        } finally {
+            isSubmitting.value = false
+        }
     } else {
-      const err = await res.json()
-      alert(`创建失败: ${err.detail}`)
+        if (!selectedFile.value) {
+            alert("请选择项目文件")
+            return
+        }
+
+        isSubmitting.value = true
+        
+        const formData = new FormData()
+        formData.append('name', form.name)
+        formData.append('work_dir', form.work_dir)
+        formData.append('file', selectedFile.value)
+        if (form.description) {
+            formData.append('description', form.description)
+        }
+
+        try {
+            const res = await fetch(`${API_BASE}/projects/create`, {
+                method: 'POST',
+                body: formData
+            })
+
+            if (res.ok) {
+                await fetchProjects()
+                showCreateModal.value = false
+            } else {
+                const err = await res.json()
+                alert(`创建失败: ${err.detail}`)
+            }
+        } catch (e) {
+            console.error(e)
+            alert('创建失败: 网络错误')
+        } finally {
+            isSubmitting.value = false
+        }
     }
-  } catch (e) {
-    console.error(e)
-    alert('创建失败: 网络错误')
-  } finally {
-    isSubmitting.value = false
-  }
 }
 
 const openEditor = (proj: Project) => {
