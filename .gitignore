@@ -15,7 +15,7 @@ pnpm-debug.log*
 backed/envs/
 backed/data/
 .pyc
-backed/data/TaskManage.db
+backed/data/*
 __pycache__/*
 *.pyc
 .trae/
