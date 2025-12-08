@@ -5,130 +5,138 @@
     <div class="content-grid">
       <!-- Add Version Tabs -->
       <div class="card add-version-card">
-        <h3 class="card-title">添加新 Python 版本</h3>
-        
-        <div class="tabs">
-          <button 
-            :class="['tab-btn', { active: activeTab === 'path' }]" 
-            @click="activeTab = 'path'"
-          >
-            已有解释器
-          </button>
-          <button 
-            :class="['tab-btn', { active: activeTab === 'conda' }]" 
-            @click="activeTab = 'conda'"
-          >
-            创建 Conda 环境
-          </button>
+        <div class="card-header">
+          <h3 class="card-title">添加新 Python 版本</h3>
         </div>
+        
+        <div class="card-body">
+          <div class="tabs">
+            <button 
+              :class="['tab-btn', { active: activeTab === 'path' }]" 
+              @click="activeTab = 'path'"
+            >
+              已有解释器
+            </button>
+            <button 
+              :class="['tab-btn', { active: activeTab === 'conda' }]" 
+              @click="activeTab = 'conda'"
+            >
+              Conda环境创建
+            </button>
+          </div>
 
-        <!-- Tab 1: Add by Path -->
-        <form v-if="activeTab === 'path'" class="add-form" @submit.prevent="handleAddVersion">
-          <div class="form-group">
-            <label for="path">Python 解释器路径</label>
-            <div class="input-with-button">
+          <!-- Tab 1: Add by Path -->
+          <form v-if="activeTab === 'path'" class="add-form" @submit.prevent="handleAddVersion">
+            <div class="form-group">
+              <label for="path">Python 解释器路径</label>
+              <div class="input-with-button">
+                <input 
+                  id="path" 
+                  v-model="newVersion.path" 
+                  type="text" 
+                  placeholder="例如: D:\envs\Kumo\" 
+                  class="form-input"
+                  required
+                />
+                <button type="button" class="btn btn-secondary browse-btn" @click="isPathSelectorOpen = true">
+                  浏览
+                </button>
+              </div>
+              <small class="form-hint">请输入 python.exe 所在的文件夹路径或完整路径。</small>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" :disabled="isInstalling">
+                {{ isInstalling ? '正在处理...' : '添加 Python 解释器' }}
+              </button>
+            </div>
+          </form>
+
+          <!-- Tab 2: Create Conda Env -->
+          <form v-if="activeTab === 'conda'" class="add-form" @submit.prevent="handleCreateConda">
+            <div class="form-group">
+              <label for="conda-name">环境名称</label>
               <input 
-                id="path" 
-                v-model="newVersion.path" 
+                id="conda-name" 
+                v-model="condaForm.name" 
                 type="text" 
-                placeholder="例如: D:\env\miniconda3\envs\Kumo\" 
+                placeholder="例如: my-kumo-env" 
                 class="form-input"
                 required
               />
-              <button type="button" class="btn btn-secondary browse-btn" @click="isPathSelectorOpen = true">
-                浏览
+            </div>
+            
+            <div class="form-group">
+              <label for="conda-version">Python 版本</label>
+              <input 
+                id="conda-version" 
+                v-model="condaForm.version" 
+                type="text" 
+                placeholder="例如: 3.10" 
+                class="form-input"
+                required
+              />
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary" :disabled="isCreatingConda">
+                {{ isCreatingConda ? '正在创建...' : '创建环境' }}
               </button>
             </div>
-            <small class="form-hint">请输入 python.exe 所在的文件夹路径或完整路径。</small>
-          </div>
-
-          <div class="form-actions">
-            <button type="submit" class="btn btn-primary" :disabled="isInstalling">
-              {{ isInstalling ? '正在处理...' : '添加 Python 解释器' }}
-            </button>
-          </div>
-        </form>
-
-        <!-- Tab 2: Create Conda Env -->
-        <form v-if="activeTab === 'conda'" class="add-form" @submit.prevent="handleCreateConda">
-          <div class="form-group">
-            <label for="conda-name">环境名称</label>
-            <input 
-              id="conda-name" 
-              v-model="condaForm.name" 
-              type="text" 
-              placeholder="例如: my-kumo-env" 
-              class="form-input"
-              required
-            />
-          </div>
-          
-          <div class="form-group">
-            <label for="conda-version">Python 版本</label>
-            <input 
-              id="conda-version" 
-              v-model="condaForm.version" 
-              type="text" 
-              placeholder="例如: 3.10" 
-              class="form-input"
-              required
-            />
-          </div>
-
-          <div class="form-actions">
-            <button type="submit" class="btn btn-primary" :disabled="isCreatingConda">
-              {{ isCreatingConda ? '正在创建...' : '创建环境' }}
-            </button>
-          </div>
-          
-          <div v-if="condaMessage" class="status-message">
-            {{ condaMessage }}
-          </div>
-        </form>
+            
+            <div v-if="condaMessage" class="status-message">
+              {{ condaMessage }}
+            </div>
+          </form>
+        </div>
       </div>
 
       <!-- Versions List -->
       <div class="card list-card">
-        <h3 class="card-title">可用 Python 版本</h3>
-        <div class="table-container">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>名称</th>
-                <th>版本号</th>
-                <th>状态</th>
-                <th>路径</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-if="versions.length === 0">
-                <td colspan="5" class="empty-cell">暂无 Python 版本，请在左侧添加。</td>
-              </tr>
-              <tr v-for="ver in versions" :key="ver.id">
-                <td>
-                   <div class="ver-name">{{ ver.name || 'Python' }}</div>
-                </td>
-                <td>{{ ver.version || '-' }}</td>
-                <td>
-                  <span :class="['status-badge', ver.status]">
-                    {{ statusMap[ver.status] || ver.status }}
-                  </span>
-                </td>
-                <td class="path-cell" :title="ver.path">{{ ver.path }}</td>
-                <td>
-                  <div class="action-buttons">
-                    <button class="btn btn-secondary btn-sm" title="打开终端" @click="openTerminal(ver)">
-                       <Terminal :size="16" />
-                    </button>
-                    <button class="btn btn-danger btn-sm" title="删除" @click="deleteVersion(ver)">
-                       <Trash2 :size="16" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="card-header">
+          <h3 class="card-title">可用 Python 版本</h3>
+        </div>
+        <div class="card-body">
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>名称</th>
+                  <th>版本号</th>
+                  <th>状态</th>
+                  <th>路径</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="versions.length === 0">
+                  <td colspan="5" class="empty-cell">暂无 Python 版本，请在左侧添加。</td>
+                </tr>
+                <tr v-for="ver in versions" :key="ver.id">
+                  <td>
+                     <div class="ver-name">{{ ver.name || 'Python' }}</div>
+                  </td>
+                  <td>{{ ver.version || '-' }}</td>
+                  <td>
+                    <span :class="['status-badge', ver.status]">
+                      {{ statusMap[ver.status] || ver.status }}
+                    </span>
+                  </td>
+                  <td class="path-cell" :title="ver.path">{{ ver.path }}</td>
+                  <td>
+                    <div class="action-buttons">
+                      <button class="btn btn-secondary btn-sm" title="打开终端" @click="openTerminal(ver)">
+                         <Terminal :size="16" />
+                      </button>
+                      <button class="btn btn-danger btn-sm" title="删除" @click="deleteVersion(ver)">
+                         <Trash2 :size="16" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
