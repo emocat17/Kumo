@@ -15,6 +15,7 @@ from appProject.project_router import router as project_router
 from appSystem.system_router import router as system_router
 from appSystem.fs_router import router as fs_router
 from appTask.task_router import router as task_router
+from appLogs.logs_router import router as logs_router
 
 app = FastAPI()
 
@@ -32,6 +33,7 @@ app.include_router(project_router, prefix="/api/projects", tags=["Projects"])
 app.include_router(system_router, prefix="/api/system")
 app.include_router(fs_router, prefix="/api")
 app.include_router(task_router, prefix="/api/tasks", tags=["Tasks"])
+app.include_router(logs_router, prefix="/api/logs", tags=["Logs"])
 
 @app.on_event("startup")
 def startup_event():

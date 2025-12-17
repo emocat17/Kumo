@@ -60,7 +60,7 @@ pip install -r requirements.txt
 python main.py
 ```
 *后端服务默认运行在 `http://localhost:8000`*
-
+![1765979050486](image/README/1765979050486.png)
 ### 2. 启动前端服务
 
 ```bash

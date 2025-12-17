@@ -36,18 +36,18 @@
           <Code2Icon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">Python版本</span>
         </router-link>
-        <a href="#" class="nav-item">
+        <!-- <a href="#" class="nav-item">
           <UsersIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">用户管理</span>
-        </a>
+        </a> -->
         <a href="#" class="nav-item">
           <NetworkIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">分布式节点</span>
         </a>
-        <a href="#" class="nav-item">
+        <router-link to="/logs" class="nav-item" active-class="active">
           <FileTextIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">日志管理</span>
-        </a>
+        </router-link>
         <a href="#" class="nav-item">
           <SettingsIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">设置</span>
