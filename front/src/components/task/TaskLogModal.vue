@@ -9,7 +9,7 @@
                    #{{ exec.id }} - {{ formatTime(exec.start_time) }} ({{ exec.status }})
                 </option>
              </select>
-             <button class="btn btn-secondary" @click="fetchLog(selectedExecutionId)" :disabled="loading">
+             <button class="btn btn-secondary" @click="refreshLog" :disabled="loading">
                 <RefreshCwIcon :size="16" />
              </button>
              <button class="btn btn-danger" @click="stopExecution(selectedExecutionId)" v-if="isRunning(selectedExecutionId)">
@@ -49,9 +49,11 @@ const selectedExecutionId = ref<number | null>(null)
 const logContent = ref('')
 const loading = ref(false)
 const logViewer = ref<HTMLElement | null>(null)
-let pollInterval: number | null = null
+const socket = ref<WebSocket | null>(null)
+let statusPollInterval: number | null = null
 
 const API_BASE = 'http://localhost:8000/api'
+const WS_BASE = 'ws://localhost:8000/api'
 
 onMounted(async () => {
   await fetchExecutions()
@@ -62,17 +64,28 @@ onMounted(async () => {
   }
   
   if (selectedExecutionId.value) {
-     fetchLog(selectedExecutionId.value)
+     loadLog(selectedExecutionId.value)
   }
 })
 
 onUnmounted(() => {
-  stopPolling()
+  cleanup()
 })
 
 const close = () => {
-  stopPolling()
+  cleanup()
   emit('close')
+}
+
+const cleanup = () => {
+    if (socket.value) {
+        socket.value.close()
+        socket.value = null
+    }
+    if (statusPollInterval) {
+        clearInterval(statusPollInterval)
+        statusPollInterval = null
+    }
 }
 
 const fetchExecutions = async () => {
@@ -86,38 +99,41 @@ const fetchExecutions = async () => {
   }
 }
 
-const fetchLog = async (execId: number | null) => {
-  if (!execId) return
-  
-  // Don't set loading to true on poll to avoid flicker
-  if (!pollInterval) loading.value = true
-  
+const loadLog = (execId: number | null) => {
+    if (!execId) return
+    
+    // Clean up previous connection
+    cleanup()
+    
+    const exec = executions.value.find(e => e.id === execId)
+    
+    // If running, use WebSocket
+    if (exec && exec.status === 'running') {
+        connectWebSocket(execId)
+        // Poll status to know when it finishes
+        statusPollInterval = window.setInterval(async () => {
+            await fetchExecutions()
+            const current = executions.value.find(e => e.id === execId)
+            if (current && current.status !== 'running') {
+                if (statusPollInterval) clearInterval(statusPollInterval)
+            }
+        }, 2000)
+    } else {
+        // If finished, just fetch HTTP
+        fetchLogHttp(execId)
+    }
+}
+
+const fetchLogHttp = async (execId: number) => {
+  loading.value = true
   try {
     const res = await fetch(`${API_BASE}/tasks/executions/${execId}/log`)
     if (res.ok) {
       const data = await res.json()
-      
-      const shouldScroll = logViewer.value && (logViewer.value.scrollHeight - logViewer.value.scrollTop === logViewer.value.clientHeight)
-      
       logContent.value = data.log
-      
-      // Auto scroll to bottom only if user was already at bottom or just started
       nextTick(() => {
-         if (logViewer.value && (shouldScroll || !pollInterval)) {
-            logViewer.value.scrollTop = logViewer.value.scrollHeight
-         }
+          if (logViewer.value) logViewer.value.scrollTop = logViewer.value.scrollHeight
       })
-      
-      // Check status of execution
-      const exec = executions.value.find(e => e.id === execId)
-      // We need to refresh execution status periodically too
-      if (exec && exec.status === 'running') {
-         startPolling()
-      } else {
-         stopPolling()
-         // If we were polling and stopped, refresh executions list to show final status
-         if (pollInterval) fetchExecutions() 
-      }
     }
   } catch (e) {
     console.error(e)
@@ -125,6 +141,48 @@ const fetchLog = async (execId: number | null) => {
   } finally {
     loading.value = false
   }
+}
+
+const connectWebSocket = (execId: number) => {
+    loading.value = true
+    logContent.value = ''
+    
+    try {
+        // Use relative path or configured base
+        const wsUrl = `${WS_BASE}/tasks/ws/logs/${execId}`
+        console.log('Connecting to', wsUrl)
+        const ws = new WebSocket(wsUrl)
+        socket.value = ws
+        
+        ws.onopen = () => {
+            console.log('WS Connected')
+            loading.value = false
+        }
+        
+        ws.onmessage = (event) => {
+            logContent.value += event.data
+            // Auto scroll
+            nextTick(() => {
+                if (logViewer.value) {
+                    logViewer.value.scrollTop = logViewer.value.scrollHeight
+                }
+            })
+        }
+        
+        ws.onerror = (e) => {
+            console.error('WS Error', e)
+            loading.value = false
+            // Fallback
+            fetchLogHttp(execId)
+        }
+        
+        ws.onclose = () => {
+            console.log('WS Closed')
+        }
+    } catch (e) {
+        console.error(e)
+        fetchLogHttp(execId)
+    }
 }
 
 const isRunning = (id: number | null) => {
@@ -139,7 +197,8 @@ const stopExecution = async (id: number | null) => {
       const res = await fetch(`${API_BASE}/tasks/executions/${id}/stop`, { method: 'POST' })
       if (res.ok) {
          fetchExecutions()
-         fetchLog(id)
+         // Re-load log (will switch to HTTP likely if status updated)
+         loadLog(id)
       } else {
          alert('停止失败')
       }
@@ -158,7 +217,7 @@ const deleteExecution = async (id: number | null) => {
          await fetchExecutions()
          if (executions.value.length > 0) {
             selectedExecutionId.value = executions.value[0].id
-            fetchLog(selectedExecutionId.value)
+            loadLog(selectedExecutionId.value)
          }
       } else {
          alert('删除失败')
@@ -169,23 +228,14 @@ const deleteExecution = async (id: number | null) => {
 }
 
 const handleExecutionChange = () => {
-   stopPolling()
-   fetchLog(selectedExecutionId.value)
+   loadLog(selectedExecutionId.value)
 }
 
-const startPolling = () => {
-  if (pollInterval) return
-  pollInterval = window.setInterval(() => {
-     fetchLog(selectedExecutionId.value)
-  }, 200) // Polling interval reduced to 200ms
+// Button refresh handler
+const refreshLog = () => {
+    loadLog(selectedExecutionId.value)
 }
 
-const stopPolling = () => {
-  if (pollInterval) {
-     window.clearInterval(pollInterval)
-     pollInterval = null
-  }
-}
 
 const formatTime = (iso: string) => new Date(iso).toLocaleString()
 

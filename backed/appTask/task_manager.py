@@ -167,6 +167,8 @@ def run_task_execution(task_id: int):
         
         # Environment (Python Interpreter)
         env_vars = os.environ.copy()
+        # Force unbuffered output for real-time logging
+        env_vars["PYTHONUNBUFFERED"] = "1"
         python_path = "python" # Default
         
         if task.env_id:

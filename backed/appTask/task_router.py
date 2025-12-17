@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
@@ -7,6 +7,7 @@ from appTask.task_manager import task_manager, run_task_execution
 import json
 import datetime
 import os
+import asyncio
 
 router = APIRouter()
 
@@ -175,3 +176,61 @@ async def get_execution_log(execution_id: int, db: Session = Depends(get_db)):
         return {"log": content}
     except Exception as e:
         return {"log": f"Error reading log: {str(e)}"}
+
+@router.websocket("/ws/logs/{execution_id}")
+async def websocket_log(websocket: WebSocket, execution_id: int, db: Session = Depends(get_db)):
+    await websocket.accept()
+    
+    execution = db.query(models.TaskExecution).filter(models.TaskExecution.id == execution_id).first()
+    if not execution or not execution.log_file:
+        await websocket.send_text("Log file not found or execution does not exist.")
+        await websocket.close()
+        return
+
+    log_path = execution.log_file
+    
+    # Wait for file to be created if it doesn't exist yet (e.g. just started)
+    retries = 0
+    while not os.path.exists(log_path) and retries < 20:
+        await asyncio.sleep(0.1)
+        retries += 1
+        
+    if not os.path.exists(log_path):
+        await websocket.send_text("Log file creation timed out.")
+        await websocket.close()
+        return
+
+    try:
+        with open(log_path, "r", encoding="utf-8", errors='replace') as f:
+            # Send initial content
+            content = f.read()
+            if content:
+                await websocket.send_text(content)
+            
+            # Tail the file
+            while True:
+                # Check if client disconnected
+                # (WebSocket.receive_text() would raise, but we are in a send loop)
+                # We assume client is connected if no exception.
+                
+                line = f.read()
+                if line:
+                    await websocket.send_text(line)
+                else:
+                    # Check if execution finished
+                    # We need to refresh execution status from DB, but doing it in loop is expensive.
+                    # Instead, we can check if process is still in task_manager.running_processes
+                    # But task_manager might be in another worker if we were using uvicorn workers (but we are likely single process here)
+                    # Or we just check if file is still being written to?
+                    # Simplest: Just sleep. If the task is done, eventually the user will disconnect or we can implement a "done" signal.
+                    # Let's check DB every 2 seconds maybe?
+                    await asyncio.sleep(0.05) # 50ms latency
+                    
+    except WebSocketDisconnect:
+        print(f"Client disconnected from log {execution_id}")
+    except Exception as e:
+        print(f"WebSocket error: {e}")
+        try:
+            await websocket.send_text(f"Error: {str(e)}")
+        except:
+            pass
