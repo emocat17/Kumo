@@ -5,7 +5,8 @@ import { fileURLToPath, URL } from 'node:url'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const port = 6677 // Changed from 6666 (unsafe port) to 6677
-  const apiBase = env.VITE_API_BASE_URL
+  // Prioritize system environment variables (e.g. from Docker Compose)
+  const apiBase = process.env.VITE_API_BASE_URL || env.VITE_API_BASE_URL
 
   return {
     plugins: [vue()],

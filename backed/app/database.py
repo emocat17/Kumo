@@ -20,6 +20,13 @@ def get_db():
 
 # Auto-create tables
 def init_db():
+    import os
+    # Ensure data directory exists
+    db_path = SQLALCHEMY_DATABASE_URL.replace("sqlite:///", "")
+    db_dir = os.path.dirname(db_path)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+        
     Base.metadata.create_all(bind=engine)
 
 init_db()

@@ -1,22 +1,58 @@
-node_modules/
-dist/
+# --- General ---
 .DS_Store
+Thumbs.db
 *.log
 temp/
+tmp/
+
+# --- IDEs ---
 .idea/
 .vscode/
-*.local
-.env.*.local
+*.swp
+*.swo
+.trae/
+
+# --- Frontend (Vue/Node) ---
+node_modules/
+dist/
 coverage/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-backed/envs/
-backed/data/
-.pyc
+.env.local
+.env.*.local
+*.local
 
-__pycache__/*
+# --- Backend (Python) ---
+__pycache__/
 *.pyc
-.trae/
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Spider Project Specific ---
+# Backend runtime data (Do not commit production data)
+backed/data/*.db
+backed/data/*.sqlite
+!backed/data/.gitkeep
+
+# Backend logs
+backed/logs/
+
+# Backend managed environments
+backed/envs/
+
+# Backend uploaded projects
 backed/projects/
+
+# Docker
+.docker/
+docker-compose.override.yml
