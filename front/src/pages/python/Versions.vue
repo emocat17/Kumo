@@ -1,6 +1,6 @@
 <template>
   <div class="page-container">
-    <PageHeader title="Python 版本" description="管理服务器上可用的 Python 版本。推荐使用 Conda 环境(需要预先配置)。" />
+    <PageHeader title="Python 版本" description="管理服务器上可用的 Python 版本。" />
 
     <div class="content-grid">
       <!-- Add Version Tabs -->
@@ -21,7 +21,7 @@
               :class="['tab-btn', { active: activeTab === 'conda' }]" 
               @click="activeTab = 'conda'"
             >
-              Conda环境创建
+              环境创建
             </button>
           </div>
 
