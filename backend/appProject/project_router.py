@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
 from appProject import models, schemas
+from appTask.models import Task
 import datetime
 from pydantic import BaseModel
 
@@ -58,6 +59,7 @@ async def list_projects(db: Session = Depends(get_db)):
 async def create_project(
     name: str = Form(...),
     work_dir: str = Form("./"),
+    output_dir: str = Form(None),
     description: str = Form(None),
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
@@ -151,6 +153,15 @@ async def delete_project(project_id: int, db: Session = Depends(get_db)):
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
+    # Check if used by any task
+    related_tasks = db.query(Task).filter(Task.project_id == project_id).all()
+    if related_tasks:
+        task_names = ", ".join([t.name for t in related_tasks])
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot delete project: It is currently used by tasks: {task_names}"
+        )
+
     # Remove directory with robust logic
     if os.path.exists(project.path):
         print(f"Deleting project directory: {project.path}")

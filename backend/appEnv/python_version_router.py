@@ -9,6 +9,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from app.database import get_db, SQLALCHEMY_DATABASE_URL, SessionLocal
 from appEnv import models, schemas
+from appTask.models import Task
 import platform
 import threading
 import sqlite3
@@ -318,7 +319,24 @@ async def add_python_version(request: PathRequest, db: Session = Depends(get_db)
 
 @router.get("", response_model=List[schemas.PythonVersion])
 async def list_versions(db: Session = Depends(get_db)):
-    return db.query(models.PythonVersion).all()
+    versions = db.query(models.PythonVersion).all()
+    
+    # Check for usage in Tasks
+    tasks = db.query(Task).all()
+    
+    usage_map = {}
+    for task in tasks:
+        if task.env_id:
+            if task.env_id not in usage_map:
+                usage_map[task.env_id] = []
+            usage_map[task.env_id].append(task.name)
+    
+    for v in versions:
+        used_tasks = usage_map.get(v.id, [])
+        v.is_in_use = len(used_tasks) > 0
+        v.used_by_tasks = used_tasks
+        
+    return versions
 
 # Helper to delete in background
 def background_delete_version(version_id: int):

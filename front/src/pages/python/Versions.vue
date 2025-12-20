@@ -6,7 +6,7 @@
       <!-- Add Version Tabs -->
       <div class="card add-version-card">
         <div class="card-header">
-          <h3 class="card-title">添加新 Python 版本</h3>
+          <h3 class="card-title">添加 Python</h3>
         </div>
         
         <div class="card-body">
@@ -93,7 +93,7 @@
       <!-- Versions List -->
       <div class="card list-card">
         <div class="card-header">
-          <h3 class="card-title">可用 Python 版本</h3>
+          <h3 class="card-title">Python 管理</h3>
         </div>
         <div class="card-body">
           <div class="table-container">
@@ -125,7 +125,12 @@
                       <button class="btn btn-secondary btn-sm" title="查看详情" @click="showVersionInfo(ver)">
                          <FileText :size="16" />
                       </button>
-                      <button class="btn btn-danger btn-sm" title="删除" @click="deleteVersion(ver)">
+                      <button 
+                        class="btn btn-danger btn-sm" 
+                        :title="ver.is_in_use && ver.used_by_tasks?.length ? `无法删除：${ver.used_by_tasks.join(', ')} 定时任务使用中` : '删除'" 
+                        :disabled="ver.is_in_use"
+                        @click="deleteVersion(ver)"
+                      >
                          <Trash2 :size="16" />
                       </button>
                     </div>
@@ -139,9 +144,8 @@
     </div>
 
     <BaseModal 
-      :is-open="isInfoModalOpen" 
+      v-model="isInfoModalOpen" 
       title="版本详情" 
-      @close="isInfoModalOpen = false"
     >
       <div v-if="selectedVersion" class="info-content">
         <div class="info-row">
@@ -186,9 +190,11 @@ interface PythonVersion {
   id: number
   path: string
   version: string
-  source_type: string
+  source_type?: string
   status: string
   name: string
+  is_in_use?: boolean
+  is_conda: boolean
 }
 
 const activeTab = ref<'path' | 'conda'>('path')
@@ -246,6 +252,11 @@ const stopPolling = () => {
     window.clearInterval(pollInterval)
     pollInterval = null
   }
+}
+
+const showVersionInfo = (ver: PythonVersion) => {
+  selectedVersion.value = ver
+  isInfoModalOpen.value = true
 }
 
 const handleAddVersion = async () => {
@@ -328,6 +339,10 @@ const handleCreateConda = async () => {
 
 
 const deleteVersion = async (ver: PythonVersion) => {
+  if (ver.is_in_use && ver.used_by_tasks?.length) {
+      alert(`该环境正在被以下任务使用，无法删除：\n${ver.used_by_tasks.join('\n')}`)
+      return
+  }
   if (confirm(`确定要移除 ${ver.name} 吗？`)) {
     try {
       const response = await fetch(`/api/python/versions/${ver.id}`, {

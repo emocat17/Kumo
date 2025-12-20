@@ -51,7 +51,8 @@
              <button 
                class="btn-icon delete" 
                title="删除" 
-               :disabled="!!taskCounts[proj.id]"
+               :disabled="proj.used_by_tasks && proj.used_by_tasks.length > 0"
+               :title="proj.used_by_tasks && proj.used_by_tasks.length > 0 ? `无法删除：${proj.used_by_tasks.join(', ')} 定时任务使用中` : '删除'"
                @click="deleteProject(proj)"
              >
                <Trash2 :size="18" />
@@ -186,10 +187,11 @@ interface Project {
   output_dir?: string
   description: string
   created_at: string
+  used_by_tasks?: string[]
 }
 
 const projects = ref<Project[]>([])
-const taskCounts = ref<Record<number, number>>({})
+// const taskCounts = ref<Record<number, number>>({}) // Removed
 const searchQuery = ref('')
 const showCreateModal = ref(false)
 const showEditorModal = ref(false)
@@ -229,20 +231,7 @@ const fetchProjects = async () => {
 }
 
 const fetchTasks = async () => {
-  try {
-    const res = await fetch(`${API_BASE}/tasks`)
-    if (res.ok) {
-      const tasks = await res.json()
-      // Count tasks per project
-      const counts: Record<number, number> = {}
-      tasks.forEach((t: any) => {
-        counts[t.project_id] = (counts[t.project_id] || 0) + 1
-      })
-      taskCounts.value = counts
-    }
-  } catch (e) {
-    console.error(e)
-  }
+  // Logic moved to backend projects API
 }
 
 const openProjectModal = (proj?: Project) => {
@@ -358,8 +347,8 @@ const closeEditor = () => {
 }
 
 const deleteProject = async (proj: Project) => {
-    if (taskCounts.value[proj.id]) {
-      alert('该项目正在被任务使用，无法删除。')
+    if (proj.used_by_tasks && proj.used_by_tasks.length > 0) {
+      alert(`该项目正在被以下任务使用，无法删除：\n${proj.used_by_tasks.join('\n')}`)
       return
     }
     if(!confirm(`确定要删除项目 "${proj.name}" 吗？这将会删除服务器上的文件。`)) return
@@ -369,7 +358,7 @@ const deleteProject = async (proj: Project) => {
         if(res.ok) {
             fetchProjects()
         } else {
-            alert('删除失败')
+            alert('删除失败，请先删除相关定时任务。')
         }
     } catch(e) {
         console.error(e)
@@ -386,7 +375,7 @@ const formatDate = (dateStr: string) => {
 
 onMounted(() => {
   fetchProjects()
-  fetchTasks()
+  // fetchTasks() // Removed
 })
 </script>
 

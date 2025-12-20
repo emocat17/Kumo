@@ -213,6 +213,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+
 import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { Trash2, Search, FileText, X } from 'lucide-vue-next'
@@ -269,7 +270,7 @@ const fetchEnvironments = async () => {
     if (res.ok) {
       environments.value = await res.json()
     }
-  } catch (e) {
+  } catch (e: unknown) {
     console.error(e)
   }
 }
@@ -282,7 +283,7 @@ const fetchPackages = async (envId: number) => {
         if (res.ok) {
             packages.value = await res.json()
         }
-    } catch (e) {
+    } catch (e: unknown) {
         console.error(e)
     } finally {
         loadingPkgs.value = false
@@ -297,7 +298,7 @@ const fetchLogs = async () => {
             const data = await res.json()
             installLog.value = data.log
         }
-    } catch (e) {
+    } catch (e: unknown) {
         console.error(e)
     }
 }
@@ -454,7 +455,7 @@ onUnmounted(() => {
 
 // --- Computed ---
 const filteredEnvironments = computed(() => {
-  return environments.value.filter(env => {
+  return environments.value.filter((env: Environment) => {
     const searchLower = filters.search.toLowerCase()
     const matchSearch = env.name.toLowerCase().includes(searchLower) || 
                         env.version.toLowerCase().includes(searchLower)
@@ -465,7 +466,7 @@ const filteredEnvironments = computed(() => {
 const filteredPackages = computed(() => {
     if (!pkgSearch.value) return packages.value
     const q = pkgSearch.value.toLowerCase()
-    return packages.value.filter(p => p.name.toLowerCase().includes(q))
+    return packages.value.filter((p: PackageInfo) => p.name.toLowerCase().includes(q))
 })
 
 // --- Helpers ---

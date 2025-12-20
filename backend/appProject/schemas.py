@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 class ProjectBase(BaseModel):
     name: str
@@ -22,6 +22,7 @@ class Project(ProjectBase):
     path: str
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    used_by_tasks: Optional[list[str]] = []
 
     class Config:
         from_attributes = True
