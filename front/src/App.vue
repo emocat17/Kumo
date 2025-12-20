@@ -14,6 +14,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   zoom: 1.1; /* Scale up content by ~25-50% based on request */
+  overflow: hidden; /* Prevent outer scrollbar when zoom is applied */
 }
 
 *, *::before, *::after {
