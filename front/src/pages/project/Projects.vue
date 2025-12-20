@@ -358,7 +358,7 @@ const deleteProject = async (proj: Project) => {
         if(res.ok) {
             fetchProjects()
         } else {
-            alert('删除失败，请先删除相关定时任务。')
+            alert('删除失败')
         }
     } catch(e) {
         console.error(e)

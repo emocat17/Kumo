@@ -2,8 +2,24 @@
   <div class="dashboard-page">
     <PageHeader title="仪表盘" description="查看系统运行状态和性能监控。" />
 
+    <!-- Tabs -->
+    <div class="tabs">
+      <button 
+        :class="['tab-btn', { active: activeTab === 'overview' }]" 
+        @click="activeTab = 'overview'"
+      >
+        系统概览
+      </button>
+      <button 
+        :class="['tab-btn', { active: activeTab === 'performance' }]" 
+        @click="activeTab = 'performance'"
+      >
+        性能配置
+      </button>
+    </div>
+
     <!-- System Overview -->
-    <section class="section">
+    <section v-if="activeTab === 'overview'" class="section">
       <h3 class="section-title">系统概览</h3>
       <div class="overview-grid">
         <div class="card overview-card">
@@ -49,7 +65,7 @@
     </section>
 
     <!-- Performance Monitor -->
-    <section class="section">
+    <section v-if="activeTab === 'performance'" class="section">
       <h3 class="section-title">性能配置</h3>
       <div class="perf-grid">
         <!-- CPU -->
@@ -245,6 +261,7 @@ interface SystemStats {
   }
 }
 
+const activeTab = ref<'overview' | 'performance'>('overview')
 const systemInfo = ref<SystemInfo>({} as SystemInfo)
 const systemStats = ref<SystemStats>({} as SystemStats)
 const timer = ref<number | null>(null)
@@ -317,6 +334,46 @@ onUnmounted(() => {
     margin-bottom: 16px;
     padding-left: 8px;
     border-left: 4px solid #1890ff;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 24px;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 20px;
+  padding-left: 8px;
+}
+
+.tab-btn {
+  padding: 12px 4px;
+  border: none;
+  background: none;
+  font-size: 16px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s;
+}
+
+.tab-btn:hover {
+  color: #1890ff;
+}
+
+.tab-btn.active {
+  color: #1890ff;
+  font-weight: 600;
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: #1890ff;
 }
 
 /* Overview Grid */
