@@ -4,6 +4,9 @@ Thumbs.db
 *.log
 temp/
 tmp/
+Data/
+
+
 
 # --- IDEs ---
 .idea/

@@ -50,7 +50,6 @@
              </button>
              <button 
                class="btn-icon delete" 
-               title="删除" 
                :disabled="proj.used_by_tasks && proj.used_by_tasks.length > 0"
                :title="proj.used_by_tasks && proj.used_by_tasks.length > 0 ? `无法删除：${proj.used_by_tasks.join(', ')} 定时任务使用中` : '删除'"
                @click="deleteProject(proj)"
@@ -122,7 +121,7 @@
                   浏览
                 </button>
             </div>
-            <small class="form-hint">所有产生的数据文件将保存到此目录 (Docker 容器内路径)</small>
+            <small class="form-hint">所有产生的数据文件将保存到此目录 (Docker 容器内路径)/data:/Data/</small>
         </div>
 
         <div v-if="!isEditing" class="form-group">

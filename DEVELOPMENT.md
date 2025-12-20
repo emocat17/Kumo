@@ -199,6 +199,12 @@ docker-compose down
 5.  **前端交互**:
     *   前端使用 Vue 3 组合式 API。
     *   注意“配置中/安装中”等长耗时状态的 UI 反馈，不要简单禁用按钮，应允许用户查看进度日志。
+    *   **Tab 扩展**: 修改 `Dashboard.vue` 时，请遵循现有的 `activeTab` 状态管理模式，确保 HTML 结构完整（特别是 Tab 按钮区域）。
+
+6.  **引用完整性 (Referential Integrity)**:
+    *   在删除核心资源（如 Project, PythonVersion）前，**必须**检查 `Task` 表中是否存在引用。
+    *   后端应抛出 HTTP 400 错误并返回具体占用的任务名称。
+    *   前端应根据 `used_by_tasks` 字段禁用删除按钮或显示提示。
 
 ---
 *文档最后更新时间: 2025-12-20*
