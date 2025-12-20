@@ -1,23 +1,25 @@
-# Spider Front & Backend Docker 开发环境部署指南
+# Kumo Docker 开发环境部署指南
 
-本文档详细描述了如何使用 Docker 和 Docker Compose 将 Spider 项目（前后端）容器化，并建立高效的开发环境。
+本文档详细描述了如何使用 Docker 和 Docker Compose 将 Kumo 项目容器化，并建立高效的开发环境。
 
 ## 1. 项目架构分析与环境需求
 
-### 1.1 后端 (Backed)
+### 1.1 后端 (Backend)
+- **容器名称**: `backend`
 - **技术栈**: FastAPI, SQLAlchemy, APScheduler, Python.
 - **基础镜像**: `continuumio/miniconda3`。
     - **原因**: 项目代码 (`appEnv`) 包含 Conda 环境管理逻辑 (`is_conda`)，必须使用 Conda 基础镜像以支持完整功能。
 - **关键依赖**:
     - **系统库**: `build-essential`, `git` (用于安装部分 Python 包)。
-    - **数据存储**: SQLite (`backed/data/TaskManage.db`)。
+    - **数据存储**: SQLite (`backend/data/TaskManage.db`)。
     - **文件存储**: 
-        - `backed/projects/`: 用户上传的项目代码。
-        - `backed/envs/`: 创建的虚拟环境。
-        - `backed/logs/`: 任务与安装日志。
+        - `backend/projects/`: 用户上传的项目代码。
+        - `backend/envs/`: 创建的虚拟环境。
+        - `backend/logs/`: 任务与安装日志。
 - **开发模式**: 使用 `uvicorn --reload` 实现代码热更新。
 
-### 1.2 前端 (Front)
+### 1.2 前端 (Kumo)
+- **容器名称**: `Kumo`
 - **技术栈**: Vue 3, Vite, TypeScript.
 - **基础镜像**: `node:20-alpine`。
 - **开发模式**: `npm run dev` 配合 Vite HMR (热模块替换)。
@@ -28,10 +30,10 @@
 为了实现容器化，我们将在项目根目录及各子目录下添加以下配置文件：
 
 ```text
-Spider_front/
+Kumo/
 ├── docker-compose.yml          # [新增] 总控编排文件
 ├── .gitignore                  # [优化] 包含 Docker 和项目特定的忽略规则
-├── backed/
+├── backend/
 │   ├── Dockerfile              # [新增] 后端构建文件
 │   ├── .dockerignore           # [新增] 后端构建忽略规则
 │   ├── requirements.txt        # [现有]
@@ -48,7 +50,7 @@ Spider_front/
 
 ### 3.1 后端配置
 
-#### 3.1.1 Dockerfile (`backed/Dockerfile`)
+#### 3.1.1 Dockerfile (`backend/Dockerfile`)
 
 ```dockerfile
 # 使用 Miniconda3 作为基础镜像，支持 conda 命令
@@ -84,7 +86,7 @@ EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 ```
 
-#### 3.1.2 Docker 忽略文件 (`backed/.dockerignore`)
+#### 3.1.2 Docker 忽略文件 (`backend/.dockerignore`)
 
 ```text
 __pycache__
@@ -142,7 +144,7 @@ dist
 version: '3.8'
 
 services:
-  # --- 后端服务 ---
+  # --- Backend Service ---
   backend:
     container_name: backend
     build:
@@ -165,12 +167,12 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     networks:
-      - spider-net
+      - kumo-net
     restart: unless-stopped
 
-  # --- 前端服务 ---
-  front:
-    container_name: front
+  # --- Frontend Service (Kumo) ---
+  kumo:
+    container_name: Kumo
     build:
       context: ./front
       dockerfile: Dockerfile
@@ -189,10 +191,10 @@ services:
     depends_on:
       - backend
     networks:
-      - spider-net
+      - kumo-net
 
 networks:
-  spider-net:
+  kumo-net:
     driver: bridge
 ```
 
@@ -228,17 +230,17 @@ networks:
     ```bash
     docker-compose ps
     ```
-    确保 `backend` 和 `front` 状态均为 `Up`。
+    确保 `backend` 和 `Kumo` 状态均为 `Up`。
 
 3.  **查看实时日志**:
     ```bash
     docker-compose logs -f
     ```
     *   **Backend**: 应看到 `Uvicorn running on http://0.0.0.0:8000`。
-    *   **Front**: 应看到 `Local: http://0.0.0.0:6677/`。
+    *   **front**: 应看到 `Local: http://0.0.0.0:6677/`。
 
 4.  **访问应用**:
-    *   前端页面: [http://localhost:6677](http://localhost:6677)
+    *   前端页面 (Kumo): [http://localhost:6677](http://localhost:6677)
     *   后端文档: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ### 5.2 开发工作流
@@ -254,7 +256,7 @@ networks:
         1. 在 `backed/requirements.txt` 添加包名。
         2. 运行 `docker-compose up -d --build backend`。
     *   **Node**:
-        1. `docker exec -it front npm install <package_name>`。
+        1. `docker exec -it Kumo npm install <package_name>`。
         2. 宿主机的 `package.json` 会同步更新。
 
 ## 6. 常见问题排查

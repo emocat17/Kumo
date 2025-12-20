@@ -17,7 +17,7 @@ from appSystem.fs_router import router as fs_router
 from appTask.task_router import router as task_router
 from appLogs.logs_router import router as logs_router
 
-app = FastAPI()
+app = FastAPI(title="Kumo Backend")
 
 app.add_middleware(
     CORSMiddleware,
@@ -34,10 +34,6 @@ app.include_router(system_router, prefix="/api/system")
 app.include_router(fs_router, prefix="/api")
 app.include_router(task_router, prefix="/api/tasks", tags=["Tasks"])
 app.include_router(logs_router, prefix="/api/logs", tags=["Logs"])
-
-@app.on_event("startup")
-def startup_event():
-    task_manager.load_jobs_from_db()
 
 if __name__ == "__main__":
     import uvicorn

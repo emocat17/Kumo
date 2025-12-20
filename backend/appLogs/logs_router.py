@@ -10,9 +10,9 @@ import shutil
 router = APIRouter()
 
 # Use relative path to ensure we find the logs regardless of CWD
-# .../backed/appLogs/logs_router.py -> .../backed/logs/tasks
-BACKED_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LOG_DIR = os.path.join(BACKED_DIR, "logs", "tasks")
+# .../backend/appLogs/logs_router.py -> .../backend/logs/tasks
+BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOG_DIR = os.path.join(BACKEND_DIR, "logs", "tasks")
 
 def get_log_dir():
     if not os.path.exists(LOG_DIR):

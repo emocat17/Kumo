@@ -37,8 +37,9 @@ venv/
 .pytest_cache/
 .coverage
 htmlcov/
+backend/envs/
 
-# --- Spider Project Specific ---
+# --- Kumo Project Specific ---
 # Backend runtime data (Do not commit production data)
 backed/data/*.db
 backed/data/*.sqlite

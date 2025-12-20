@@ -44,7 +44,7 @@ Kumo 是一个基于 Web 的现代化 Python 任务调度与环境管理平台�
 ### 1. 启动后端服务
 
 ```bash
-cd backed
+cd backend
 
 # 1. 创建并激活虚拟环境 (可选但推荐)
 python -m venv venv

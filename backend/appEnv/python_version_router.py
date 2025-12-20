@@ -105,7 +105,22 @@ def ensure_columns():
         # Double check for NULLs (in case columns existed but were NULL)
         cursor.execute("UPDATE python_versions SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")
         cursor.execute("UPDATE python_versions SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL")
-            
+
+        # Check and Drop Unique Index on version (Fix for duplicate versions)
+        cursor.execute("PRAGMA index_list('python_versions')")
+        indexes = cursor.fetchall()
+        for idx in indexes:
+            # idx: (seq, name, unique, origin, partial)
+            index_name = idx[1]
+            is_unique = idx[2]
+            if is_unique:
+                cursor.execute(f"PRAGMA index_info('{index_name}')")
+                col_info = cursor.fetchall()
+                # col_info: (seqno, cid, name)
+                if len(col_info) == 1 and col_info[0][2] == 'version':
+                    print(f"Migrating: Dropping unique index '{index_name}' on 'version' column")
+                    cursor.execute(f"DROP INDEX {index_name}")
+
         conn.commit()
     except Exception as e:
         print(f"Migration warning: {e}")

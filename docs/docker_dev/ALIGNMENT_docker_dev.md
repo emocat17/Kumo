@@ -1,7 +1,7 @@
 # Alignment: Docker Development Environment
 
 ## 1. Project Context
-- **Project**: Spider_front (Vue 3 Frontend + FastAPI Backend).
+- **Project**: Kumo.
 - **Goal**: Containerize the application for development using Docker Compose.
 - **Constraints**: 
     - Real-time file mapping (Hot Reload).
@@ -16,13 +16,16 @@
 - Environment: 
     - Backend needs `conda` support.
     - Frontend needs `node` environment.
+- **Naming Convention**: 
+    - Overall Project: Kumo.
+    - Containers: `backend` and `front` (frontend).
 
 ## 3. Architecture Decision
 - **Base Images**:
     - Backend: `continuumio/miniconda3` (to support `is_conda` features).
     - Frontend: `node:20-alpine`.
 - **Orchestration**: `docker-compose.yml` version 3.8.
-- **Networking**: Bridge network `spider-net`.
+- **Networking**: Bridge network `kumo-net`.
 - **Volumes**: Extensive mapping to host for DX (Developer Experience).
 - **Git Strategy**: Optimized `.gitignore` to handle runtime artifacts (`logs`, `envs`, `data`) while keeping the repo clean.
 - **Hot Reload**:

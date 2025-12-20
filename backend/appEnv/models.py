@@ -8,7 +8,7 @@ class PythonVersion(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, default="")
-    version = Column(String, unique=True, index=True)
+    version = Column(String, index=True)
     path = Column(String)
     is_default = Column(Boolean, default=False)
     status = Column(String, default="ready")
