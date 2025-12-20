@@ -1,0 +1,65 @@
+name: kumo
+
+services:
+  # --- Backend Service ---
+  backend:
+    container_name: backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      # 1. 代码映射：宿主机修改代码，容器内实时生效 (热重载)
+      - ./backend:/app
+      - ./Data:/data
+      
+      # 2. 数据持久化：防止重启丢失数据
+      - ./backend/data:/app/data        # 数据库 (SQLite)
+      - ./backend/projects:/app/projects # 上传的项目文件
+      - ./backend/logs:/app/logs        # 运行日志
+      - ./backend/envs:/app/envs        # 创建的虚拟环境
+      
+      # 3. 排除宿主机虚拟环境 (如果存在)
+      # - /app/venv
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - WATCHFILES_FORCE_POLLING=true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/docs || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - kumo-net
+    restart: unless-stopped
+
+  # --- Frontend Service ---
+  front:
+    container_name: front
+    build:
+      context: ./front
+      dockerfile: Dockerfile
+    volumes:
+      # 1. 代码映射：宿主机修改代码，容器内实时生效 (HMR)
+      - ./front:/app
+      
+      # 2. 依赖隔离：使用匿名卷，防止宿主机 node_modules 覆盖容器内
+      # 这解决了 Windows/Linux 二进制不兼容问题
+      - /app/node_modules
+    ports:
+      - "6677:6677"
+    environment:
+      # 设置 API 代理地址 (指向 backend 容器名)
+      - VITE_API_BASE_URL=http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - kumo-net
+    restart: unless-stopped
+
+networks:
+  kumo-net:
+    driver: bridge

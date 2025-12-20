@@ -36,6 +36,11 @@
             <span class="value" :title="proj.work_dir">{{ proj.work_dir }}</span>
           </div>
           
+          <div class="info-row" v-if="proj.output_dir">
+            <span class="label">输出路径:</span>
+            <span class="value" :title="proj.output_dir">{{ proj.output_dir }}</span>
+          </div>
+          
           <div class="actions-row">
              <button class="btn-icon" title="打开编辑器" @click="openEditor(proj)">
                <Folder :size="18" />
@@ -45,8 +50,8 @@
              </button>
              <button 
                class="btn-icon delete" 
-               title="删除" 
-               :disabled="!!taskCounts[proj.id]"
+               :disabled="proj.used_by_tasks && proj.used_by_tasks.length > 0"
+               :title="proj.used_by_tasks && proj.used_by_tasks.length > 0 ? `无法删除：${proj.used_by_tasks.join(', ')} 定时任务使用中` : '删除'"
                @click="deleteProject(proj)"
              >
                <Trash2 :size="18" />
@@ -102,6 +107,23 @@
           <small class="form-hint">相对于压缩包根目录的执行路径</small>
         </div>
 
+        <div class="form-group">
+            <label for="output_dir">数据输出路径</label>
+            <div class="input-with-button">
+                <input 
+                  id="output_dir" 
+                  v-model="form.output_dir" 
+                  type="text" 
+                  placeholder="例如: /data/my_project_data" 
+                  class="form-input"
+                />
+                <button type="button" class="btn btn-secondary browse-btn" @click="isPathSelectorOpen = true">
+                  浏览
+                </button>
+            </div>
+            <small class="form-hint">所有产生的数据文件将保存到此目录 (Docker 容器内路径)/data:/Data/</small>
+        </div>
+
         <div v-if="!isEditing" class="form-group">
           <label for="file">项目文件 (ZIP) <span class="required">*</span></label>
           <div class="file-upload-wrapper">
@@ -137,6 +159,14 @@
         :project-name="currentProject.name"
         @close="closeEditor"
     />
+    
+    <!-- Directory Selector Modal -->
+    <FileSelectorModal 
+      :is-open="isPathSelectorOpen" 
+      :is-dir-mode="true"
+      @close="isPathSelectorOpen = false" 
+      @select="onOutputDirSelected" 
+    />
   </div>
 </template>
 
@@ -145,6 +175,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import ProjectEditorModal from '@/components/project/ProjectEditorModal.vue'
+import FileSelectorModal from '@/components/common/FileSelectorModal.vue'
 import { Folder, Edit, Trash2 } from 'lucide-vue-next'
 
 interface Project {
@@ -152,12 +183,14 @@ interface Project {
   name: string
   path: string
   work_dir: string
+  output_dir?: string
   description: string
   created_at: string
+  used_by_tasks?: string[]
 }
 
 const projects = ref<Project[]>([])
-const taskCounts = ref<Record<number, number>>({})
+// const taskCounts = ref<Record<number, number>>({}) // Removed
 const searchQuery = ref('')
 const showCreateModal = ref(false)
 const showEditorModal = ref(false)
@@ -168,6 +201,8 @@ const editingId = ref<number | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
 
+const isPathSelectorOpen = ref(false)
+
 const filteredProjects = computed(() => {
   if (!searchQuery.value) return projects.value
   const query = searchQuery.value.toLowerCase()
@@ -177,6 +212,7 @@ const filteredProjects = computed(() => {
 const form = reactive({
   name: '',
   work_dir: './',
+  output_dir: '',
   description: ''
 })
 
@@ -194,20 +230,7 @@ const fetchProjects = async () => {
 }
 
 const fetchTasks = async () => {
-  try {
-    const res = await fetch(`${API_BASE}/tasks`)
-    if (res.ok) {
-      const tasks = await res.json()
-      // Count tasks per project
-      const counts: Record<number, number> = {}
-      tasks.forEach((t: any) => {
-        counts[t.project_id] = (counts[t.project_id] || 0) + 1
-      })
-      taskCounts.value = counts
-    }
-  } catch (e) {
-    console.error(e)
-  }
+  // Logic moved to backend projects API
 }
 
 const openProjectModal = (proj?: Project) => {
@@ -220,12 +243,14 @@ const openProjectModal = (proj?: Project) => {
       editingId.value = proj.id
       form.name = proj.name
       form.work_dir = proj.work_dir
+      form.output_dir = proj.output_dir || ''
       form.description = proj.description || ''
   } else {
       isEditing.value = false
       editingId.value = null
       form.name = ''
       form.work_dir = './'
+      form.output_dir = ''
       form.description = ''
   }
 }
@@ -252,6 +277,7 @@ const handleProjectSubmit = async () => {
                 body: JSON.stringify({
                     name: form.name,
                     work_dir: form.work_dir,
+                    output_dir: form.output_dir,
                     description: form.description
                 })
             })
@@ -282,6 +308,9 @@ const handleProjectSubmit = async () => {
         formData.append('file', selectedFile.value)
         if (form.description) {
             formData.append('description', form.description)
+        }
+        if (form.output_dir) {
+            formData.append('output_dir', form.output_dir)
         }
 
         try {
@@ -317,8 +346,8 @@ const closeEditor = () => {
 }
 
 const deleteProject = async (proj: Project) => {
-    if (taskCounts.value[proj.id]) {
-      alert('该项目正在被任务使用，无法删除。')
+    if (proj.used_by_tasks && proj.used_by_tasks.length > 0) {
+      alert(`该项目正在被以下任务使用，无法删除：\n${proj.used_by_tasks.join('\n')}`)
       return
     }
     if(!confirm(`确定要删除项目 "${proj.name}" 吗？这将会删除服务器上的文件。`)) return
@@ -335,13 +364,17 @@ const deleteProject = async (proj: Project) => {
     }
 }
 
+const onOutputDirSelected = (path: string) => {
+  form.output_dir = path
+}
+
 const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleString()
 }
 
 onMounted(() => {
   fetchProjects()
-  fetchTasks()
+  // fetchTasks() // Removed
 })
 </script>
 
@@ -383,6 +416,13 @@ onMounted(() => {
 .label {
     color: #888;
     margin-right: 8px;
+    white-space: nowrap;
+}
+
+.value {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .actions-row {
@@ -435,4 +475,12 @@ onMounted(() => {
 }
 
 /* Button styles removed */
+.input-with-button {
+  display: flex;
+  gap: 8px;
+}
+
+.browse-btn {
+  white-space: nowrap;
+}
 </style>

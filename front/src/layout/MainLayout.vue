@@ -3,12 +3,15 @@
     <!-- Sidebar -->
     <aside :class="['sidebar', { collapsed: isCollapsed }]">
       <div class="sidebar-header">
-        <div class="brand-wrapper">
+        <div class="brand-wrapper" v-if="!isCollapsed">
           <img src="@/assets/Kumo.png" alt="Logo" class="logo" />
-          <div v-if="!isCollapsed" class="brand-text">
+          <div class="brand-text">
             <span class="title">Kumo</span>
             <span class="version">v1.0.0</span>
           </div>
+        </div>
+        <div class="brand-wrapper-collapsed" v-else>
+             <!-- Empty or maybe a mini icon, but we prioritize the toggle button -->
         </div>
         <button class="toggle-btn" @click="toggleCollapse">
           {{ isCollapsed ? '»' : '«' }}
@@ -40,10 +43,10 @@
           <UsersIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">用户管理</span>
         </a> -->
-        <a href="#" class="nav-item">
+        <!-- <a href="#" class="nav-item">
           <NetworkIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">分布式节点</span>
-        </a>
+        </a> -->
         <router-link to="/logs" class="nav-item" active-class="active">
           <FileTextIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">日志管理</span>
@@ -101,7 +104,7 @@ const toggleCollapse = () => {
 <style scoped>
 .layout-container {
   display: flex;
-  height: 100vh;
+  height: 90.9vh; /* Compensate for body zoom: 1.1 (100 / 1.1 ≈ 90.9) */
   background-color: #f3f4f6;
   color: #1f2937;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -132,6 +135,11 @@ const toggleCollapse = () => {
   justify-content: space-between;
   padding: 0 16px;
   border-bottom: 1px solid #f3f4f6;
+}
+
+.sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 0;
 }
 
 .brand-wrapper {

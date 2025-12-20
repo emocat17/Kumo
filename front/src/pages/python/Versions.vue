@@ -6,7 +6,7 @@
       <!-- Add Version Tabs -->
       <div class="card add-version-card">
         <div class="card-header">
-          <h3 class="card-title">添加新 Python 版本</h3>
+          <h3 class="card-title">添加 Python</h3>
         </div>
         
         <div class="card-body">
@@ -34,7 +34,6 @@
                   id="path" 
                   v-model="newVersion.path" 
                   type="text" 
-                  placeholder="例如: D:\envs\Kumo\" 
                   class="form-input"
                   required
                 />
@@ -94,7 +93,7 @@
       <!-- Versions List -->
       <div class="card list-card">
         <div class="card-header">
-          <h3 class="card-title">可用 Python 版本</h3>
+          <h3 class="card-title">Python 管理</h3>
         </div>
         <div class="card-body">
           <div class="table-container">
@@ -104,13 +103,12 @@
                   <th>名称</th>
                   <th>版本号</th>
                   <th>状态</th>
-                  <th>路径</th>
                   <th>操作</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-if="versions.length === 0">
-                  <td colspan="5" class="empty-cell">暂无 Python 版本，请在左侧添加。</td>
+                  <td colspan="4" class="empty-cell">暂无 Python 版本，请在左侧添加。</td>
                 </tr>
                 <tr v-for="ver in versions" :key="ver.id">
                   <td>
@@ -122,13 +120,17 @@
                       {{ statusMap[ver.status] || ver.status }}
                     </span>
                   </td>
-                  <td class="path-cell" :title="ver.path">{{ ver.path }}</td>
                   <td>
                     <div class="action-buttons">
-                      <button class="btn btn-secondary btn-sm" title="打开终端" @click="openTerminal(ver)">
-                         <Terminal :size="16" />
+                      <button class="btn btn-secondary btn-sm" title="查看详情" @click="showVersionInfo(ver)">
+                         <FileText :size="16" />
                       </button>
-                      <button class="btn btn-danger btn-sm" title="删除" @click="deleteVersion(ver)">
+                      <button 
+                        class="btn btn-danger btn-sm" 
+                        :title="ver.is_in_use && ver.used_by_tasks?.length ? `无法删除：${ver.used_by_tasks.join(', ')} 定时任务使用中` : '删除'" 
+                        :disabled="ver.is_in_use"
+                        @click="deleteVersion(ver)"
+                      >
                          <Trash2 :size="16" />
                       </button>
                     </div>
@@ -140,6 +142,34 @@
         </div>
       </div>
     </div>
+
+    <BaseModal 
+      v-model="isInfoModalOpen" 
+      title="版本详情" 
+    >
+      <div v-if="selectedVersion" class="info-content">
+        <div class="info-row">
+          <span class="info-label">名称:</span>
+          <span class="info-value">{{ selectedVersion.name || 'Python' }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">版本:</span>
+          <span class="info-value">{{ selectedVersion.version || '-' }}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">来源:</span>
+          <span class="info-value">
+            <span :class="['ver-source', { conda: selectedVersion.is_conda }]">
+              {{ selectedVersion.is_conda ? 'Conda' : 'System' }}
+            </span>
+          </span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">路径:</span>
+          <span class="info-value info-path">{{ selectedVersion.path }}</span>
+        </div>
+      </div>
+    </BaseModal>
 
     <FileSelectorModal 
       :is-open="isPathSelectorOpen" 
@@ -153,15 +183,18 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import FileSelectorModal from '@/components/common/FileSelectorModal.vue'
-import { Terminal, Trash2 } from 'lucide-vue-next'
+import BaseModal from '@/components/common/BaseModal.vue'
+import { Trash2, FileText } from 'lucide-vue-next'
 
 interface PythonVersion {
   id: number
   path: string
   version: string
-  source_type: string
+  source_type?: string
   status: string
   name: string
+  is_in_use?: boolean
+  is_conda: boolean
 }
 
 const activeTab = ref<'path' | 'conda'>('path')
@@ -180,6 +213,9 @@ const isInstalling = ref(false)
 const isCreatingConda = ref(false)
 const condaMessage = ref('')
 const isPathSelectorOpen = ref(false)
+
+const isInfoModalOpen = ref(false)
+const selectedVersion = ref<PythonVersion | null>(null)
 
 let pollInterval: number | null = null
 
@@ -216,6 +252,11 @@ const stopPolling = () => {
     window.clearInterval(pollInterval)
     pollInterval = null
   }
+}
+
+const showVersionInfo = (ver: PythonVersion) => {
+  selectedVersion.value = ver
+  isInfoModalOpen.value = true
 }
 
 const handleAddVersion = async () => {
@@ -296,26 +337,12 @@ const handleCreateConda = async () => {
   }
 }
 
-const openTerminal = async (ver: PythonVersion) => {
-  try {
-    const response = await fetch('/api/python/versions/open-terminal', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ path: ver.path })
-    })
-    
-    if (!response.ok) {
-      throw new Error('Failed to open terminal')
-    }
-  } catch (error) {
-    console.error(error)
-    alert('无法打开终端，请确保服务器在本地运行。')
-  }
-}
 
 const deleteVersion = async (ver: PythonVersion) => {
+  if (ver.is_in_use && ver.used_by_tasks?.length) {
+      alert(`该环境正在被以下任务使用，无法删除：\n${ver.used_by_tasks.join('\n')}`)
+      return
+  }
   if (confirm(`确定要移除 ${ver.name} 吗？`)) {
     try {
       const response = await fetch(`/api/python/versions/${ver.id}`, {
@@ -439,15 +466,6 @@ onUnmounted(() => {
   color: #059669;
 }
 
-.path-cell {
-  font-family: monospace;
-  color: #6b7280;
-  max-width: 150px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .action-buttons {
   display: flex;
   gap: 8px;
@@ -457,5 +475,40 @@ onUnmounted(() => {
   text-align: center;
   padding: 32px;
   color: #9ca3af;
+}
+
+.info-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.info-label {
+  width: 60px;
+  font-weight: 500;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.info-value {
+  color: #111827;
+  word-break: break-all;
+}
+
+.info-path {
+  background-color: #f3f4f6;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.875rem;
+  color: #374151;
+  word-break: break-all;
 }
 </style>
