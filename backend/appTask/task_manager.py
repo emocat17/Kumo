@@ -169,12 +169,46 @@ def run_task_execution(task_id: int):
         env_vars = os.environ.copy()
         # Force unbuffered output for real-time logging
         env_vars["PYTHONUNBUFFERED"] = "1"
+        
+        # Inject Output Path Override if project has one
+        if project.output_dir:
+            # We inject this as specific env vars that generic spiders might check
+            # Or users can use os.environ.get('OUTPUT_DIR') in their scripts
+            env_vars["OUTPUT_DIR"] = project.output_dir
+            env_vars["DATA_DIR"] = project.output_dir
+            env_vars["BASE_DATA_DIR"] = project.output_dir
+            
+            # Ensure the directory exists (in container context)
+            if not os.path.exists(project.output_dir):
+                try:
+                    os.makedirs(project.output_dir, exist_ok=True)
+                except Exception as e:
+                    print(f"Warning: Could not create output dir {project.output_dir}: {e}")
+
         python_path = "python" # Default
         
         if task.env_id:
             env = db.query(env_models.PythonVersion).filter(env_models.PythonVersion.id == task.env_id).first()
             if env:
                 python_path = env.path
+                
+                # Docker Compatibility Fix:
+                # If path starts with /opt/conda (typical Docker path) but we are on Windows (local dev),
+                # it might be fine if we are NOT running in Docker locally.
+                # BUT, if the path was registered as a Windows path (e.g. D:\env\...) and we are running inside Docker, it will fail.
+                # Conversely, if registered as /opt/conda... and running on Windows, it fails.
+                
+                # Current Scenario: User sees "/bin/sh: 1: /opt/conda/envs/dockertest/bin/python: not found"
+                # This suggests the task IS trying to use a path that looks like linux path, but maybe it doesn't exist?
+                # OR, the environment was registered with a path that is valid on Host but not in Container?
+                
+                # Check if file exists. If not, fallback to "python" (system python)
+                if not os.path.exists(python_path):
+                     print(f"Warning: Interpreter {python_path} not found. Falling back to system 'python'.")
+                     # Try to see if it's just a path mapping issue?
+                     # No, for now just fallback to system python to make it work
+                     python_path = "python"
+                
                 # Add env to PATH if needed, or just use full path to python
                 # If it's a conda env, we might need activation, but usually running python executable directly works for scripts
                 # We can prepend env bin to PATH

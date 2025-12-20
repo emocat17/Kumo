@@ -34,7 +34,6 @@
                   id="path" 
                   v-model="newVersion.path" 
                   type="text" 
-                  placeholder="例如: D:\envs\Kumo\" 
                   class="form-input"
                   required
                 />

@@ -49,8 +49,8 @@
           </div>
           
           <div class="actions-row">
-             <button class="btn btn-primary btn-edit" :disabled="env.status === 'installing'" @click="openInstallModal(env)">
-                {{ env.status === 'installing' ? '配置中...' : '编辑' }}
+             <button class="btn btn-primary btn-edit" @click="openInstallModal(env)">
+                {{ env.status === 'installing' ? '配置中' : '编辑' }}
              </button>
           </div>
         </div>
@@ -304,7 +304,14 @@ const fetchLogs = async () => {
 const openInstallModal = (env: Environment) => {
     selectedEnv.value = env
     showInstallModal.value = true
-    activeTab.value = 'install'
+    
+    // If installing, default to log tab
+    if (env.status === 'installing') {
+        activeTab.value = 'log'
+    } else {
+        activeTab.value = 'install'
+    }
+
     installForm.packages = ''
     isFileUploaded.value = false
     originalPackages.value = ''

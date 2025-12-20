@@ -45,18 +45,21 @@ def append_log(version_id: int, message: str):
     except Exception as e:
         print(f"Error writing log: {e}")
 
-def run_install_background(version_id: int, cmd: str):
+def run_install_background(version_id: int, cmd: list):
     db = SessionLocal()
     try:
         version = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
         if not version:
             return
 
-        append_log(version_id, f"Starting installation with command: {cmd}")
+        # Log the command (join if it's a list for display)
+        cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+        append_log(version_id, f"Starting installation with command: {cmd_str}")
         
+        # Use shell=False for list to avoid redirection issues
         process = subprocess.Popen(
             cmd, 
-            shell=True, 
+            shell=False, 
             stdout=subprocess.PIPE, 
             stderr=subprocess.STDOUT, 
             text=True,
@@ -77,7 +80,7 @@ def run_install_background(version_id: int, cmd: str):
             version.updated_at = datetime.datetime.now()
         else:
             append_log(version_id, f"Installation failed with return code {process.returncode}")
-            version.status = "error" # Or maybe keep it ready but with error log? User requested "configuring" status during install.
+            version.status = "error" 
             version.updated_at = datetime.datetime.now()
             
         db.commit()
@@ -155,9 +158,17 @@ async def install_packages(version_id: int, request: PackageInstallRequest, db: 
     if not version:
         raise HTTPException(status_code=404, detail="Python version not found")
 
-    pkgs = request.packages.replace("\n", " ").strip()
-    if not pkgs:
+    # Split by whitespace to get individual requirements
+    pkgs_list = request.packages.replace("\n", " ").split()
+    pkgs_list = [p.strip() for p in pkgs_list if p.strip()]
+    
+    if not pkgs_list:
          return {"message": "No packages specified"}
+    
+    # Construct command as a list to avoid shell injection/redirection issues
+    # Note: run_install_background needs to handle list vs string properly
+    
+    cmd_list = []
 
     if request.is_conda and version.is_conda:
         # Use conda install
@@ -165,10 +176,14 @@ async def install_packages(version_id: int, request: PackageInstallRequest, db: 
         if os.path.basename(env_dir).lower() in ['bin', 'scripts']:
              env_dir = os.path.dirname(env_dir)
              
-        cmd = f"conda install -p \"{env_dir}\" {pkgs} -y"
+        # Prefer using prefix for safety, but if it's named env we could use -n. 
+        # Using -p is safer for explicit path.
+        # We must use list to avoid shell injection
+        cmd_list = ["conda", "install", "-p", env_dir, "-y"] + pkgs_list
     else:
         # Use pip install
-        cmd = f"\"{version.path}\" -m pip install {pkgs}"
+        # version.path is the python executable
+        cmd_list = [version.path, "-m", "pip", "install"] + pkgs_list
     
     # Update status to "installing" (which maps to "配置中" in frontend)
     # Update updated_at explicitly to match log time logic
@@ -183,7 +198,7 @@ async def install_packages(version_id: int, request: PackageInstallRequest, db: 
         os.remove(log_file)
         
     # Start background task
-    thread = threading.Thread(target=run_install_background, args=(version_id, cmd))
+    thread = threading.Thread(target=run_install_background, args=(version_id, cmd_list))
     thread.start()
     
     return {"message": "Installation started in background"}

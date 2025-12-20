@@ -9,6 +9,7 @@ class Project(Base):
     name = Column(String, unique=True, index=True)
     path = Column(String) # Absolute path to project root
     work_dir = Column(String) # Relative path for execution context
+    output_dir = Column(String, nullable=True) # Output directory for data
     description = Column(String, default="")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

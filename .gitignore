@@ -39,20 +39,17 @@ venv/
 htmlcov/
 backend/envs/
 
-# --- Kumo Project Specific ---
+# Kumo Project Specific
 # Backend runtime data (Do not commit production data)
-backed/data/*.db
-backed/data/*.sqlite
-!backed/data/.gitkeep
+backend/data/*.db
+backend/data/*.sqlite
+!backend/data/.gitkeep
 
 # Backend logs
-backed/logs/
+backend/logs/
 
-# Backend managed environments
-backed/envs/
-
-# Backend uploaded projects
-backed/projects/
+# Backend managed projects
+backend/projects/
 
 # Docker
 .docker/

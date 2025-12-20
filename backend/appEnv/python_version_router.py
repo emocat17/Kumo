@@ -129,18 +129,49 @@ def ensure_columns():
 
 ensure_columns()
 
+import json
+
+# Helper to get default conda envs directory
+def get_default_conda_env_dir():
+    try:
+        # Run conda info --json to get envs_dirs
+        result = subprocess.run(["conda", "info", "--json"], capture_output=True, text=True)
+        if result.returncode == 0:
+            info = json.loads(result.stdout)
+            if "envs_dirs" in info and len(info["envs_dirs"]) > 0:
+                return info["envs_dirs"][0]
+    except Exception as e:
+        print(f"Error getting conda info: {e}")
+    
+    # Fallback: assume standard location relative to conda executable if possible, 
+    # or just return None and let the code fail gracefully or use a default.
+    return None
+
 @router.post("/create-conda-env")
 async def create_conda_env(request: CondaCreateRequest, db: Session = Depends(get_db)):
-    base_env_path = os.path.abspath(os.path.join(os.getcwd(), "envs"))
-    if not os.path.exists(base_env_path):
-        os.makedirs(base_env_path)
+    # Get default conda envs directory
+    base_env_path = get_default_conda_env_dir()
+    
+    if not base_env_path:
+        # Fallback to local if we can't find global (unlikely if conda is installed)
+        base_env_path = os.path.abspath(os.path.join(os.getcwd(), "envs"))
+        if not os.path.exists(base_env_path):
+            os.makedirs(base_env_path)
+        use_named_env = False
+    else:
+        use_named_env = True
         
     env_path = os.path.join(base_env_path, request.name)
     
+    # Check if exists (simple check, conda will also check)
     if os.path.exists(env_path):
         raise HTTPException(status_code=400, detail=f"Environment path already exists: {env_path}")
 
-    command = f"conda create --prefix \"{env_path}\" python={request.version} -y"
+    # Use named creation if possible, otherwise prefix
+    if use_named_env:
+        command = f"conda create -n \"{request.name}\" python={request.version} -y"
+    else:
+        command = f"conda create --prefix \"{env_path}\" python={request.version} -y"
     
     if platform.system() == "Windows":
         python_exe = os.path.join(env_path, "python.exe")
@@ -252,7 +283,12 @@ async def add_python_version(request: PathRequest, db: Session = Depends(get_db)
              
         is_conda = request.is_conda
         cwd_envs = os.path.abspath(os.path.join(os.getcwd(), "envs"))
-        if os.path.abspath(python_exe).startswith(cwd_envs):
+        default_conda_dir = get_default_conda_env_dir()
+        
+        abs_exe = os.path.abspath(python_exe)
+        if abs_exe.startswith(cwd_envs):
+            is_conda = True
+        elif default_conda_dir and abs_exe.startswith(os.path.abspath(default_conda_dir)):
             is_conda = True
         
         if existing:
@@ -294,6 +330,7 @@ def background_delete_version(version_id: int):
 
         path_to_delete = version.path
         is_conda_env = version.is_conda
+        env_name = version.name
         
         if is_conda_env and path_to_delete:
             try:
@@ -301,11 +338,19 @@ def background_delete_version(version_id: int):
                 if platform.system() != "Windows" and os.path.basename(env_dir) == "bin":
                     env_dir = os.path.dirname(env_dir)
                 
-                cwd_envs = os.path.abspath(os.path.join(os.getcwd(), "envs"))
+                # Check if it's in default envs location to decide removal strategy
+                default_envs_dir = get_default_conda_env_dir()
+                is_named_env = False
+                if default_envs_dir and os.path.abspath(env_dir).startswith(os.path.abspath(default_envs_dir)):
+                    is_named_env = True
                 
-                # Safety check
-                if os.path.abspath(env_dir).startswith(cwd_envs) and os.path.exists(env_dir):
-                    print(f"Deleting managed conda environment: {env_dir}")
+                cwd_envs = os.path.abspath(os.path.join(os.getcwd(), "envs"))
+                is_managed_local = os.path.abspath(env_dir).startswith(cwd_envs)
+                
+                # Safety check: Only delete if it looks like a conda env we manage
+                # (Either in our local folder or in standard conda envs folder)
+                if is_managed_local or is_named_env or "envs" in os.path.abspath(env_dir).lower():
+                    print(f"Deleting conda environment: {env_dir}")
                     
                     # 0. Kill any running processes in this env
                     try:
@@ -325,11 +370,13 @@ def background_delete_version(version_id: int):
                     except Exception as e:
                         print(f"Error killing processes: {e}")
 
-                    # 1. Try conda remove (WITHOUT --offline because it breaks due to TOS check)
-                    # The error 'RuntimeError: EnforceUnusedAdapter called with url' happens when --offline is used
-                    # but conda_anaconda_tos plugin still tries to fetch TOS metadata.
-                    # So we revert to standard removal but suppress output to avoid noise.
-                    command = f"conda remove --prefix \"{env_dir}\" --all -y"
+                    # 1. Try conda remove
+                    # Use -n if it's a named env, otherwise -p
+                    if is_named_env and env_name:
+                         command = f"conda remove -n \"{env_name}\" --all -y"
+                    else:
+                         command = f"conda remove --prefix \"{env_dir}\" --all -y"
+                         
                     print(f"Executing: {command}")
                     process = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                     
@@ -337,8 +384,19 @@ def background_delete_version(version_id: int):
                         print(f"Conda remove warning: {process.stderr}")
                     else:
                         print("Conda remove successful")
+                    
+                    # 2. Rename folder to unblock the name immediately (Windows Trick)
+                    if os.path.exists(env_dir):
+                        try:
+                            timestamp = int(time.time())
+                            trash_dir = f"{env_dir}_trash_{timestamp}"
+                            print(f"Renaming {env_dir} to {trash_dir} for deletion...")
+                            os.rename(env_dir, trash_dir)
+                            env_dir = trash_dir # Target the trash dir for deletion
+                        except Exception as e:
+                            print(f"Rename failed (might be locked at root): {e}")
 
-                    # 2. Robust cleanup loop
+                    # 3. Robust cleanup loop
                     max_retries = 10
                     for i in range(max_retries):
                         if not os.path.exists(env_dir):
@@ -372,9 +430,13 @@ def background_delete_version(version_id: int):
                                 
                         time.sleep(3) # Wait longer for file locks to release
                     
-                    # 3. Final check (No renaming)
+                    # 4. Final check (No renaming)
                     if os.path.exists(env_dir):
                         print(f"Warning: Failed to completely delete {env_dir} after {max_retries} attempts.")
+
+            except Exception as e:
+                print(f"Error in background deletion: {e}")
+                pass
 
             except Exception as e:
                 print(f"Error in background deletion: {e}")
@@ -399,9 +461,25 @@ async def delete_version(version_id: int, db: Session = Depends(get_db)):
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
     
-    # If it's a conda environment, do it in background
-    if version.is_conda:
+    # Check if path is in managed envs directory
+    # If so, treat it as a managed environment that needs file deletion
+    is_managed_path = False
+    if version.path:
+        try:
+            cwd_envs = os.path.abspath(os.path.join(os.getcwd(), "envs"))
+            abs_path = os.path.abspath(version.path)
+            if abs_path.startswith(cwd_envs):
+                is_managed_path = True
+        except:
+            pass
+    
+    # If it's a conda environment OR it's in our managed directory, do it in background
+    if version.is_conda or is_managed_path:
         version.status = "deleting"
+        # Ensure is_conda is True so background task processes it
+        if not version.is_conda:
+            version.is_conda = True
+            
         db.commit()
         
         thread = threading.Thread(target=background_delete_version, args=(version_id,))

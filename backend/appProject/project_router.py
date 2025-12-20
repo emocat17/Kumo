@@ -1,12 +1,17 @@
 import os
 import shutil
 import zipfile
+import platform
+import subprocess
+import time
+import stat
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
 from appProject import models, schemas
 import datetime
+from pydantic import BaseModel
 
 router = APIRouter()
 
@@ -14,6 +19,36 @@ PROJECTS_DIR = os.path.abspath(os.path.join(os.getcwd(), "projects"))
 
 if not os.path.exists(PROJECTS_DIR):
     os.makedirs(PROJECTS_DIR)
+
+# Helper to run DB migration for output_dir
+def ensure_project_columns():
+    db_path = "backend/data/TaskManage.db" # Hardcoded relative path, should be config based
+    # Better to rely on SQLALCHEMY_DATABASE_URL but that's in app.database
+    # Let's import it
+    from app.database import SQLALCHEMY_DATABASE_URL
+    import sqlite3
+    
+    db_path = SQLALCHEMY_DATABASE_URL.replace("sqlite:///", "")
+    if not os.path.exists(db_path):
+        return
+        
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("PRAGMA table_info(projects)")
+        columns = [info[1] for info in cursor.fetchall()]
+        
+        if "output_dir" not in columns:
+            print("Migrating: Adding 'output_dir' column to projects")
+            cursor.execute("ALTER TABLE projects ADD COLUMN output_dir VARCHAR DEFAULT NULL")
+            
+        conn.commit()
+    except Exception as e:
+        print(f"Project migration warning: {e}")
+    finally:
+        conn.close()
+
+ensure_project_columns()
 
 @router.get("", response_model=List[schemas.Project])
 async def list_projects(db: Session = Depends(get_db)):
@@ -94,6 +129,9 @@ async def update_project(
     if project_in.work_dir is not None:
         project.work_dir = project_in.work_dir
         
+    if project_in.output_dir is not None:
+        project.output_dir = project_in.output_dir
+        
     if project_in.description is not None:
         project.description = project_in.description
 
@@ -102,20 +140,55 @@ async def update_project(
     db.refresh(project)
     return project
 
+# Helper to remove read-only files (fixes Windows deletion issues)
+def remove_readonly(func, path, excinfo):
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
 @router.delete("/{project_id}")
 async def delete_project(project_id: int, db: Session = Depends(get_db)):
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     
-    # Remove directory
+    # Remove directory with robust logic
     if os.path.exists(project.path):
+        print(f"Deleting project directory: {project.path}")
+        
+        # 1. Rename to trash (Windows trick to unlock name immediately)
+        target_dir = project.path
         try:
-            shutil.rmtree(project.path)
+            timestamp = int(time.time())
+            trash_dir = f"{project.path}_trash_{timestamp}"
+            os.rename(project.path, trash_dir)
+            target_dir = trash_dir
         except Exception as e:
-            print(f"Error removing directory: {e}")
-            # Continue to remove DB record even if file removal fails (or maybe not?)
-            # Let's proceed
+            print(f"Rename failed: {e}")
+            
+        # 2. Robust cleanup loop
+        max_retries = 5
+        for i in range(max_retries):
+            if not os.path.exists(target_dir):
+                break
+            
+            try:
+                shutil.rmtree(target_dir, onerror=remove_readonly)
+            except Exception as e:
+                print(f"shutil.rmtree failed: {e}")
+                
+            if not os.path.exists(target_dir):
+                break
+                
+            # Windows force delete
+            if platform.system() == "Windows":
+                try:
+                    subprocess.run(f'icacls "{target_dir}" /grant Everyone:F /T /C /Q', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    subprocess.run(f'del /f /s /q /a "{target_dir}"', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    subprocess.run(f'rmdir /s /q "{target_dir}"', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                except:
+                    pass
+            
+            time.sleep(1)
             
     db.delete(project)
     db.commit()
@@ -205,3 +278,47 @@ async def save_file_content(
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error writing file: {str(e)}")
+
+# Add endpoint to browse server directories (for output_dir selection)
+class DirListRequest(BaseModel):
+    path: str = "/"
+
+@router.post("/browse-dirs")
+async def browse_server_directories(request: DirListRequest):
+    # Only allow browsing, no modification
+    target_path = request.path
+    if not target_path or target_path == "":
+        if platform.system() == "Windows":
+             target_path = "C:\\" # Or maybe just list drives? But let's start simple
+        else:
+             target_path = "/"
+             
+    if not os.path.exists(target_path):
+        raise HTTPException(status_code=404, detail="Path not found")
+        
+    items = []
+    try:
+        for entry in os.scandir(target_path):
+            if entry.is_dir():
+                try:
+                    items.append({
+                        "name": entry.name,
+                        "path": entry.path,
+                        "type": "dir"
+                    })
+                except:
+                    pass
+    except Exception as e:
+         raise HTTPException(status_code=500, detail=f"Error reading directory: {str(e)}")
+         
+    items.sort(key=lambda x: x["name"].lower())
+    
+    # Add parent dir
+    parent = os.path.dirname(target_path)
+    if parent and parent != target_path:
+         items.insert(0, {"name": "..", "path": parent, "type": "dir"})
+         
+    return {
+        "current_path": os.path.abspath(target_path),
+        "items": items
+    }

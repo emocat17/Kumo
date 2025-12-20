@@ -10,6 +10,7 @@ services:
     volumes:
       # 1. 代码映射：宿主机修改代码，容器内实时生效 (热重载)
       - ./backend:/app
+      - ./Data:/data
       
       # 2. 数据持久化：防止重启丢失数据
       - ./backend/data:/app/data        # 数据库 (SQLite)
