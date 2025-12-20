@@ -7,7 +7,7 @@
           <img src="@/assets/Kumo.png" alt="Logo" class="logo" />
           <div class="brand-text">
             <span class="title">Kumo</span>
-            <span class="version">v1.0.0</span>
+            <span class="version">v1.0</span>
           </div>
         </div>
         <div class="brand-wrapper-collapsed" v-else>

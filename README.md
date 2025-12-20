@@ -30,18 +30,44 @@ Kumo 是一个基于 Web 的现代化 Python 任务调度与环境管理平台�
 
 ## 🛠️ 技术栈
 
-- **前端**: Vue 3, TypeScript, Vite, Pinia, Lucide Icons
-- **后端**: Python, FastAPI, SQLite, SQLAlchemy, APScheduler
+- **前端**: Vue 3, TypeScript, Vite, Pinia, Lucide Icons, ECharts, Monaco Editor
+- **后端**: Python 3.9+, FastAPI, SQLite, SQLAlchemy, APScheduler
+- **部署**: Docker Compose
 
 ---
 
-## 🚀 开发环境部署
+## 🚀 快速开始
 
-### 前置要求
-- Node.js (v16+)
-- Python (v3.8+)
+### 方式一：Docker 部署 (推荐)
 
-### 1. 启动后端服务
+这是最简单、最快捷的启动方式。确保你的机器上安装了 Docker 和 Docker Compose。
+
+1.  **启动服务**
+    ```bash
+    docker-compose up -d --build
+    ```
+
+2.  **访问服务**
+    - **前端页面**: [http://localhost:6677](http://localhost:6677)
+    - **后端 API 文档**: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+3.  **停止服务**
+    ```bash
+    docker-compose down
+    ```
+
+**数据卷说明 (Volumes):**
+- `./Data`: 爬虫数据输出目录 (直接映射到宿主机)
+- `./backend/data`: 数据库文件 (`TaskManage.db`)
+- `./backend/projects`: 上传的项目代码
+- `./backend/envs`: 创建的虚拟环境
+- `./backend/logs`: 系统运行日志
+
+### 方式二：本地开发部署
+
+如果你需要进行代码开发或调试，可以分别启动前后端服务。
+
+#### 1. 启动后端服务
 
 ```bash
 cd backend
@@ -60,8 +86,8 @@ pip install -r requirements.txt
 python main.py
 ```
 *后端服务默认运行在 `http://localhost:8000`*
-![1765979050486](image/README/1765979050486.png)
-### 2. 启动前端服务
+
+#### 2. 启动前端服务
 
 ```bash
 cd front
@@ -76,50 +102,20 @@ npm run dev
 
 ---
 
-## 📦 生产环境部署
+## 📂 目录结构
 
-### 1. 构建前端资源
-
-```bash
-cd front
-npm run build
+```text
+D:/GitWorks/Kumo/
+├── docker-compose.yml     # Docker 编排文件
+├── Data/                  # 爬虫/任务数据输出目录
+├── backend/               # 后端代码 (FastAPI)
+│   ├── app/               # 核心配置
+│   ├── appEnv/            # 环境管理模块
+│   ├── appProject/        # 项目管理模块
+│   ├── appTask/           # 任务调度模块
+│   ├── projects/          # 项目代码存储
+│   └── envs/              # 虚拟环境存储
+└── front/                 # 前端代码 (Vue 3)
+    ├── src/pages/         # 页面组件
+    └── vite.config.ts     # Vite 配置 (Port: 6677)
 ```
-构建完成后，生成的静态文件位于 `front/dist` 目录。
-
-### 2. 部署建议
-
-建议使用 **Nginx** 作为反向代理服务器，同时托管前端静态文件和转发后端 API 请求。
-
-**Nginx 配置示例:**
-
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    # 前端静态文件
-    location / {
-        root /path/to/kumo/front/dist;
-        try_files $uri $uri/ /index.html;
-    }
-
-    # 后端 API 转发
-    location /api {
-        proxy_pass http://localhost:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
-### 3. 后端生产运行
-
-建议使用 `gunicorn` (Linux) 或保持 `python main.py` (仅限简单场景) 配合进程守护工具 (如 Supervisor 或 Systemd) 运行后端服务。
-
-```bash
-cd backed
-# 示例：直接运行
-python main.py
-```
-
----
