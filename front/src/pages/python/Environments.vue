@@ -55,11 +55,7 @@
           </div>
         </div>
 
-        <div class="card-footer">
-            <div class="path-info" :title="env.path">
-                {{ env.path }}
-            </div>
-        </div>
+
       </div>
     </div>
 
@@ -73,13 +69,13 @@
     <!-- Install Packages Modal -->
     <BaseModal v-model="showInstallModal" title="编辑环境依赖" width="600px">
         <div v-if="selectedEnv" class="install-container">
-            <div class="env-summary">
+            <div class="env-summary-card">
                 <div class="summary-item">
-                    <span class="label">Python 版本:</span>
+                    <span class="label">Python 版本</span>
                     <span class="value">{{ selectedEnv.version }}</span>
                 </div>
                 <div class="summary-item">
-                    <span class="label">环境名称:</span>
+                    <span class="label">环境名称</span>
                     <span class="value">{{ selectedEnv.name || 'Default' }}</span>
                 </div>
             </div>
@@ -120,8 +116,13 @@
                             required
                         ></textarea>
                         <div v-if="isFileUploaded" class="upload-badge">
-                            <span class="filename">📄 requirements.txt</span>
-                            <button type="button" class="remove-btn" title="移除文件" @click="removeUploadedFile">×</button>
+                            <div class="file-info">
+                                <FileText :size="18" class="file-icon" />
+                                <span class="filename">requirements.txt</span>
+                            </div>
+                            <button type="button" class="remove-btn" title="移除文件" @click="removeUploadedFile">
+                                <X :size="16" />
+                            </button>
                         </div>
                     </div>
                     
@@ -143,11 +144,11 @@
                         </button>
                     </div>
                 </div>
-                <div v-if="selectedEnv?.is_conda" class="form-group">
+                <!-- <div v-if="selectedEnv?.is_conda" class="form-group">
                     <label>
                         <input v-model="installForm.is_conda" type="checkbox"> 使用 Conda 安装 (默认 pip)
                     </label>
-                </div>
+                </div> -->
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary" :disabled="installing">
                         {{ installing ? '提交中...' : '开始安装' }}
@@ -214,7 +215,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
-import { Trash2, Search } from 'lucide-vue-next'
+import { Trash2, Search, FileText, X } from 'lucide-vue-next'
 
 // --- Data Models ---
 interface Environment {
@@ -546,19 +547,105 @@ const formatDate = (dateStr?: string) => {
     gap: 15px;
 }
 
-.env-summary {
-    background: #f9fafb;
-    padding: 10px;
-    border-radius: 6px;
+.env-summary-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
     border: 1px solid #eef0f2;
     display: flex;
-    gap: 20px;
+    align-items: center;
+    gap: 40px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.env-summary-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    background: linear-gradient(to bottom, #3b82f6, #60a5fa);
 }
 
 .summary-item {
     display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.summary-item .label {
+    font-size: 12px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.summary-item .value {
+    font-size: 18px;
+    color: #0f172a;
+    font-weight: 600;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.btn-soft-blue {
+    background-color: #60a5fa;
+    color: white;
+    border: none;
+    box-shadow: 0 2px 4px rgba(96, 165, 250, 0.3);
+    transition: all 0.2s;
+}
+
+.btn-soft-blue:hover:not(:disabled) {
+    background-color: #3b82f6;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(59, 130, 246, 0.4);
+}
+
+.upload-badge {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-top: 8px;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
     gap: 8px;
-    font-size: 13px;
+    color: #0369a1;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.remove-btn {
+    background: none;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s;
+}
+
+.remove-btn:hover {
+    background-color: #fee2e2;
 }
 
 .tabs {
@@ -634,7 +721,7 @@ const formatDate = (dateStr?: string) => {
     color: #f0f0f0;
     padding: 12px;
     border-radius: 6px;
-    max-height: 150px;
+    max-height: 400px;
     overflow-y: auto;
     font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
     font-size: 13px;

@@ -24,6 +24,7 @@ services:
       - "8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
+      - WATCHFILES_FORCE_POLLING=true
     networks:
       - kumo-net
     restart: unless-stopped

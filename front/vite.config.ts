@@ -18,6 +18,9 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '0.0.0.0',
       port,
+      watch: {
+        usePolling: true
+      },
       open: true,
       proxy: apiBase
         ? {
