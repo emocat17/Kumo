@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
+from sqlalchemy import func, cast, Date
 from typing import List
 from app.database import get_db
 from appTask import models, schemas
@@ -234,3 +235,60 @@ async def websocket_log(websocket: WebSocket, execution_id: int, db: Session = D
             await websocket.send_text(f"Error: {str(e)}")
         except:
             pass
+
+@router.get("/stats/daily")
+async def get_daily_task_stats(days: int = 14, db: Session = Depends(get_db)):
+    """
+    Get task execution statistics for the last N days.
+    Returns counts of success and failed tasks grouped by date.
+    """
+    end_date = datetime.date.today()
+    start_date = end_date - datetime.timedelta(days=days)
+    
+    # Query for daily counts grouped by date and status
+    # SQLAlchemy logic for SQLite date grouping
+    date_col = func.date(models.TaskExecution.start_time)
+    
+    results = db.query(
+        date_col.label("date"),
+        models.TaskExecution.status,
+        func.count(models.TaskExecution.id).label("count")
+    ).filter(
+        models.TaskExecution.start_time >= start_date
+    ).group_by(
+        date_col,
+        models.TaskExecution.status
+    ).all()
+    
+    # Process results into a structured format
+    # { "2023-10-01": { "success": 5, "failed": 1 }, ... }
+    stats_map = {}
+    
+    # Initialize all dates in range with 0
+    current = start_date
+    while current <= end_date:
+        date_str = current.strftime("%Y-%m-%d")
+        stats_map[date_str] = {"success": 0, "failed": 0}
+        current += datetime.timedelta(days=1)
+        
+    for r in results:
+        date_str = r.date
+        status = r.status
+        count = r.count
+        
+        if date_str in stats_map:
+            if status == "success":
+                stats_map[date_str]["success"] += count
+            elif status == "failed":
+                stats_map[date_str]["failed"] += count
+            
+    # Convert to list for frontend chart
+    dates = sorted(stats_map.keys())
+    success_data = [stats_map[d]["success"] for d in dates]
+    failed_data = [stats_map[d]["failed"] for d in dates]
+    
+    return {
+        "dates": dates,
+        "success": success_data,
+        "failed": failed_data
+    }

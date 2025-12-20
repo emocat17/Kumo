@@ -1,6 +1,7 @@
 import os
 import sys
 import subprocess
+import shlex
 import datetime
 import logging
 import json
@@ -245,9 +246,12 @@ def run_task_execution(task_id: int):
         # Execute
         try:
             with open(log_file_path, "w", encoding="utf-8") as f:
+                # Parse command string to list for shell=False safety
+                args = shlex.split(cmd)
+                
                 process = subprocess.Popen(
-                    cmd,
-                    shell=True,
+                    args,
+                    shell=False,
                     cwd=cwd,
                     env=env_vars,
                     stdout=f,

@@ -99,6 +99,8 @@ async def get_system_stats():
         "cpu": {
             "percent": cpu_percent,
             "freq_current": f"{cpu_freq.current:.2f} MHz" if cpu_freq else "N/A",
+            "freq_min": f"{cpu_freq.min:.2f} MHz" if cpu_freq else "N/A",
+            "freq_max": f"{cpu_freq.max:.2f} MHz" if cpu_freq else "N/A",
             "cores": cpu_cores,
             "threads": cpu_threads,
             "per_cpu": per_cpu_percent,
@@ -109,6 +111,8 @@ async def get_system_stats():
             "available": get_size(svmem.available),
             "used": get_size(svmem.used),
             "percent": svmem.percent,
+            "buffers": get_size(getattr(svmem, 'buffers', 0)),
+            "cached": get_size(getattr(svmem, 'cached', 0)),
             "swap_total": get_size(swap.total),
             "swap_used": get_size(swap.used),
             "swap_percent": swap.percent
@@ -124,6 +128,7 @@ async def get_system_stats():
             "bytes_sent": get_size(net_io.bytes_sent),
             "bytes_recv": get_size(net_io.bytes_recv),
             "packets_sent": net_io.packets_sent,
-            "packets_recv": net_io.packets_recv
+            "packets_recv": net_io.packets_recv,
+            "pids": len(psutil.pids())
         }
     }

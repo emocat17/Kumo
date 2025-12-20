@@ -102,6 +102,7 @@ async def create_project(
         name=name,
         path=project_path,
         work_dir=work_dir,
+        output_dir=output_dir,
         description=description,
         created_at=datetime.datetime.now(),
         updated_at=datetime.datetime.now()
