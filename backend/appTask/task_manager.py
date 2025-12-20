@@ -27,8 +27,18 @@ class TaskManager:
         if cls._instance is None:
             cls._instance = super(TaskManager, cls).__new__(cls)
             cls._instance.scheduler = BackgroundScheduler()
-            cls._instance.scheduler.start()
+            # cls._instance.scheduler.start() # Do not auto start
         return cls._instance
+
+    def start(self):
+        if self.scheduler and not self.scheduler.running:
+            self.scheduler.start()
+            print("Scheduler started.")
+
+    def shutdown(self):
+        if self.scheduler and self.scheduler.running:
+            self.scheduler.shutdown()
+            print("Scheduler shutdown.")
 
     def add_job(self, task_id: int, trigger_type: str, trigger_value: str, status: str):
         # Remove existing job if any

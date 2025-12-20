@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     git \
     gcc \
     libffi-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. 复制依赖文件

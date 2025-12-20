@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
@@ -6,8 +7,23 @@ from appProject import models as project_models # Register Project models
 from appTask import models as task_models # Register Task models
 from appTask.task_manager import task_manager
 
-# Initialize DB tables
-init_db()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    print("Starting up...")
+    try:
+        init_db()
+        print("Database initialized.")
+        task_manager.start()
+        task_manager.load_jobs_from_db()
+        print("Task manager started.")
+    except Exception as e:
+        print(f"Startup failed: {e}")
+        raise e
+    yield
+    # Shutdown
+    print("Shutting down...")
+    task_manager.shutdown()
 
 from appEnv.python_version_router import router as python_version_router
 from appEnv.env_router import router as env_router
@@ -17,7 +33,7 @@ from appSystem.fs_router import router as fs_router
 from appTask.task_router import router as task_router
 from appLogs.logs_router import router as logs_router
 
-app = FastAPI(title="Kumo Backend")
+app = FastAPI(title="Kumo Backend", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
