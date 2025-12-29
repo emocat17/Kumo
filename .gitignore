@@ -58,3 +58,4 @@ backend/projects/
 # Docker
 .docker/
 docker-compose.override.yml
+backend/data/TaskManage.db

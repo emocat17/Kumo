@@ -121,7 +121,7 @@
                   浏览
                 </button>
             </div>
-            <small class="form-hint">所有产生的数据文件将保存到此目录 (Docker 容器内路径)/data:/Data/</small>
+            <small class="form-hint">所建议选择:data,目前在docker中完成文件映射---/data:/Data/</small>
         </div>
 
         <div v-if="!isEditing" class="form-group">
