@@ -65,7 +65,7 @@
           </div>
           <div class="card-content">
             <div class="card-title">任务概览</div>
-            <div class="card-value orange">{{ dashboardStats.success_rate_7d }}% <span style="font-size: 0.5em; color: #999">成功率(7天)</span></div>
+            <div class="card-value orange">{{ dashboardStats.running_executions || 0 }} <span style="font-size: 0.5em; color: #999">正在运行</span></div>
             <div class="card-sub">{{ dashboardStats.active_tasks }} 激活 / {{ dashboardStats.total_tasks }} 总任务</div>
           </div>
         </div>
@@ -296,6 +296,7 @@ interface SystemStats {
 interface DashboardStats {
   total_tasks: number
   active_tasks: number
+  running_executions: number
   total_executions: number
   success_rate_7d: number
   recent_executions: any[]
@@ -311,6 +312,7 @@ const systemStats = ref<SystemStats>({} as SystemStats)
 const dashboardStats = ref<DashboardStats>({
     total_tasks: 0,
     active_tasks: 0,
+    running_executions: 0,
     total_executions: 0,
     success_rate_7d: 0,
     recent_executions: [],
@@ -321,6 +323,17 @@ const chartRef = ref<HTMLElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
 
 const API_BASE = 'http://localhost:8000/api'
+
+// Computed for Task Stats
+const success7d = computed(() => {
+  if (!dashboardStats.value.daily_stats) return 0
+  return dashboardStats.value.daily_stats.reduce((acc, cur) => acc + cur.success, 0)
+})
+
+const failed7d = computed(() => {
+  if (!dashboardStats.value.daily_stats) return 0
+  return dashboardStats.value.daily_stats.reduce((acc, cur) => acc + cur.failed, 0)
+})
 
 // Computed for Cards
 const getMainDiskPercent = computed(() => {

@@ -69,6 +69,7 @@ class DailyStats(BaseModel):
 class DashboardStats(BaseModel):
     total_tasks: int
     active_tasks: int
+    running_executions: int  # New field
     total_executions: int
     success_rate_7d: float
     recent_executions: List[TaskExecution]

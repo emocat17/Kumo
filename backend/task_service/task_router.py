@@ -20,6 +20,7 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
     
     # 2. Total Executions
     total_executions = db.query(models.TaskExecution).count()
+    running_executions = db.query(models.TaskExecution).filter(models.TaskExecution.status == 'running').count()
     
     # 3. Success Rate (Last 7 Days)
     seven_days_ago = datetime.datetime.now() - datetime.timedelta(days=7)
@@ -61,6 +62,7 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
     return {
         "total_tasks": total_tasks,
         "active_tasks": active_tasks,
+        "running_executions": running_executions,
         "total_executions": total_executions,
         "success_rate_7d": success_rate_7d,
         "recent_executions": recent_executions,
