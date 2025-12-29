@@ -28,6 +28,43 @@ Kumo 是一个基于 Web 的现代化 Python 任务调度与环境管理平台�
 
 ---
 
+## 📂 目录结构 (Project Structure)
+
+系统采用微服务风格的模块化架构，后端代码位于 `backend/` 目录下：
+
+```text
+Kumo/
+├── docker-compose.yml       # 容器编排文件
+├── Data/                    # 爬虫/任务数据输出 (直接映射到宿主机)
+├── backend/                 # FastAPI 后端服务
+│   ├── core/                # 核心配置 (数据库连接, 安全加密)
+│   ├── environment_service/ # Python 环境管理服务
+│   ├── log_service/         # 日志管理服务
+│   ├── project_service/     # 项目文件管理服务
+│   ├── system_service/      # 系统配置与文件系统服务
+│   ├── task_service/        # 任务调度与执行引擎
+│   ├── projects/            # 上传的项目代码解压区
+│   └── envs/                # 虚拟环境存储区
+└── front/                   # Vue 3 前端应用
+```
+
+---
+
+## 🔐 安全与持久化 (Security & Persistence)
+
+### 数据库初始化
+- 系统使用 **SQLite** 作为数据库，文件存储于 `./backend/data/TaskManage.db`。
+- **自动初始化**: 当你首次克隆项目并启动时，系统会自动检测并创建一个全新的空数据库，无需手动执行 SQL 脚本。
+
+### 密钥管理
+- **Secret Key**: 系统启动时会自动在 `./backend/data/secret.key` 生成一个加密密钥。
+- **用途**: 该密钥用于加密存储敏感信息（如全局环境变量中的 Secret 字段）。
+- **安全策略**: `*.db` 数据库文件和 `secret.key` 密钥文件已被添加至 `.gitignore`，确保：
+  1.  **代码库纯净**: 每次 `git clone` 都是一个干净的初始状态。
+  2.  **数据安全**: 生产环境的敏感数据不会被误提交到版本控制系统中。
+
+---
+
 ## 🛠️ 技术栈
 
 - **前端**: Vue 3, TypeScript, Vite, Pinia, Lucide Icons, ECharts, Monaco Editor
@@ -58,7 +95,7 @@ Kumo 是一个基于 Web 的现代化 Python 任务调度与环境管理平台�
 
 **数据卷说明 (Volumes):**
 - `./Data`: 爬虫数据输出目录 (直接映射到宿主机)
-- `./backend/data`: 数据库文件 (`TaskManage.db`)
+- `./backend/data`: 数据库文件 (`TaskManage.db`) 与 密钥文件 (`secret.key`)
 - `./backend/projects`: 上传的项目代码
 - `./backend/envs`: 创建的虚拟环境
 - `./backend/logs`: 系统运行日志
