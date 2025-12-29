@@ -76,6 +76,21 @@ Kumo/
 
 > **注意**: 请勿将 `backend/data/` 目录下的内容提交到版本控制系统 (已配置 .gitignore)。
 
+## 🏗️ 核心机制与开发规范 (Core Mechanics & Guidelines)
+
+### 核心实现细节
+1.  **环境管理 (`environment_service`)**
+    - **安全删除**: 采用“重命名 (`_trash`) + 延迟删除”策略，解决 Windows 文件锁问题。
+    - **删除保护**: 禁止删除被定时任务引用的环境。
+
+2.  **项目管理 (`project_service`)**
+    - **存储**: ZIP 上传自动解压。
+    - **环境变量**: 任务执行时自动注入 `OUTPUT_DIR` (持久化存储) 和 `DATA_DIR`。
+
+3.  **任务调度 (`task_service`)**
+    - **流程**: 数据库加载 -> 注入 Env/Path -> `subprocess` 执行 -> 日志重定向。
+    - **容错**: 环境路径失效时自动降级为系统默认 Python。
+
 ## 📖 API 文档 (API Documentation)
 
 项目集成了 Swagger UI 和 ReDoc。服务启动后，可直接在浏览器中访问交互式文档：
@@ -105,6 +120,3 @@ Kumo/
 - `./backend/data`: 系统数据 (DB/Key)
 - `./backend/projects`: 项目代码
 - `./backend/envs`: Python 环境
-
----
-详细开发规范请参考 [DEVELOPMENT.md](./DEVELOPMENT.md)。

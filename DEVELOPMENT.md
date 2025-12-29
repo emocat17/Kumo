@@ -1,4 +1,4 @@
-# Kumo (Spider_front) 开发文档
+# Kumo 开发文档
 
 ## 1. 系统架构
 
