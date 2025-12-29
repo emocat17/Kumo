@@ -11,6 +11,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from app.database import get_db, SessionLocal
 from appEnv import models, schemas
+from appSystem import models as system_models
 
 router = APIRouter()
 
@@ -183,7 +184,14 @@ async def install_packages(version_id: int, request: PackageInstallRequest, db: 
     else:
         # Use pip install
         # version.path is the python executable
-        cmd_list = [version.path, "-m", "pip", "install"] + pkgs_list
+        cmd_list = [version.path, "-m", "pip", "install"]
+        
+        # Check for PyPI mirror
+        mirror_config = db.query(system_models.SystemConfig).filter(system_models.SystemConfig.key == "pypi_mirror").first()
+        if mirror_config and mirror_config.value:
+            cmd_list.extend(["-i", mirror_config.value])
+            
+        cmd_list += pkgs_list
     
     # Update status to "installing" (which maps to "配置中" in frontend)
     # Update updated_at explicitly to match log time logic

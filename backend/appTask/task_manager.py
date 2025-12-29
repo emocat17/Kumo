@@ -14,6 +14,8 @@ from app.database import SessionLocal
 from appTask import models
 from appProject import models as project_models
 from appEnv import models as env_models
+from appSystem import models as system_models
+from app.security import decrypt_value
 
 # Setup logging
 logging.basicConfig()
@@ -143,7 +145,7 @@ class TaskManager:
 
 task_manager = TaskManager()
 
-def run_task_execution(task_id: int):
+def run_task_execution(task_id: int, attempt: int = 1):
     db = SessionLocal()
     try:
         task = db.query(models.Task).filter(models.Task.id == task_id).first()
@@ -155,6 +157,7 @@ def run_task_execution(task_id: int):
         execution = models.TaskExecution(
             task_id=task.id,
             status="running",
+            attempt=attempt,
             start_time=datetime.datetime.now()
         )
         db.add(execution)
@@ -180,6 +183,20 @@ def run_task_execution(task_id: int):
         env_vars = os.environ.copy()
         # Force unbuffered output for real-time logging
         env_vars["PYTHONUNBUFFERED"] = "1"
+        
+        # Inject Global Environment Variables (Kumo)
+        try:
+            kumo_env_vars = db.query(system_models.EnvironmentVariable).all()
+            for ev in kumo_env_vars:
+                # Decrypt if secret
+                if ev.is_secret:
+                    val = decrypt_value(ev.value)
+                else:
+                    val = ev.value
+                
+                env_vars[ev.key] = val
+        except Exception as e:
+            print(f"Error injecting Kumo environment variables: {e}")
         
         # Inject Output Path Override if project has one
         if project.output_dir:
@@ -264,8 +281,22 @@ def run_task_execution(task_id: int):
                 # Store process handle
                 task_manager.running_processes[execution.id] = process
                 
-                process.wait()
-                
+                try:
+                    # Wait with timeout
+                    timeout_val = task.timeout if task.timeout else 3600
+                    process.wait(timeout=timeout_val)
+                    
+                    if process.returncode == 0:
+                        execution.status = "success"
+                    else:
+                        execution.status = "failed"
+                        
+                except subprocess.TimeoutExpired:
+                    print(f"Task {task.id} execution {execution.id} timed out after {timeout_val}s.")
+                    process.kill()
+                    execution.status = "timeout"
+                    # Read partial output if any
+                    
                 # Remove from running processes
                 if execution.id in task_manager.running_processes:
                     del task_manager.running_processes[execution.id]
@@ -280,13 +311,28 @@ def run_task_execution(task_id: int):
             except:
                 execution.output = "See log file."
             
-            if process.returncode == 0:
-                execution.status = "success"
-            else:
-                # Check if killed (negative return code usually)
-                execution.status = "failed"
-                
+            if execution.status == "timeout":
+                execution.output = (execution.output or "") + f"\n[Timeout after {timeout_val}s]"
+
             db.commit()
+
+            # Retry Logic
+            if execution.status in ["failed", "timeout"]:
+                retry_count = task.retry_count or 0
+                if attempt <= retry_count:
+                    delay = task.retry_delay or 60
+                    next_run = datetime.datetime.now() + datetime.timedelta(seconds=delay)
+                    print(f"Task {task.id} failed. Scheduling retry {attempt + 1}/{retry_count + 1} in {delay}s.")
+                    
+                    # Schedule retry
+                    task_manager.scheduler.add_job(
+                        run_task_execution,
+                        trigger='date',
+                        run_date=next_run,
+                        args=[task.id, attempt + 1],
+                        id=f"retry_{task.id}_{execution.id}"
+                    )
+
         except Exception as e:
             raise e
         

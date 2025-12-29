@@ -49,9 +49,9 @@
           </div>
           
           <div class="actions-row">
-             <button class="btn btn-primary btn-edit" @click="openInstallModal(env)">
-                {{ env.status === 'installing' ? '配置中' : '编辑' }}
-             </button>
+            <button class="btn btn-primary btn-edit" @click="openInstallModal(env)">
+              {{ env.status === 'installing' ? '配置中' : '编辑' }}
+            </button>
           </div>
         </div>
 

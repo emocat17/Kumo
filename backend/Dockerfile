@@ -20,8 +20,10 @@ COPY requirements.txt .
 
 # 3. 安装 Python 依赖
 # 使用 base 环境直接安装，简化开发流程
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+# --no-cache-dir: 不缓存 pip 包，减小镜像体积
+RUN pip install --upgrade pip --no-cache-dir && \
+    pip install -r requirements.txt --no-cache-dir && \
+    conda clean -afy
 
 # 4. 暴露端口
 EXPOSE 8000

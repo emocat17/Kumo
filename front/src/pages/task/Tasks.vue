@@ -268,6 +268,44 @@
           </div>
         </div>
 
+        <!-- Reliability Config -->
+        <div class="form-section-title" style="margin-top: 20px; margin-bottom: 10px; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+          可靠性配置 (Reliability)
+        </div>
+        
+        <div class="form-row">
+           <div class="form-group third">
+              <label for="retry_count">重试次数</label>
+              <input 
+                id="retry_count" 
+                v-model.number="form.retry_count" 
+                type="number" 
+                min="0" 
+                class="form-input" 
+              />
+           </div>
+           <div class="form-group third">
+              <label for="retry_delay">重试间隔 (秒)</label>
+              <input 
+                id="retry_delay" 
+                v-model.number="form.retry_delay" 
+                type="number" 
+                min="0" 
+                class="form-input" 
+              />
+           </div>
+           <div class="form-group third">
+              <label for="timeout">超时时间 (秒)</label>
+              <input 
+                id="timeout" 
+                v-model.number="form.timeout" 
+                type="number" 
+                min="0" 
+                class="form-input" 
+              />
+           </div>
+        </div>
+
         <div class="form-actions">
           <button type="button" class="btn btn-secondary" @click="showModal = false">取消</button>
           <button type="submit" class="btn btn-primary">
@@ -324,6 +362,9 @@ interface Task {
   latest_execution_id?: number
   latest_execution_time?: string
   description?: string
+  retry_count?: number
+  retry_delay?: number
+  timeout?: number
 }
 
 interface Project {
@@ -361,7 +402,10 @@ const form = reactive({
   trigger_value_date: '',
   trigger_value_interval: 1,
   trigger_unit_interval: 'minutes',
-  trigger_value_cron: '* * * * *'
+  trigger_value_cron: '* * * * *',
+  retry_count: 0,
+  retry_delay: 60,
+  timeout: 3600
 })
 
 const statusText: Record<string, string> = {
@@ -430,6 +474,9 @@ const editTask = (task: Task) => {
   form.env_id = task.env_id || ''
   form.command = task.command
   form.description = task.description || ''
+  form.retry_count = task.retry_count || 0
+  form.retry_delay = task.retry_delay || 60
+  form.timeout = task.timeout || 3600
   
   // Parse trigger info back to form
   form.trigger_type = task.trigger_type
@@ -457,6 +504,9 @@ const resetForm = () => {
   form.trigger_value_interval = 1
   form.trigger_unit_interval = 'minutes'
   form.trigger_value_cron = '* * * * *'
+  form.retry_count = 0
+  form.retry_delay = 60
+  form.timeout = 3600
   cronPreview.value = []
 }
 
@@ -480,7 +530,10 @@ const handleSaveTask = async () => {
     env_id: form.env_id || null,
     description: form.description || null,
     trigger_type: form.trigger_type,
-    trigger_value: triggerValue
+    trigger_value: triggerValue,
+    retry_count: form.retry_count,
+    retry_delay: form.retry_delay,
+    timeout: form.timeout
   }
 
   try {
@@ -742,6 +795,7 @@ const formatNextRun = (iso: string) => {
 
 .form-row { display: flex; gap: 16px; }
 .form-group.half { flex: 1; }
+.form-group.third { flex: 1; }
 
 /* .form-group, label, required, input styles removed, using common.css */
 

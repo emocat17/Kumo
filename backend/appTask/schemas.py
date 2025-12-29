@@ -11,6 +11,9 @@ class TaskBase(BaseModel):
     trigger_type: str
     trigger_value: str # JSON string or plain string
     description: Optional[str] = None
+    retry_count: Optional[int] = 0
+    retry_delay: Optional[int] = 60
+    timeout: Optional[int] = 3600
 
 class TaskCreate(TaskBase):
     pass
@@ -24,6 +27,9 @@ class TaskUpdate(BaseModel):
     trigger_value: Optional[str] = None
     status: Optional[str] = None
     description: Optional[str] = None
+    retry_count: Optional[int] = None
+    retry_delay: Optional[int] = None
+    timeout: Optional[int] = None
 
 class Task(TaskBase):
     id: int
@@ -41,6 +47,7 @@ class Task(TaskBase):
 
 class TaskExecutionBase(BaseModel):
     status: str
+    attempt: int
     start_time: datetime
     end_time: Optional[datetime] = None
     duration: Optional[float] = None

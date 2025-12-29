@@ -19,6 +19,11 @@ class Task(Base):
     trigger_type = Column(String) # interval, date, cron, immediate
     trigger_value = Column(String) # JSON string storing details
     
+    # Reliability config
+    retry_count = Column(Integer, default=0)
+    retry_delay = Column(Integer, default=60) # seconds
+    timeout = Column(Integer, default=3600) # seconds
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
@@ -30,7 +35,8 @@ class TaskExecution(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     task_id = Column(Integer, ForeignKey("tasks.id"))
-    status = Column(String) # success, failed, running
+    status = Column(String) # success, failed, running, timeout, stopped
+    attempt = Column(Integer, default=1)
     start_time = Column(DateTime(timezone=True), server_default=func.now())
     end_time = Column(DateTime(timezone=True), nullable=True)
     duration = Column(Float, nullable=True)

@@ -1,11 +1,34 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import init_db
+from app.database import init_db, engine
+from sqlalchemy import text
 from appEnv import models as env_models # Import models to ensure they are registered with Base
 from appProject import models as project_models # Register Project models
 from appTask import models as task_models # Register Task models
+from appSystem import models as system_models # Register System models
 from appTask.task_manager import task_manager
+
+def run_migrations():
+    print("Checking for schema migrations...")
+    with engine.connect() as conn:
+        # Check if retry_count exists in tasks
+        try:
+            conn.execute(text("SELECT retry_count FROM tasks LIMIT 1"))
+        except Exception:
+            print("Migrating tasks table: adding reliability columns")
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN retry_count INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN retry_delay INTEGER DEFAULT 60"))
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN timeout INTEGER DEFAULT 3600"))
+            
+        # Check if attempt exists in task_executions
+        try:
+            conn.execute(text("SELECT attempt FROM task_executions LIMIT 1"))
+        except Exception:
+            print("Migrating task_executions table: adding attempt column")
+            conn.execute(text("ALTER TABLE task_executions ADD COLUMN attempt INTEGER DEFAULT 1"))
+            
+        conn.commit()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -13,6 +36,7 @@ async def lifespan(app: FastAPI):
     print("Starting up...")
     try:
         init_db()
+        run_migrations()
         print("Database initialized.")
         task_manager.start()
         task_manager.load_jobs_from_db()
@@ -29,6 +53,7 @@ from appEnv.python_version_router import router as python_version_router
 from appEnv.env_router import router as env_router
 from appProject.project_router import router as project_router
 from appSystem.system_router import router as system_router
+from appSystem.env_vars_router import router as env_vars_router
 from appSystem.fs_router import router as fs_router
 from appTask.task_router import router as task_router
 from appLogs.logs_router import router as logs_router
@@ -47,6 +72,7 @@ app.include_router(python_version_router, prefix="/api/python/versions")
 app.include_router(env_router, prefix="/api/python/environments")
 app.include_router(project_router, prefix="/api/projects", tags=["Projects"])
 app.include_router(system_router, prefix="/api/system")
+app.include_router(env_vars_router, prefix="/api/system/env-vars", tags=["Environment Variables"])
 app.include_router(fs_router, prefix="/api")
 app.include_router(task_router, prefix="/api/tasks", tags=["Tasks"])
 app.include_router(logs_router, prefix="/api/logs", tags=["Logs"])

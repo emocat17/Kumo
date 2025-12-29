@@ -51,10 +51,10 @@
           <FileTextIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">日志管理</span>
         </router-link>
-        <a href="#" class="nav-item">
+        <router-link to="/settings" class="nav-item" active-class="active">
           <SettingsIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">设置</span>
-        </a>
+        </router-link>
       </nav>
 
     </aside>

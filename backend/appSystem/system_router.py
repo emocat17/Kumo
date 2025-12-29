@@ -2,11 +2,14 @@ import platform
 import time
 import psutil
 import os
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from typing import List
 from app.database import get_db
 from appEnv import models as env_models
 from appProject import models as project_models
+from appSystem import models as system_models
+from appSystem import schemas as system_schemas
 
 router = APIRouter()
 
@@ -25,6 +28,43 @@ def get_size(bytes, suffix="B"):
         if bytes < factor:
             return f"{bytes:.2f} {unit}{suffix}"
         bytes /= factor
+
+# --- Configuration Endpoints ---
+
+@router.get("/config", response_model=List[system_schemas.SystemConfig])
+async def get_all_configs(db: Session = Depends(get_db)):
+    """Get all system configurations"""
+    return db.query(system_models.SystemConfig).all()
+
+@router.post("/config", response_model=system_schemas.SystemConfig)
+async def create_or_update_config(config: system_schemas.SystemConfigCreate, db: Session = Depends(get_db)):
+    """Create or update a system configuration"""
+    db_config = db.query(system_models.SystemConfig).filter(system_models.SystemConfig.key == config.key).first()
+    if db_config:
+        db_config.value = config.value
+        if config.description:
+            db_config.description = config.description
+    else:
+        db_config = system_models.SystemConfig(
+            key=config.key,
+            value=config.value,
+            description=config.description
+        )
+        db.add(db_config)
+    
+    db.commit()
+    db.refresh(db_config)
+    return db_config
+
+@router.get("/config/{key}", response_model=system_schemas.SystemConfig)
+async def get_config_by_key(key: str, db: Session = Depends(get_db)):
+    """Get a specific configuration by key"""
+    config = db.query(system_models.SystemConfig).filter(system_models.SystemConfig.key == key).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="Configuration not found")
+    return config
+
+# --- System Info Endpoints ---
 
 @router.get("/info")
 async def get_system_info(db: Session = Depends(get_db)):
