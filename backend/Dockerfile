@@ -24,9 +24,11 @@ WORKDIR /app
 # Install runtime dependencies
 # git: for pip install git+... (if needed) and project operations
 # curl: for healthcheck
+# tzdata: for timezone support
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy wheels from builder

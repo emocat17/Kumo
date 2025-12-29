@@ -23,6 +23,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - TZ=Asia/Shanghai
       - PYTHONUNBUFFERED=1
       - WATCHFILES_FORCE_POLLING=true
     healthcheck:
@@ -57,6 +58,7 @@ services:
     ports:
       - "6677:6677"
     environment:
+      - TZ=Asia/Shanghai
       - VITE_API_BASE_URL=http://backend:8000
     depends_on:
       backend:

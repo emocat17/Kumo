@@ -18,9 +18,9 @@
     - [x] 敏感信息 (`SECRET_KEY`) 加密存储方案。
 
 ### 1.2 容器化与部署优化
-- [ ] **精简 Docker 镜像**: 优化 `backend` 和 `front` 的 Dockerfile，减少构建体积。
-- [ ] **多阶段构建**: 分离构建环境与运行环境。
-- [ ] **资源限制**: 在 `docker-compose.yml` 中添加 CPU/Memory 限制配置示例。
+- [x] **精简 Docker 镜像**: 优化 `backend` 和 `front` 的 Dockerfile，减少构建体积。
+- [x] **多阶段构建**: 分离构建环境与运行环境。
+- [x] **资源限制**: 在 `docker-compose.yml` 中添加 CPU/Memory 限制配置示例。
 
 ---
 
