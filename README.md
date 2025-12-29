@@ -1,6 +1,6 @@
 # Kumo (Spider_front) - Python 任务调度与管理平台
 
-> 一个基于 Web 的现代化、全栈容器化的 Python 任务调度与环境管理平台，专为爬虫工程和自动化脚本设计。
+> 一个基于 Web 的现代化、全栈容器化的 Python 任务调度与环境管理平台。
 
 ## ✨ 项目亮点 (Features)
 
