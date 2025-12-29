@@ -1,21 +1,29 @@
-# 使用 LTS 版本 Node.js Alpine 镜像
-FROM node:20-alpine
+# Stage 1: Base
+FROM node:20-alpine AS base
 
-# 设置工作目录
 WORKDIR /app
 
-# 1. 安装基础工具
+# Install base tools
 RUN apk add --no-cache git
 
-# 2. 复制依赖描述文件 (利用 Docker 缓存层)
+# Copy dependency definitions
 COPY package.json package-lock.json* ./
 
-# 3. 安装依赖
+# Install dependencies
 RUN npm install
 
-# 4. 暴露 Vite 默认端口
+# Stage 2: Development
+FROM base AS dev
 EXPOSE 6677
-
-# 5. 启动开发服务器
-# --host 0.0.0.0 允许外部访问容器
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+# Stage 3: Builder (for Production)
+FROM base AS builder
+COPY . .
+RUN npm run build
+
+# Stage 4: Production (Nginx)
+FROM nginx:alpine AS prod
+COPY --from=builder /app/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

@@ -1,34 +1,45 @@
-# 使用 Miniconda3 作为基础镜像，支持 conda 命令
-FROM continuumio/miniconda3:latest
+# Stage 1: Builder
+FROM continuumio/miniconda3:latest AS builder
 
-# 设置工作目录
 WORKDIR /app
 
-# 1. 安装系统级依赖
-# build-essential: 编译 Python C 扩展 (如 psutil, cryptography)
-# git: 用于 pip 安装 git 依赖
-RUN apt-get update && apt-get install -y \
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    git \
     gcc \
     libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+
+# Create wheels
+RUN pip wheel --no-cache-dir --wheel-dir /app/wheels -r requirements.txt
+
+
+# Stage 2: Final
+FROM continuumio/miniconda3:latest
+
+WORKDIR /app
+
+# Install runtime dependencies
+# git: for pip install git+... (if needed) and project operations
+# curl: for healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. 复制依赖文件
+# Copy wheels from builder
+COPY --from=builder /app/wheels /wheels
 COPY requirements.txt .
 
-# 3. 安装 Python 依赖
-# 使用 base 环境直接安装，简化开发流程
-# --no-cache-dir: 不缓存 pip 包，减小镜像体积
-RUN pip install --upgrade pip --no-cache-dir && \
-    pip install -r requirements.txt --no-cache-dir && \
-    conda clean -afy
+# Install dependencies from wheels
+RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt \
+    && rm -rf /wheels \
+    && conda clean -afy
 
-# 4. 暴露端口
+# Expose port
 EXPOSE 8000
 
-# 5. 启动命令
-# 使用 uvicorn 命令行启动以支持 --reload (热重载)
-# main:app 指向 main.py 中的 app 对象
+# Start command
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
