@@ -10,12 +10,12 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
-from app.database import SessionLocal
-from appTask import models
-from appProject import models as project_models
-from appEnv import models as env_models
-from appSystem import models as system_models
-from app.security import decrypt_value
+from core.database import SessionLocal
+from task_service import models
+from project_service import models as project_models
+from environment_service import models as env_models
+from system_service import models as system_models
+from core.security import decrypt_value
 
 # Setup logging
 logging.basicConfig()

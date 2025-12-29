@@ -5,11 +5,11 @@ import os
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from app.database import get_db
-from appEnv import models as env_models
-from appProject import models as project_models
-from appSystem import models as system_models
-from appSystem import schemas as system_schemas
+from core.database import get_db
+from environment_service import models as env_models
+from project_service import models as project_models
+from system_service import models as system_models
+from system_service import schemas as system_schemas
 
 router = APIRouter()
 

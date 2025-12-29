@@ -347,7 +347,7 @@ const loadSourcesFromStorage = () => {
 // --- Env Vars Logic ---
 interface EnvVar {
   id: number
-  key: number
+  key: string
   value: string
   description: string
   is_secret: boolean

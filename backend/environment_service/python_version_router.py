@@ -7,9 +7,9 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from app.database import get_db, SQLALCHEMY_DATABASE_URL, SessionLocal
-from appEnv import models, schemas
-from appTask.models import Task
+from core.database import get_db, SQLALCHEMY_DATABASE_URL, SessionLocal
+from environment_service import models, schemas
+from task_service.models import Task
 import platform
 import threading
 import sqlite3

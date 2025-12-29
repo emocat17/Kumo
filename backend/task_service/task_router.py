@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocke
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, Date
 from typing import List
-from app.database import get_db
-from appTask import models, schemas
-from appTask.task_manager import task_manager, run_task_execution
+from core.database import get_db
+from task_service import models, schemas
+from task_service.task_manager import task_manager, run_task_execution
 import json
 import datetime
 import os

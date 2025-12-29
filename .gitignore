@@ -46,6 +46,7 @@ backend/envs/
 # Backend runtime data (Do not commit production data)
 backend/data/*.db
 backend/data/*.sqlite
+backend/data/secret.key
 !backend/data/.gitkeep
 
 # Backend logs

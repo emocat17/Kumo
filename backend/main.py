@@ -1,13 +1,13 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import init_db, engine
+from core.database import init_db, engine
 from sqlalchemy import text
-from appEnv import models as env_models # Import models to ensure they are registered with Base
-from appProject import models as project_models # Register Project models
-from appTask import models as task_models # Register Task models
-from appSystem import models as system_models # Register System models
-from appTask.task_manager import task_manager
+from environment_service import models as env_models # Import models to ensure they are registered with Base
+from project_service import models as project_models # Register Project models
+from task_service import models as task_models # Register Task models
+from system_service import models as system_models # Register System models
+from task_service.task_manager import task_manager
 
 def run_migrations():
     print("Checking for schema migrations...")
@@ -49,14 +49,14 @@ async def lifespan(app: FastAPI):
     print("Shutting down...")
     task_manager.shutdown()
 
-from appEnv.python_version_router import router as python_version_router
-from appEnv.env_router import router as env_router
-from appProject.project_router import router as project_router
-from appSystem.system_router import router as system_router
-from appSystem.env_vars_router import router as env_vars_router
-from appSystem.fs_router import router as fs_router
-from appTask.task_router import router as task_router
-from appLogs.logs_router import router as logs_router
+from environment_service.python_version_router import router as python_version_router
+from environment_service.env_router import router as env_router
+from project_service.project_router import router as project_router
+from system_service.system_router import router as system_router
+from system_service.env_vars_router import router as env_vars_router
+from system_service.fs_router import router as fs_router
+from task_service.task_router import router as task_router
+from log_service.logs_router import router as logs_router
 
 app = FastAPI(title="Kumo Backend", lifespan=lifespan)
 

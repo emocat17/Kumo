@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from app.database import Base
+from core.database import Base
 
 class PythonVersion(Base):
     __tablename__ = "python_versions"

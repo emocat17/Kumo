@@ -6,15 +6,6 @@
     *   **Backend**: Python 3.9+, FastAPI, SQLAlchemy, APScheduler, Conda. (Port: 8000)
     *   **Frontend**: Vue 3, Vite, TypeScript, Pinia. (Port: 6677)
     *   **Deploy**: Docker Compose (全栈容器化).
-
-*   **核心卷映射 (Volume Mapping)**:
-    | 宿主机路径       | 容器路径    | 用途                                |
-    | :--------------- | :---------- | :---------------------------------- |
-    | `./backend`      | `/app`      | 后端代码热重载                      |
-    | `./front`        | `/app`      | 前端代码热重载                      |
-    | `./Data`         | `/data`     | **爬虫数据输出** (直接映射到宿主机) |
-    | `./backend/data` | `/app/data` | SQLite 数据库 (`TaskManage.db`)     |
-
 ---
 
 ## 2. 目录结构
@@ -24,10 +15,12 @@ D:/GitWorks/Spider_front/
 ├── docker-compose.yml     # 编排文件
 ├── Data/                  # 爬虫数据输出
 ├── backend/               # FastAPI
-│   ├── app/               # 核心配置 (database.py)
-│   ├── appEnv/            # 环境管理 (Conda/Python)
-│   ├── appProject/        # 项目管理 (Project model, Upload)
-│   ├── appTask/           # 任务调度 (APScheduler)
+│   ├── core/              # 核心配置 (database.py, security.py)
+│   ├── environment_service/ # 环境管理 (Conda/Python)
+│   ├── log_service/       # 日志管理
+│   ├── project_service/   # 项目管理 (Project model, Upload)
+│   ├── system_service/    # 系统管理 (Config, FS)
+│   ├── task_service/      # 任务调度 (APScheduler)
 │   ├── projects/          # 项目代码解压区
 │   └── envs/              # Conda 环境区
 └── front/                 # Vue 3
@@ -39,18 +32,18 @@ D:/GitWorks/Spider_front/
 
 ## 3. 核心机制与实现细节
 
-### 3.1 环境管理 (`appEnv`)
+### 3.1 环境管理 (`environment_service`)
 *   **路径处理**: 自动识别宿主机与容器路径差异。
 *   **安全删除**: 采用“重命名 (`_trash`) + 延迟删除”策略，解决 Windows 文件锁问题。
 *   **删除保护**: **禁止删除**被定时任务引用的环境。
 
-### 3.2 项目管理 (`appProject`)
+### 3.2 项目管理 (`project_service`)
 *   **存储**: ZIP 上传自动解压。
 *   **输出路径**: `output_dir` 字段持久化存储于数据库。
 *   **环境变量**: 任务执行时自动注入 `OUTPUT_DIR`, `DATA_DIR`。
 *   **删除保护**: **禁止删除**被定时任务引用的项目 (Backend 校验 + Frontend 禁用)。
 
-### 3.3 任务调度 (`appTask`)
+### 3.3 任务调度 (`task_service`)
 *   **引擎**: APScheduler (`BackgroundScheduler`)。
 *   **流程**: 数据库加载 -> 注入 Env/Path -> `subprocess` 执行 -> 日志重定向。
 *   **容错**: 环境路径失效时自动降级为系统默认 Python。

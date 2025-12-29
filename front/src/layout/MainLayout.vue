@@ -25,7 +25,7 @@
         </router-link>
         <router-link to="/tasks" class="nav-item" active-class="active">
           <ClockIcon :size="20" class="nav-icon" />
-          <span v-if="!isCollapsed">定时任务</span>
+          <span v-if="!isCollapsed">任务</span>
         </router-link>
         <router-link to="/projects" class="nav-item" active-class="active">
           <FolderIcon :size="20" class="nav-icon" />
@@ -33,11 +33,11 @@
         </router-link>
         <router-link to="/python-environments" class="nav-item" active-class="active">
           <BoxIcon :size="20" class="nav-icon" />
-          <span v-if="!isCollapsed">Python环境</span>
+          <span v-if="!isCollapsed">环境管理</span>
         </router-link>
         <router-link to="/python-versions" class="nav-item" active-class="active">
           <Code2Icon :size="20" class="nav-icon" />
-          <span v-if="!isCollapsed">Python版本</span>
+          <span v-if="!isCollapsed">版本管理</span>
         </router-link>
         <!-- <a href="#" class="nav-item">
           <UsersIcon :size="20" class="nav-icon" />

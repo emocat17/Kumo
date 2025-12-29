@@ -9,9 +9,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
-from app.database import get_db, SessionLocal
-from appEnv import models, schemas
-from appSystem import models as system_models
+from core.database import get_db, SessionLocal
+from environment_service import models, schemas
+from system_service import models as system_models
 
 router = APIRouter()
 
@@ -193,7 +193,7 @@ async def install_packages(version_id: int, request: PackageInstallRequest, db: 
             
         cmd_list += pkgs_list
     
-    # Update status to "installing" (which maps to "配置中" in frontend)
+    # Update status to "installing" (which maps to "配置�? in frontend)
     # Update updated_at explicitly to match log time logic
     # Use datetime.datetime.now() to ensure consistency with Python log time, instead of DB server time
     version.status = "installing"

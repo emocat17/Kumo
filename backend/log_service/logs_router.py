@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from app.database import get_db
-from appTask import models as task_models
+from core.database import get_db
+from task_service import models as task_models
 import os
 import datetime
 import shutil
@@ -10,7 +10,7 @@ import shutil
 router = APIRouter()
 
 # Use relative path to ensure we find the logs regardless of CWD
-# .../backend/appLogs/logs_router.py -> .../backend/logs/tasks
+# .../backend/log_service/logs_router.py -> .../backend/logs/tasks
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LOG_DIR = os.path.join(BACKEND_DIR, "logs", "tasks")
 

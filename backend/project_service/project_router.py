@@ -8,9 +8,9 @@ import stat
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List
-from app.database import get_db
-from appProject import models, schemas
-from appTask.models import Task
+from core.database import get_db
+from project_service import models, schemas
+from task_service.models import Task
 import datetime
 from pydantic import BaseModel
 
@@ -26,7 +26,7 @@ def ensure_project_columns():
     db_path = "backend/data/TaskManage.db" # Hardcoded relative path, should be config based
     # Better to rely on SQLALCHEMY_DATABASE_URL but that's in app.database
     # Let's import it
-    from app.database import SQLALCHEMY_DATABASE_URL
+    from core.database import SQLALCHEMY_DATABASE_URL
     import sqlite3
     
     db_path = SQLALCHEMY_DATABASE_URL.replace("sqlite:///", "")
