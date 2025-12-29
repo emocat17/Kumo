@@ -60,3 +60,16 @@ class TaskExecution(TaskExecutionBase):
 
     class Config:
         from_attributes = True
+
+class DailyStats(BaseModel):
+    date: str
+    success: int
+    failed: int
+
+class DashboardStats(BaseModel):
+    total_tasks: int
+    active_tasks: int
+    total_executions: int
+    success_rate_7d: float
+    recent_executions: List[TaskExecution]
+    daily_stats: List[DailyStats]

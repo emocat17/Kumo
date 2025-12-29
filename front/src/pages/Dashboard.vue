@@ -64,9 +64,9 @@
             <i class="icon-task">📊</i>
           </div>
           <div class="card-content">
-            <div class="card-title">任务成功率</div>
-            <div class="card-value orange">{{ taskSuccessRate }}%</div>
-            <div class="card-sub">{{ totalSuccessTasks }} / {{ totalTasks }} 个任务成功</div>
+            <div class="card-title">任务概览</div>
+            <div class="card-value orange">{{ dashboardStats.success_rate_7d }}% <span style="font-size: 0.5em; color: #999">成功率(7天)</span></div>
+            <div class="card-sub">{{ dashboardStats.active_tasks }} 激活 / {{ dashboardStats.total_tasks }} 总任务</div>
           </div>
         </div>
       </div>
@@ -293,15 +293,29 @@ interface SystemStats {
   }
 }
 
-interface DailyTaskStats {
-    dates: string[]
-    success: number[]
-    failed: number[]
+interface DashboardStats {
+  total_tasks: number
+  active_tasks: number
+  total_executions: number
+  success_rate_7d: number
+  recent_executions: any[]
+  daily_stats: Array<{
+    date: string
+    success: number
+    failed: number
+  }>
 }
 
 const activeTab = ref<'overview' | 'performance'>('overview')
 const systemStats = ref<SystemStats>({} as SystemStats)
-const taskStats = ref<DailyTaskStats>({ dates: [], success: [], failed: [] })
+const dashboardStats = ref<DashboardStats>({
+    total_tasks: 0,
+    active_tasks: 0,
+    total_executions: 0,
+    success_rate_7d: 0,
+    recent_executions: [],
+    daily_stats: []
+})
 const timer = ref<number | null>(null)
 const chartRef = ref<HTMLElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
@@ -321,21 +335,6 @@ const getMainDiskUsage = computed(() => {
     return `${d.used} / ${d.total}`
 })
 
-const totalSuccessTasks = computed(() => {
-    return taskStats.value.success.reduce((a, b) => a + b, 0)
-})
-
-const totalFailedTasks = computed(() => {
-    return taskStats.value.failed.reduce((a, b) => a + b, 0)
-})
-
-const totalTasks = computed(() => totalSuccessTasks.value + totalFailedTasks.value)
-
-const taskSuccessRate = computed(() => {
-    if (totalTasks.value === 0) return 100
-    return Math.round((totalSuccessTasks.value / totalTasks.value) * 100)
-})
-
 const fetchSystemStats = async () => {
   try {
     const res = await fetch(`${API_BASE}/system/stats`)
@@ -347,11 +346,11 @@ const fetchSystemStats = async () => {
   }
 }
 
-const fetchTaskStats = async () => {
+const fetchDashboardStats = async () => {
     try {
-        const res = await fetch(`${API_BASE}/tasks/stats/daily?days=14`)
+        const res = await fetch(`${API_BASE}/tasks/dashboard/stats`)
         if (res.ok) {
-            taskStats.value = await res.json()
+            dashboardStats.value = await res.json()
             initChart()
         }
     } catch (e) {
@@ -375,6 +374,10 @@ const initChart = () => {
     
     chartInstance = echarts.init(chartRef.value)
     
+    const dates = dashboardStats.value.daily_stats.map(s => s.date)
+    const successData = dashboardStats.value.daily_stats.map(s => s.success)
+    const failedData = dashboardStats.value.daily_stats.map(s => s.failed)
+    
     const option = {
         tooltip: {
             trigger: 'axis',
@@ -392,7 +395,7 @@ const initChart = () => {
         },
         xAxis: {
             type: 'category',
-            data: taskStats.value.dates,
+            data: dates,
             axisLine: { lineStyle: { color: '#ddd' } },
             axisLabel: { color: '#666' }
         },
@@ -407,7 +410,7 @@ const initChart = () => {
                 stack: 'total',
                 barWidth: '40%',
                 itemStyle: { color: '#52c41a' },
-                data: taskStats.value.success,
+                data: successData,
                 emphasis: { focus: 'series' },
                 barBorderRadius: [4, 4, 0, 0] // Only top corners
             },
@@ -417,7 +420,7 @@ const initChart = () => {
                 stack: 'total',
                 barWidth: '40%',
                 itemStyle: { color: '#ff4d4f' },
-                data: taskStats.value.failed,
+                data: failedData,
                 emphasis: { focus: 'series' },
                 barBorderRadius: [0, 0, 0, 0]
             }
@@ -442,14 +445,14 @@ const handleResize = () => {
 
 onMounted(() => {
   fetchSystemStats()
-  fetchTaskStats()
+  fetchDashboardStats()
   
   window.addEventListener('resize', handleResize)
   
   // Refresh stats every 3 seconds
   timer.value = setInterval(() => {
       fetchSystemStats()
-      // fetchTaskStats() // Don't refresh chart too often, or maybe every minute?
+      // fetchDashboardStats() // Don't refresh chart too often, or maybe every minute?
   }, 3000) as unknown as number
 })
 
