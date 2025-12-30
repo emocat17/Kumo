@@ -2,19 +2,28 @@ import platform
 import time
 import psutil
 import os
-from fastapi import APIRouter, Depends, HTTPException
+import shutil
+import datetime
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List
-from core.database import get_db
+from core.database import get_db, SQLALCHEMY_DATABASE_URL
 from environment_service import models as env_models
 from project_service import models as project_models
 from system_service import models as system_models
 from system_service import schemas as system_schemas
+from fastapi.responses import FileResponse
 
 router = APIRouter()
 
 # Record application start time
 APP_START_TIME = time.time()
+
+# Backup Settings
+BACKUP_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "backups")
+DB_PATH = SQLALCHEMY_DATABASE_URL.replace("sqlite:///", "")
+if DB_PATH.startswith("./"):
+    DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), DB_PATH[2:])
 
 def get_size(bytes, suffix="B"):
     """

@@ -16,10 +16,15 @@
       >
         全局环境变量
       </button>
+      <button 
+        :class="['tab-btn', { active: activeTab === 'backup' }]" 
+        @click="activeTab = 'backup'"
+      >
+        数据备份与恢复
+      </button>
     </div>
 
     <div class="settings-container">
-      <transition name="fade" mode="out-in">
         
         <!-- Python Env Config Tab -->
         <div v-if="activeTab === 'python'" key="python" class="section">
@@ -180,7 +185,6 @@
           </div>
         </div>
 
-      </transition>
     </div>
 
     <!-- Env Var Modal -->
@@ -244,8 +248,8 @@
         </div>
     </div>
     </transition>
-    
-  </div>
+
+    </div>
 </template>
 
 <script setup lang="ts">
@@ -297,6 +301,72 @@ const fetchConfig = async () => {
     console.error('Failed to fetch config', e)
   }
 }
+
+// --- Backup Logic ---
+interface BackupFile {
+  filename: string
+  size: string
+  size_raw: number
+  created_at: string
+}
+
+const backups = ref<BackupFile[]>([])
+const backupLoading = ref(false)
+
+const fetchBackups = async () => {
+    try {
+        const res = await fetch(`${API_BASE}/system/backups`)
+        if (res.ok) {
+            backups.value = await res.json()
+        }
+    } catch (e) {
+        console.error(e)
+    }
+}
+
+const createBackup = async () => {
+    backupLoading.value = true
+    try {
+        const res = await fetch(`${API_BASE}/system/backup`, { method: 'POST' })
+        if (res.ok) {
+            await fetchBackups()
+            alert('备份创建成功')
+        } else {
+            const err = await res.json()
+            alert('备份失败: ' + err.detail)
+        }
+    } catch (e) {
+        console.error(e)
+        alert('备份请求失败')
+    } finally {
+        backupLoading.value = false
+    }
+}
+
+const deleteBackup = async (filename: string) => {
+    if (!confirm(`确定要删除备份 ${filename} 吗？此操作不可恢复。`)) return
+    
+    try {
+        const res = await fetch(`${API_BASE}/system/backups/${filename}`, { method: 'DELETE' })
+        if (res.ok) {
+            await fetchBackups()
+        } else {
+            alert('删除失败')
+        }
+    } catch (e) {
+        console.error(e)
+    }
+}
+
+const formatDate = (iso: string) => {
+    return new Date(iso).toLocaleString()
+}
+
+onMounted(() => {
+    fetchConfig()
+    fetchEnvVars()
+    fetchBackups()
+})
 
 const syncConfigToBackend = async () => {
     // Automatically set the first source as the active mirror in backend
