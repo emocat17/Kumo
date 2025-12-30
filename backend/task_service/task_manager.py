@@ -6,6 +6,9 @@ import datetime
 import logging
 import json
 import requests # Added
+import psutil # Added
+import threading
+import time
 from sqlalchemy.orm import Session
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
@@ -52,6 +55,11 @@ class TaskManager:
         if self.scheduler and not self.scheduler.running:
             self.scheduler.start()
             print("Scheduler started.")
+            
+            # Start monitor thread
+            monitor_thread = threading.Thread(target=self._monitor_resources, daemon=True)
+            monitor_thread.start()
+            print("Resource monitor started.")
 
     def shutdown(self):
         if self.scheduler and self.scheduler.running:
@@ -151,6 +159,51 @@ class TaskManager:
         return False
 
     running_processes = {} # execution_id -> subprocess.Popen
+    execution_stats = {} # execution_id -> {'max_cpu': 0.0, 'max_mem': 0.0}
+
+    def _monitor_resources(self):
+        """
+        Background thread to monitor resource usage of running tasks.
+        """
+        while True:
+            try:
+                # Iterate over a copy of keys to avoid runtime change issues
+                exec_ids = list(self.running_processes.keys())
+                
+                for exec_id in exec_ids:
+                    process = self.running_processes.get(exec_id)
+                    if process and process.poll() is None:
+                        try:
+                            # Get PID
+                            pid = process.pid
+                            p = psutil.Process(pid)
+                            
+                            # Get stats (cpu_percent needs interval=None to be non-blocking)
+                            # First call to cpu_percent might be 0.0, but subsequent calls are valid
+                            cpu = p.cpu_percent(interval=None)
+                            mem_info = p.memory_info()
+                            mem_mb = mem_info.rss / (1024 * 1024)
+                            
+                            # Initialize stats if not present
+                            if exec_id not in self.execution_stats:
+                                self.execution_stats[exec_id] = {'max_cpu': 0.0, 'max_mem': 0.0}
+                                
+                            stats = self.execution_stats[exec_id]
+                            if cpu > stats['max_cpu']:
+                                stats['max_cpu'] = cpu
+                            if mem_mb > stats['max_mem']:
+                                stats['max_mem'] = mem_mb
+                                
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            # Process might have died just now
+                            pass
+                        except Exception as e:
+                            print(f"Error monitoring execution {exec_id}: {e}")
+                            
+            except Exception as e:
+                print(f"Error in resource monitor loop: {e}")
+                
+            time.sleep(1) # Check every second
 
     def load_jobs_from_db(self):
         db = SessionLocal()

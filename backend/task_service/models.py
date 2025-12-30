@@ -43,5 +43,7 @@ class TaskExecution(Base):
     duration = Column(Float, nullable=True)
     log_file = Column(String, nullable=True)
     output = Column(Text, nullable=True) # Snippet of output
+    max_cpu_percent = Column(Float, nullable=True)
+    max_memory_mb = Column(Float, nullable=True)
     
     task = relationship("Task", back_populates="executions")

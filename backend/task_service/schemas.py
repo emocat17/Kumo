@@ -54,6 +54,8 @@ class TaskExecutionBase(BaseModel):
     end_time: Optional[datetime] = None
     duration: Optional[float] = None
     output: Optional[str] = None
+    max_cpu_percent: Optional[float] = None
+    max_memory_mb: Optional[float] = None
 
 class TaskExecution(TaskExecutionBase):
     id: int

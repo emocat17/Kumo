@@ -172,6 +172,16 @@ defineExpose({})
 </script>
 
 <style scoped>
+.resource-stats {
+  font-size: 0.85em;
+  font-family: monospace;
+  color: #555;
+  white-space: nowrap;
+}
+.divider {
+  margin: 0 4px;
+  color: #ccc;
+}
 .history-container {
   display: flex;
   flex-direction: column;

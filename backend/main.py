@@ -35,6 +35,14 @@ def run_migrations():
             print("Migrating tasks table: adding priority column")
             conn.execute(text("ALTER TABLE tasks ADD COLUMN priority INTEGER DEFAULT 0"))
 
+        # Check if max_cpu_percent exists in task_executions
+        try:
+            conn.execute(text("SELECT max_cpu_percent FROM task_executions LIMIT 1"))
+        except Exception:
+            print("Migrating task_executions table: adding resource columns")
+            conn.execute(text("ALTER TABLE task_executions ADD COLUMN max_cpu_percent FLOAT DEFAULT NULL"))
+            conn.execute(text("ALTER TABLE task_executions ADD COLUMN max_memory_mb FLOAT DEFAULT NULL"))
+
         conn.commit()
 
 @asynccontextmanager
