@@ -127,7 +127,8 @@ const loadLog = (execId: number | null) => {
 const fetchLogHttp = async (execId: number) => {
   loading.value = true
   try {
-    const res = await fetch(`${API_BASE}/tasks/executions/${execId}/log`)
+    // Fetch last 200KB
+    const res = await fetch(`${API_BASE}/tasks/executions/${execId}/log?tail_kb=200`)
     if (res.ok) {
       const data = await res.json()
       logContent.value = data.log

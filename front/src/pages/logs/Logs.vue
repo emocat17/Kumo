@@ -241,7 +241,8 @@ const viewLog = async (log: LogFile) => {
   logContent.value = '' // Clear previous content
   
   try {
-    const res = await fetch(`${API_BASE}/logs/${log.filename}/content`)
+    // Request last 200KB to prevent browser crash
+    const res = await fetch(`${API_BASE}/logs/${log.filename}/content?tail_kb=200`)
     if (res.ok) {
       const data = await res.json()
       logContent.value = data.content

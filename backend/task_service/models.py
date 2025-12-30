@@ -23,6 +23,7 @@ class Task(Base):
     retry_count = Column(Integer, default=0)
     retry_delay = Column(Integer, default=60) # seconds
     timeout = Column(Integer, default=3600) # seconds
+    priority = Column(Integer, default=0) # 0=Normal, 1=High, 2=Critical
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

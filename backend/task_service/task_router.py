@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, Date
 from typing import List
@@ -114,7 +114,7 @@ async def create_task(task_in: schemas.TaskCreate, background_tasks: BackgroundT
     if task.trigger_type == 'immediate':
         background_tasks.add_task(run_task_execution, task.id)
     elif task.status == 'active':
-        task_manager.add_job(task.id, task.trigger_type, task.trigger_value, task.status)
+        task_manager.add_job(task.id, task.trigger_type, task.trigger_value, task.status, task.priority or 0)
         
     return task
 
@@ -138,7 +138,7 @@ async def update_task(task_id: int, task_in: schemas.TaskUpdate, db: Session = D
     
     # Simple strategy: re-add job if active, remove if not
     if task.status == 'active':
-        task_manager.add_job(task.id, task.trigger_type, task.trigger_value, task.status)
+        task_manager.add_job(task.id, task.trigger_type, task.trigger_value, task.status, task.priority or 0)
     else:
         task_manager.remove_job(task.id)
         
@@ -188,7 +188,7 @@ async def resume_task(task_id: int, db: Session = Depends(get_db)):
     db.commit()
     
     # Re-add job to be sure parameters are up to date and it's scheduled
-    task_manager.add_job(task.id, task.trigger_type, task.trigger_value, task.status)
+    task_manager.add_job(task.id, task.trigger_type, task.trigger_value, task.status, task.priority or 0)
     return {"message": "Task resumed"}
 
 @router.post("/executions/{execution_id}/stop")
@@ -237,7 +237,7 @@ async def list_executions(task_id: int, db: Session = Depends(get_db)):
     return db.query(models.TaskExecution).filter(models.TaskExecution.task_id == task_id).order_by(models.TaskExecution.start_time.desc()).limit(100).all()
 
 @router.get("/executions/{execution_id}/log")
-async def get_execution_log(execution_id: int, db: Session = Depends(get_db)):
+async def get_execution_log(execution_id: int, tail_kb: int = Query(None), db: Session = Depends(get_db)):
     execution = db.query(models.TaskExecution).filter(models.TaskExecution.id == execution_id).first()
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
@@ -246,8 +246,19 @@ async def get_execution_log(execution_id: int, db: Session = Depends(get_db)):
          return {"log": execution.output or "No log file available."}
          
     try:
-        with open(execution.log_file, "r", encoding="utf-8") as f:
-            content = f.read()
+        file_size = os.path.getsize(execution.log_file)
+        with open(execution.log_file, "r", encoding="utf-8", errors="ignore") as f:
+            if tail_kb:
+                bytes_to_read = tail_kb * 1024
+                if file_size > bytes_to_read:
+                    f.seek(file_size - bytes_to_read)
+                    f.readline()
+                    content = f.read()
+                    content = f"[Log truncated. Showing last {tail_kb}KB. Download for full log.]\n" + content
+                else:
+                    content = f.read()
+            else:
+                content = f.read()
         return {"log": content}
     except Exception as e:
         return {"log": f"Error reading log: {str(e)}"}
@@ -276,11 +287,22 @@ async def websocket_log(websocket: WebSocket, execution_id: int, db: Session = D
         return
 
     try:
+        file_size = os.path.getsize(log_path)
+        TAIL_BYTES = 50 * 1024 # 50KB
+
         with open(log_path, "r", encoding="utf-8", errors='replace') as f:
             # Send initial content
-            content = f.read()
-            if content:
-                await websocket.send_text(content)
+            if file_size > TAIL_BYTES:
+                f.seek(file_size - TAIL_BYTES)
+                f.readline()
+                await websocket.send_text(f"[Log truncated. Showing last {TAIL_BYTES/1024}KB...]\n")
+                content = f.read()
+                if content:
+                    await websocket.send_text(content)
+            else:
+                content = f.read()
+                if content:
+                    await websocket.send_text(content)
             
             # Tail the file
             while True:

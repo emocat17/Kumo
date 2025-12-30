@@ -28,6 +28,13 @@ def run_migrations():
             print("Migrating task_executions table: adding attempt column")
             conn.execute(text("ALTER TABLE task_executions ADD COLUMN attempt INTEGER DEFAULT 1"))
             
+        # Check if priority exists in tasks
+        try:
+            conn.execute(text("SELECT priority FROM tasks LIMIT 1"))
+        except Exception:
+            print("Migrating tasks table: adding priority column")
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN priority INTEGER DEFAULT 0"))
+
         conn.commit()
 
 @asynccontextmanager

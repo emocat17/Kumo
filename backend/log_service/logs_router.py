@@ -80,14 +80,26 @@ class BatchDeleteRequest(BaseModel):
     filenames: List[str]
 
 @router.get("/{filename}/content")
-async def get_log_content(filename: str):
+async def get_log_content(filename: str, tail_kb: int = Query(None, description="Read last N KB")):
     log_dir = get_log_dir()
     path = os.path.join(log_dir, filename)
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Log file not found")
     try:
+        file_size = os.path.getsize(path)
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
-            content = f.read()
+            if tail_kb:
+                bytes_to_read = tail_kb * 1024
+                if file_size > bytes_to_read:
+                    f.seek(file_size - bytes_to_read)
+                    # Discard partial line
+                    f.readline()
+                    content = f.read()
+                    content = f"[Log truncated. Showing last {tail_kb}KB. Download for full log.]\n" + content
+                else:
+                    content = f.read()
+            else:
+                content = f.read()
         return {"content": content}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

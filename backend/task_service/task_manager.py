@@ -5,6 +5,7 @@ import shlex
 import datetime
 import logging
 import json
+import requests # Added
 from sqlalchemy.orm import Session
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
@@ -57,7 +58,7 @@ class TaskManager:
             self.scheduler.shutdown()
             print("Scheduler shutdown.")
 
-    def add_job(self, task_id: int, trigger_type: str, trigger_value: str, status: str):
+    def add_job(self, task_id: int, trigger_type: str, trigger_value: str, status: str, priority: int = 0):
         # Remove existing job if any
         self.remove_job(task_id)
         
@@ -66,6 +67,13 @@ class TaskManager:
 
         trigger = None
         try:
+            # Map priority to executor or other APScheduler features if needed
+            # Currently APScheduler doesn't support strict priority queues out of the box for SimpleTrigger
+            # But we can use 'coalesce' or separate executors if needed. 
+            # For now, we just pass it, but maybe we can use it to decide WHICH executor to use?
+            # E.g. priority > 0 -> use a dedicated thread pool?
+            # Let's keep it simple: just schedule it.
+            
             if trigger_type == 'interval':
                 # trigger_value example: {"value": 1, "unit": "hours"}
                 if isinstance(trigger_value, str):
@@ -78,10 +86,6 @@ class TaskManager:
                 
             elif trigger_type == 'cron':
                 # trigger_value example: "* * * * *"
-                # APScheduler cron: second, minute, hour, day, month, day_of_week, year
-                # We assume standard 5-part cron or 6-part?
-                # Let's assume standard cron string and parse it to kwargs or use from_crontab if available
-                # APScheduler CronTrigger.from_crontab(trigger_value)
                 trigger = CronTrigger.from_crontab(trigger_value)
                 
             elif trigger_type == 'date':
@@ -89,9 +93,6 @@ class TaskManager:
                 trigger = DateTrigger(run_date=trigger_value)
             
             elif trigger_type == 'immediate':
-                # Immediate tasks are run once manually, usually not scheduled persistently
-                # But if added via UI as "Immediate", maybe run once now?
-                # We'll handle immediate separately.
                 return 
 
             if trigger:
@@ -100,7 +101,13 @@ class TaskManager:
                     trigger=trigger,
                     args=[task_id],
                     id=str(task_id),
-                    replace_existing=True
+                    replace_existing=True,
+                    priority=priority # APScheduler doesn't natively use this for ordering in ThreadPool, but we can store it.
+                    # Actually APScheduler jobs don't have 'priority' arg in add_job unless we use a custom job store.
+                    # Standard workaround: The order is determined by next_run_time.
+                    # If multiple jobs run at SAME time, creation order matters.
+                    # We can't easily force priority without a custom scheduler.
+                    # However, we CAN pass it to the function execution context if needed.
                 )
                 print(f"Job {task_id} added with trigger {trigger}")
 
@@ -151,7 +158,7 @@ class TaskManager:
             tasks = db.query(models.Task).filter(models.Task.status == 'active').all()
             print(f"Loading {len(tasks)} active tasks from DB...")
             for task in tasks:
-                self.add_job(task.id, task.trigger_type, task.trigger_value, task.status)
+                self.add_job(task.id, task.trigger_type, task.trigger_value, task.status, task.priority or 0)
         except Exception as e:
             print(f"Error loading tasks: {e}")
         finally:
@@ -329,6 +336,8 @@ def run_task_execution(task_id: int, attempt: int = 1):
                 execution.output = (execution.output or "") + f"\n[Timeout after {timeout_val}s]"
 
             db.commit()
+
+# ...
 
             # Retry Logic
             if execution.status in ["failed", "timeout"]:

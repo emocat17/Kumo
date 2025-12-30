@@ -14,6 +14,7 @@ class TaskBase(BaseModel):
     retry_count: Optional[int] = 0
     retry_delay: Optional[int] = 60
     timeout: Optional[int] = 3600
+    priority: Optional[int] = 0
 
 class TaskCreate(TaskBase):
     pass
@@ -30,6 +31,7 @@ class TaskUpdate(BaseModel):
     retry_count: Optional[int] = None
     retry_delay: Optional[int] = None
     timeout: Optional[int] = None
+    priority: Optional[int] = None
 
 class Task(TaskBase):
     id: int
