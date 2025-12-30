@@ -97,6 +97,84 @@ async def get_system_info(db: Session = Depends(get_db)):
         "system_info": sys_info
     }
 
+# --- Backup Endpoints ---
+
+@router.post("/backup")
+async def create_backup():
+    """Create a manual backup of the database"""
+    if not os.path.exists(BACKUP_DIR):
+        os.makedirs(BACKUP_DIR)
+        
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_filename = f"TaskManage_backup_{timestamp}.db"
+    backup_path = os.path.join(BACKUP_DIR, backup_filename)
+    
+    try:
+        # Check if DB file exists
+        if not os.path.exists(DB_PATH):
+             raise HTTPException(status_code=500, detail="Database file not found on disk")
+             
+        # Use shutil to copy
+        # Note: Copying SQLite while running is generally safe for read-only backup but can be corrupted if heavy writes.
+        # Ideally we should use sqlite3 API to backup, but simple copy is often enough for small apps.
+        # Or better: "sqlite3 TaskManage.db .dump > backup.sql" but that requires sqlite3 CLI.
+        # Let's try simple copy first.
+        shutil.copy2(DB_PATH, backup_path)
+        
+        stat = os.stat(backup_path)
+        return {
+            "message": "Backup created successfully",
+            "filename": backup_filename,
+            "path": backup_path,
+            "size": get_size(stat.st_size),
+            "created_at": datetime.datetime.fromtimestamp(stat.st_mtime)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Backup failed: {str(e)}")
+
+@router.get("/backups")
+async def list_backups():
+    """List all available backups"""
+    if not os.path.exists(BACKUP_DIR):
+        return []
+        
+    backups = []
+    for f in os.listdir(BACKUP_DIR):
+        if f.endswith(".db"):
+            path = os.path.join(BACKUP_DIR, f)
+            stat = os.stat(path)
+            backups.append({
+                "filename": f,
+                "size": get_size(stat.st_size),
+                "size_raw": stat.st_size,
+                "created_at": datetime.datetime.fromtimestamp(stat.st_mtime)
+            })
+            
+    # Sort by created_at desc
+    backups.sort(key=lambda x: x["created_at"], reverse=True)
+    return backups
+
+@router.delete("/backups/{filename}")
+async def delete_backup(filename: str):
+    """Delete a specific backup"""
+    path = os.path.join(BACKUP_DIR, filename)
+    if not os.path.exists(path):
+         raise HTTPException(status_code=404, detail="Backup file not found")
+         
+    try:
+        os.remove(path)
+        return {"message": "Backup deleted"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/backups/{filename}/download")
+async def download_backup(filename: str):
+    """Download a backup file"""
+    path = os.path.join(BACKUP_DIR, filename)
+    if not os.path.exists(path):
+         raise HTTPException(status_code=404, detail="Backup file not found")
+    return FileResponse(path, filename=filename)
+
 @router.get("/stats")
 async def get_system_stats():
     # CPU

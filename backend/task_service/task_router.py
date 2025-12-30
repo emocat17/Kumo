@@ -263,6 +263,30 @@ async def get_execution_log(execution_id: int, tail_kb: int = Query(None), db: S
     except Exception as e:
         return {"log": f"Error reading log: {str(e)}"}
 
+@router.get("/executions/{execution_id}/log/search")
+async def search_execution_log(execution_id: int, q: str = Query(..., min_length=1), limit: int = 100, db: Session = Depends(get_db)):
+    execution = db.query(models.TaskExecution).filter(models.TaskExecution.id == execution_id).first()
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
+        
+    if not execution.log_file or not os.path.exists(execution.log_file):
+         return {"results": []}
+         
+    results = []
+    try:
+        with open(execution.log_file, "r", encoding="utf-8", errors="ignore") as f:
+            for i, line in enumerate(f):
+                if q.lower() in line.lower():
+                    results.append({
+                        "line": i + 1,
+                        "content": line.strip()
+                    })
+                    if len(results) >= limit:
+                        break
+        return {"results": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.websocket("/ws/logs/{execution_id}")
 async def websocket_log(websocket: WebSocket, execution_id: int, db: Session = Depends(get_db)):
     await websocket.accept()

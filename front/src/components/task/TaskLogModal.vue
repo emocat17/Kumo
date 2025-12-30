@@ -12,6 +12,9 @@
              <button class="btn btn-secondary" @click="refreshLog" :disabled="loading">
                 <RefreshCwIcon :size="16" />
              </button>
+             <button class="btn btn-secondary" @click="toggleSearch" :class="{ 'active': showSearch }">
+                <SearchIcon :size="16" />
+             </button>
              <button class="btn btn-danger" @click="stopExecution(selectedExecutionId)" v-if="isRunning(selectedExecutionId)">
                 <SquareIcon :size="16" fill="currentColor" />
              </button>
@@ -21,6 +24,39 @@
           </div>
        </div>
        
+       <!-- Search Bar -->
+       <div v-if="showSearch" class="search-bar">
+          <div class="search-input-wrapper">
+             <SearchIcon :size="14" class="search-icon" />
+             <input 
+               v-model="searchQuery" 
+               @keyup.enter="performSearch"
+               placeholder="输入关键词搜索日志..." 
+               class="search-input"
+             />
+             <button v-if="searchQuery" class="clear-btn" @click="searchQuery = ''">
+               <XIcon :size="14" />
+             </button>
+          </div>
+          <button class="btn btn-primary btn-sm" @click="performSearch" :disabled="!searchQuery || isSearching">
+             {{ isSearching ? '搜索中...' : '搜索' }}
+          </button>
+       </div>
+
+       <!-- Search Results -->
+       <div v-if="showSearch && searchResults.length > 0" class="search-results">
+          <div class="results-header">
+             <span>找到 {{ searchResults.length }} 个匹配项 (仅显示前 100 个)</span>
+             <button class="close-results" @click="clearSearch">&times;</button>
+          </div>
+          <div class="results-list">
+             <div v-for="(res, idx) in searchResults" :key="idx" class="result-item">
+                <span class="line-num">L{{ res.line }}:</span>
+                <span class="line-content">{{ res.content }}</span>
+             </div>
+          </div>
+       </div>
+
        <div class="log-viewer" ref="logViewer">
           <pre v-if="logContent">{{ logContent }}</pre>
           <div v-else-if="loading" class="loading-text">加载中...</div>
@@ -33,7 +69,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onUnmounted, onMounted } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
-import { RefreshCwIcon, SquareIcon, Trash2Icon } from 'lucide-vue-next'
+import { RefreshCwIcon, SquareIcon, Trash2Icon, SearchIcon, XIcon } from 'lucide-vue-next'
 
 const props = defineProps<{
   taskId: string | number
@@ -51,6 +87,12 @@ const loading = ref(false)
 const logViewer = ref<HTMLElement | null>(null)
 const socket = ref<WebSocket | null>(null)
 let statusPollInterval: number | null = null
+
+// Search State
+const searchQuery = ref('')
+const searchResults = ref<any[]>([])
+const isSearching = ref(false)
+const showSearch = ref(false)
 
 const API_BASE = 'http://localhost:8000/api'
 const WS_BASE = 'ws://localhost:8000/api'
@@ -247,7 +289,7 @@ defineExpose({})
 .log-container {
   display: flex;
   flex-direction: column;
-  height: 60vh;
+  height: 70vh;
 }
 
 .log-header {
@@ -261,40 +303,134 @@ defineExpose({})
 
 .log-title {
   font-weight: 600;
+  font-size: 16px;
 }
 
 .log-controls {
   display: flex;
   gap: 8px;
+  align-items: center;
+}
+
+.log-select {
+  width: 250px;
+  padding: 4px 8px;
+}
+
+/* Search Styles */
+.search-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+.search-input-wrapper {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 8px;
+  color: #999;
+}
+
+.search-input {
+  width: 100%;
+  padding: 6px 30px 6px 30px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.clear-btn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+}
+
+.search-results {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  max-height: 150px;
+  overflow-y: auto;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.results-header {
+  padding: 6px 10px;
+  background: #f1f3f5;
+  font-size: 12px;
+  color: #666;
+  display: flex;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+}
+
+.close-results {
+  background: none;
+  border: none;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.result-item {
+  padding: 4px 10px;
+  font-family: monospace;
+  font-size: 12px;
+  border-bottom: 1px solid #f5f5f5;
+  display: flex;
+  gap: 8px;
+}
+
+.result-item:last-child {
+  border-bottom: none;
+}
+
+.line-num {
+  color: #888;
+  min-width: 40px;
+  text-align: right;
+  user-select: none;
+}
+
+.line-content {
+  color: #333;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .log-viewer {
   flex: 1;
   background: #1e1e1e;
-  color: #f0f0f0;
+  color: #d4d4d4;
   padding: 12px;
-  border-radius: 6px;
-  overflow-y: auto;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', monospace;
   font-size: 13px;
-  line-height: 1.5;
+  overflow-y: auto;
   white-space: pre-wrap;
-  margin-top: 12px;
+  word-wrap: break-word;
 }
 
 .loading-text, .empty-text {
   color: #888;
   text-align: center;
-  margin-top: 20px;
-}
-
-.log-select {
-  width: 280px;
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  font-size: 14px;
-  outline: none;
+  padding: 20px;
 }
 
 .log-select:focus {

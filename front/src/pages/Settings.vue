@@ -130,6 +130,56 @@
           </div>
         </div>
 
+        <!-- Backup Config Tab -->
+        <div v-else-if="activeTab === 'backup'" key="backup" class="section">
+          <div class="card settings-card">
+            <div class="card-header">
+              <h3>数据库备份</h3>
+              <button class="btn btn-primary btn-sm" @click="createBackup" :disabled="backupLoading">
+                <span v-if="backupLoading">创建中...</span>
+                <span v-else>+ 立即备份</span>
+              </button>
+            </div>
+            <p class="section-desc">
+                手动创建数据库备份文件。建议在进行重大变更前执行备份。
+                <br>
+                <small class="text-gray">注意：目前仅支持 SQLite 数据库文件的物理备份。</small>
+            </p>
+
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>文件名</th>
+                  <th>大小</th>
+                  <th>创建时间</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="backup in backups" :key="backup.filename">
+                  <td class="font-mono">
+                    <div class="file-info">
+                        <DatabaseIcon :size="16" class="text-blue" style="margin-right: 8px"/>
+                        {{ backup.filename }}
+                    </div>
+                  </td>
+                  <td>{{ backup.size }}</td>
+                  <td>{{ formatDate(backup.created_at) }}</td>
+                  <td class="actions-cell">
+                    <a :href="`${API_BASE}/system/backups/${backup.filename}/download`" class="btn-text" download>
+                        下载
+                    </a>
+                    <button class="btn-text text-red" @click="deleteBackup(backup.filename)">删除</button>
+                  </td>
+                </tr>
+                <tr v-if="backups.length === 0">
+                  <td colspan="4" class="text-center text-gray">暂无备份记录</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </transition>
     </div>
 
@@ -201,9 +251,10 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive, computed } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import { DatabaseIcon } from 'lucide-vue-next'
 
 const API_BASE = 'http://localhost:8000/api'
-const activeTab = ref<'python' | 'env'>('python')
+const activeTab = ref<'python' | 'env' | 'backup'>('python')
 
 // --- PyPI Config Logic ---
 interface PyPISource {
