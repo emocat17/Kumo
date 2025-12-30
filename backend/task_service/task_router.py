@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, Date
 from typing import List
 from core.database import get_db
 from task_service import models, schemas
 from task_service.task_manager import task_manager, run_task_execution
+from audit_service.service import create_audit_log
 import json
 import datetime
 import os
@@ -104,7 +105,7 @@ async def list_tasks(db: Session = Depends(get_db)):
     return tasks
 
 @router.post("", response_model=schemas.Task)
-async def create_task(task_in: schemas.TaskCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def create_task(task_in: schemas.TaskCreate, background_tasks: BackgroundTasks, request: Request, db: Session = Depends(get_db)):
     task = models.Task(**task_in.dict(), status="active") # Default to active
     db.add(task)
     db.commit()
@@ -115,11 +116,21 @@ async def create_task(task_in: schemas.TaskCreate, background_tasks: BackgroundT
         background_tasks.add_task(run_task_execution, task.id)
     elif task.status == 'active':
         task_manager.add_job(task.id, task.trigger_type, task.trigger_value, task.status, task.priority or 0)
+    
+    create_audit_log(
+        db=db,
+        operation_type="CREATE",
+        target_type="TASK",
+        target_id=str(task.id),
+        target_name=task.name,
+        details=f"Created task '{task.name}' with trigger {task.trigger_type}",
+        operator_ip=request.client.host
+    )
         
     return task
 
 @router.put("/{task_id}", response_model=schemas.Task)
-async def update_task(task_id: int, task_in: schemas.TaskUpdate, db: Session = Depends(get_db)):
+async def update_task(task_id: int, task_in: schemas.TaskUpdate, request: Request, db: Session = Depends(get_db)):
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -141,15 +152,36 @@ async def update_task(task_id: int, task_in: schemas.TaskUpdate, db: Session = D
         task_manager.add_job(task.id, task.trigger_type, task.trigger_value, task.status, task.priority or 0)
     else:
         task_manager.remove_job(task.id)
+
+    create_audit_log(
+        db=db,
+        operation_type="UPDATE",
+        target_type="TASK",
+        target_id=str(task.id),
+        target_name=task.name,
+        details=f"Updated task properties",
+        operator_ip=request.client.host
+    )
         
     return task
 
 @router.delete("/{task_id}")
-async def delete_task(task_id: int, db: Session = Depends(get_db)):
+async def delete_task(task_id: int, request: Request, db: Session = Depends(get_db)):
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-        
+    
+    # Audit Log (before delete to capture name)
+    create_audit_log(
+        db=db,
+        operation_type="DELETE",
+        target_type="TASK",
+        target_id=str(task.id),
+        target_name=task.name,
+        details=f"Deleted task '{task.name}'",
+        operator_ip=request.client.host
+    )
+
     # Remove from scheduler
     task_manager.remove_job(task.id)
     
@@ -158,16 +190,27 @@ async def delete_task(task_id: int, db: Session = Depends(get_db)):
     return {"message": "Task deleted"}
 
 @router.post("/{task_id}/run")
-async def run_task(task_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+async def run_task(task_id: int, background_tasks: BackgroundTasks, request: Request, db: Session = Depends(get_db)):
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     
     background_tasks.add_task(run_task_execution, task_id)
+
+    create_audit_log(
+        db=db,
+        operation_type="EXECUTE",
+        target_type="TASK",
+        target_id=str(task.id),
+        target_name=task.name,
+        details=f"Manually triggered execution for task '{task.name}'",
+        operator_ip=request.client.host
+    )
+
     return {"message": "Task execution started"}
 
 @router.post("/{task_id}/pause")
-async def pause_task(task_id: int, db: Session = Depends(get_db)):
+async def pause_task(task_id: int, request: Request, db: Session = Depends(get_db)):
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -176,10 +219,21 @@ async def pause_task(task_id: int, db: Session = Depends(get_db)):
     db.commit()
     
     task_manager.pause_job(task.id)
+
+    create_audit_log(
+        db=db,
+        operation_type="UPDATE",
+        target_type="TASK",
+        target_id=str(task.id),
+        target_name=task.name,
+        details=f"Paused task '{task.name}'",
+        operator_ip=request.client.host
+    )
+
     return {"message": "Task paused"}
 
 @router.post("/{task_id}/resume")
-async def resume_task(task_id: int, db: Session = Depends(get_db)):
+async def resume_task(task_id: int, request: Request, db: Session = Depends(get_db)):
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -189,10 +243,21 @@ async def resume_task(task_id: int, db: Session = Depends(get_db)):
     
     # Re-add job to be sure parameters are up to date and it's scheduled
     task_manager.add_job(task.id, task.trigger_type, task.trigger_value, task.status, task.priority or 0)
+
+    create_audit_log(
+        db=db,
+        operation_type="UPDATE",
+        target_type="TASK",
+        target_id=str(task.id),
+        target_name=task.name,
+        details=f"Resumed task '{task.name}'",
+        operator_ip=request.client.host
+    )
+
     return {"message": "Task resumed"}
 
 @router.post("/executions/{execution_id}/stop")
-async def stop_execution_endpoint(execution_id: int, db: Session = Depends(get_db)):
+async def stop_execution_endpoint(execution_id: int, request: Request, db: Session = Depends(get_db)):
     execution = db.query(models.TaskExecution).filter(models.TaskExecution.id == execution_id).first()
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
@@ -206,13 +271,28 @@ async def stop_execution_endpoint(execution_id: int, db: Session = Depends(get_d
         execution.end_time = datetime.datetime.now()
         execution.output = (execution.output or "") + "\n[Process stopped by user]"
         db.commit()
+        
+        # Audit Log
+        task = db.query(models.Task).filter(models.Task.id == execution.task_id).first()
+        task_name = task.name if task else "Unknown Task"
+        
+        create_audit_log(
+            db=db,
+            operation_type="STOP",
+            target_type="TASK",
+            target_id=str(execution.task_id),
+            target_name=task_name,
+            details=f"Stopped execution {execution_id} for task '{task_name}'",
+            operator_ip=request.client.host
+        )
+        
         return {"message": "Execution stopped"}
     else:
         # It might be running but we lost the handle (e.g. restart), or it just finished
         return {"message": "Could not stop execution (process might be gone)"}
 
 @router.delete("/executions/{execution_id}")
-async def delete_execution(execution_id: int, db: Session = Depends(get_db)):
+async def delete_execution(execution_id: int, request: Request, db: Session = Depends(get_db)):
     execution = db.query(models.TaskExecution).filter(models.TaskExecution.id == execution_id).first()
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
@@ -228,6 +308,20 @@ async def delete_execution(execution_id: int, db: Session = Depends(get_db)):
         except:
             pass
             
+    # Audit Log
+    task = db.query(models.Task).filter(models.Task.id == execution.task_id).first()
+    task_name = task.name if task else "Unknown Task"
+    
+    create_audit_log(
+        db=db,
+        operation_type="DELETE",
+        target_type="EXECUTION",
+        target_id=str(execution.id),
+        target_name=f"Exec {execution.id} ({task_name})",
+        details=f"Deleted execution {execution.id} for task '{task_name}'",
+        operator_ip=request.client.host
+    )
+
     db.delete(execution)
     db.commit()
     return {"message": "Execution deleted"}

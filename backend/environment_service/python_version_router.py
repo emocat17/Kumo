@@ -3,13 +3,14 @@ import subprocess
 import shutil
 import stat
 import time
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from core.database import get_db, SQLALCHEMY_DATABASE_URL, SessionLocal
 from environment_service import models, schemas
 from task_service.models import Task
+from audit_service.service import create_audit_log
 import platform
 import threading
 import sqlite3
@@ -474,10 +475,21 @@ def background_delete_version(version_id: int):
         db.close()
 
 @router.delete("/{version_id}")
-async def delete_version(version_id: int, db: Session = Depends(get_db)):
+async def delete_version(version_id: int, req: Request, db: Session = Depends(get_db)):
     version = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
+    
+    # Audit Log
+    create_audit_log(
+        db=db,
+        operation_type="DELETE",
+        target_type="ENVIRONMENT",
+        target_id=str(version.id),
+        target_name=version.name,
+        details=f"Deleted environment '{version.name}'",
+        operator_ip=req.client.host
+    )
     
     # Check if path is in managed envs directory
     # If so, treat it as a managed environment that needs file deletion
@@ -497,6 +509,16 @@ async def delete_version(version_id: int, db: Session = Depends(get_db)):
         # Ensure is_conda is True so background task processes it
         if not version.is_conda:
             version.is_conda = True
+            
+        # Audit Log
+        create_audit_log(
+            db=db,
+            operation_type="DELETE",
+            target_type="ENVIRONMENT",
+            target_id=str(version.id),
+            target_name=version.name,
+            details=f"Started deletion of environment '{version.name}'"
+        )
             
         db.commit()
         

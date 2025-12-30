@@ -5,13 +5,14 @@ import threading
 import time
 import datetime
 from sqlalchemy.sql import func
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 from core.database import get_db, SessionLocal
 from environment_service import models, schemas
 from system_service import models as system_models
+from audit_service.service import create_audit_log
 
 router = APIRouter()
 
@@ -154,7 +155,7 @@ async def list_packages(version_id: int, db: Session = Depends(get_db)):
     return packages
 
 @router.post("/{version_id}/packages")
-async def install_packages(version_id: int, request: PackageInstallRequest, db: Session = Depends(get_db)):
+async def install_packages(version_id: int, request: PackageInstallRequest, req: Request, db: Session = Depends(get_db)):
     version = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
     if not version:
         raise HTTPException(status_code=404, detail="Python version not found")
@@ -193,11 +194,23 @@ async def install_packages(version_id: int, request: PackageInstallRequest, db: 
             
         cmd_list += pkgs_list
     
-    # Update status to "installing" (which maps to "配置�? in frontend)
+    # Update status to "installing" (which maps to "配置中" in frontend)
     # Update updated_at explicitly to match log time logic
     # Use datetime.datetime.now() to ensure consistency with Python log time, instead of DB server time
     version.status = "installing"
     version.updated_at = datetime.datetime.now()
+    
+    # Audit Log
+    create_audit_log(
+        db=db,
+        operation_type="INSTALL_PACKAGE",
+        target_type="ENVIRONMENT",
+        target_id=str(version.id),
+        target_name=version.name,
+        details=f"Started installation of packages: {', '.join(pkgs_list)}",
+        operator_ip=req.client.host
+    )
+
     db.commit()
     
     # Clear old log
@@ -225,7 +238,7 @@ async def get_install_logs(version_id: int):
         return {"log": "No installation logs found."}
 
 @router.delete("/{version_id}/packages/{package_name}")
-async def uninstall_package(version_id: int, package_name: str, db: Session = Depends(get_db)):
+async def uninstall_package(version_id: int, package_name: str, req: Request, db: Session = Depends(get_db)):
     version = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
     if not version:
         raise HTTPException(status_code=404, detail="Python version not found")
@@ -247,6 +260,17 @@ async def uninstall_package(version_id: int, package_name: str, db: Session = De
                  raise HTTPException(status_code=500, detail=f"Uninstall failed: {proc_conda.stderr}")
          else:
              raise HTTPException(status_code=500, detail=f"Uninstall failed: {process.stderr}")
+    
+    # Audit Log
+    create_audit_log(
+        db=db,
+        operation_type="UNINSTALL_PACKAGE",
+        target_type="ENVIRONMENT",
+        target_id=str(version.id),
+        target_name=version.name,
+        details=f"Uninstalled package: {package_name}",
+        operator_ip=req.client.host
+    )
              
     return {"message": "Uninstallation successful"}
 

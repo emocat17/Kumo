@@ -5,7 +5,7 @@ import platform
 import subprocess
 import time
 import stat
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
 from sqlalchemy.orm import Session
 from typing import List
 from core.database import get_db
@@ -13,6 +13,7 @@ from project_service import models, schemas
 from task_service.models import Task
 import datetime
 from pydantic import BaseModel
+from audit_service.service import create_audit_log
 
 router = APIRouter()
 
@@ -57,6 +58,7 @@ async def list_projects(db: Session = Depends(get_db)):
 
 @router.post("/create", response_model=schemas.Project)
 async def create_project(
+    request: Request,
     name: str = Form(...),
     work_dir: str = Form("./"),
     output_dir: str = Form(None),
@@ -110,12 +112,24 @@ async def create_project(
     db.add(db_project)
     db.commit()
     db.refresh(db_project)
+    
+    create_audit_log(
+        db=db,
+        operation_type="CREATE",
+        target_type="PROJECT",
+        target_id=str(db_project.id),
+        target_name=db_project.name,
+        details=f"Created project '{db_project.name}'",
+        operator_ip=request.client.host
+    )
+    
     return db_project
 
 @router.put("/{project_id}", response_model=schemas.Project)
 async def update_project(
     project_id: int,
     project_in: schemas.ProjectUpdate,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
@@ -141,6 +155,17 @@ async def update_project(
     project.updated_at = datetime.datetime.now()
     db.commit()
     db.refresh(project)
+    
+    create_audit_log(
+        db=db,
+        operation_type="UPDATE",
+        target_type="PROJECT",
+        target_id=str(project.id),
+        target_name=project.name,
+        details=f"Updated project '{project.name}'",
+        operator_ip=request.client.host
+    )
+    
     return project
 
 # Helper to remove read-only files (fixes Windows deletion issues)
@@ -149,7 +174,7 @@ def remove_readonly(func, path, excinfo):
     func(path)
 
 @router.delete("/{project_id}")
-async def delete_project(project_id: int, db: Session = Depends(get_db)):
+async def delete_project(project_id: int, request: Request, db: Session = Depends(get_db)):
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -162,6 +187,17 @@ async def delete_project(project_id: int, db: Session = Depends(get_db)):
             status_code=400, 
             detail=f"Cannot delete project: It is currently used by tasks: {task_names}"
         )
+
+    # Audit Log
+    create_audit_log(
+        db=db,
+        operation_type="DELETE",
+        target_type="PROJECT",
+        target_id=str(project.id),
+        target_name=project.name,
+        details=f"Deleted project '{project.name}'",
+        operator_ip=request.client.host
+    )
 
     # Remove directory with robust logic
     if os.path.exists(project.path):

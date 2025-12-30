@@ -91,6 +91,7 @@ app.include_router(env_vars_router, prefix="/api/system/env-vars", tags=["Enviro
 app.include_router(fs_router, prefix="/api")
 app.include_router(task_router, prefix="/api/tasks", tags=["Tasks"])
 app.include_router(logs_router, prefix="/api/logs", tags=["Logs"])
+app.include_router(audit_router, prefix="/api/audit", tags=["Audit"])
 
 if __name__ == "__main__":
     import uvicorn

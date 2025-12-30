@@ -1,137 +1,154 @@
 <template>
   <div class="page-container">
-    <PageHeader title="日志管理" description="管理任务执行日志文件，您可以下载、删除日志文件。其中天数选择只作用于删除功能,只保留近N天的日志。">
-      <!-- <template #actions>
-        <button class="btn btn-secondary" @click="fetchLogs" title="刷新">
-          <RefreshCwIcon :size="18" :class="{ 'spin': loading }" />
-        </button>
-      </template> -->
+    <PageHeader title="日志管理" description="管理任务执行日志文件及查看系统操作审计记录。">
     </PageHeader>
 
-    <!-- Toolbar -->
-    <div class="toolbar-card card">
-      <div class="toolbar-left">
-        <select v-model="cleanupDays" class="form-select days-select">
-          <option :value="7">7 天</option>
-          <option :value="30">30 天</option>
-          <option :value="90">90 天</option>
-        </select>
-        <button class="btn btn-danger" @click="handleClearAll">
-          <Trash2Icon :size="16" />
-          清除所有日志
-        </button>
-        <button class="btn btn-primary" @click="handleTimedCleanup">
-          <ClockIcon :size="16" />
-          定时清理
-        </button>
-        <button v-if="selectedLogs.length > 0" class="btn btn-danger" @click="handleBatchDelete">
-          <Trash2Icon :size="16" />
-          批量删除 ({{ selectedLogs.length }})
-        </button>
+    <div class="tabs mb-4">
+      <button 
+        :class="['tab-btn', { active: activeTab === 'system' }]" 
+        @click="activeTab = 'system'"
+      >
+        系统日志
+      </button>
+      <button 
+        :class="['tab-btn', { active: activeTab === 'audit' }]" 
+        @click="activeTab = 'audit'"
+      >
+        操作审计
+      </button>
+    </div>
+
+    <!-- System Logs Tab -->
+    <div v-show="activeTab === 'system'">
+      <!-- Toolbar -->
+      <div class="toolbar-card card">
+        <div class="toolbar-left">
+          <select v-model="cleanupDays" class="form-select days-select">
+            <option :value="7">7 天</option>
+            <option :value="30">30 天</option>
+            <option :value="90">90 天</option>
+          </select>
+          <button class="btn btn-danger" @click="handleClearAll">
+            <Trash2Icon :size="16" />
+            清除所有日志
+          </button>
+          <button class="btn btn-primary" @click="handleTimedCleanup">
+            <ClockIcon :size="16" />
+            定时清理
+          </button>
+          <button v-if="selectedLogs.length > 0" class="btn btn-danger" @click="handleBatchDelete">
+            <Trash2Icon :size="16" />
+            批量删除 ({{ selectedLogs.length }})
+          </button>
+        </div>
+      </div>
+
+      <!-- Logs List -->
+      <div class="card log-list-card">
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 40px">
+                  <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll" />
+                </th>
+                <th style="width: 40px"></th>
+                <th>文件名</th>
+                <th>文件大小</th>
+                <th>最后修改</th>
+                <th style="width: 120px; text-align: right">操作</th>
+              </tr>
+            </thead>
+            <template v-if="loading">
+              <tbody>
+                <tr>
+                  <td colspan="6" class="text-center">加载中...</td>
+                </tr>
+              </tbody>
+            </template>
+            <template v-else-if="groupedLogs.length === 0">
+              <tbody>
+                <tr>
+                  <td colspan="6" class="text-center">暂无日志文件</td>
+                </tr>
+              </tbody>
+            </template>
+            <template v-else>
+              <tbody v-for="group in groupedLogs" :key="group.taskName" class="group-tbody">
+                <tr class="group-header">
+                  <td class="checkbox-cell" @click.stop>
+                     <input type="checkbox" :checked="isGroupSelected(group)" @change="toggleGroupSelection(group)" />
+                  </td>
+                  <td colspan="5" @click="toggleGroup(group.taskName)">
+                    <div class="group-title">
+                      <component :is="expandedGroups[group.taskName] ? ChevronDownIcon : ChevronRightIcon" :size="20" />
+                      <span class="task-name">{{ group.taskName }}</span>
+                      <span class="count-badge">{{ group.files.length }} 个文件</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-for="log in group.files" :key="log.filename" v-show="expandedGroups[group.taskName]" class="log-row">
+                  <td class="checkbox-cell">
+                    <input type="checkbox" :value="log.filename" v-model="selectedLogs" />
+                  </td>
+                  <td></td>
+                  <td class="filename-cell">
+                    <div class="file-info">
+                      <FileTextIcon :size="16" class="text-gray" />
+                      {{ log.filename }}
+                    </div>
+                  </td>
+                  <td>{{ log.size }}</td>
+                  <td>{{ formatDate(log.created_at) }}</td>
+                  <td>
+                    <div class="action-buttons">
+                      <button class="btn-icon" title="查看内容" @click="viewLog(log)">
+                        <EyeIcon :size="16" class="text-blue" />
+                      </button>
+                      <a 
+                        :href="`${API_BASE}/logs/${log.filename}/download`" 
+                        class="btn-icon" 
+                        title="下载日志"
+                        download
+                      >
+                        <DownloadIcon :size="16" class="text-blue" />
+                      </a>
+                      <button class="btn-icon delete" title="删除日志" @click="deleteLog(log)">
+                        <Trash2Icon :size="16" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </template>
+          </table>
+        </div>
+      </div>
+
+      <!-- Log Viewer Modal -->
+      <div v-if="showLogModal" class="modal-overlay" @click="closeLogModal">
+        <div class="modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>{{ viewingLog?.filename }}</h3>
+            <button class="close-btn" @click="closeLogModal">&times;</button>
+          </div>
+          <div class="modal-body">
+            <pre v-if="logContent">{{ logContent }}</pre>
+            <div v-else class="loading-text">加载中...</div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Logs List -->
-    <div class="card log-list-card">
-      <div class="table-container">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th style="width: 40px">
-                <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll" />
-              </th>
-              <th style="width: 40px"></th>
-              <th>文件名</th>
-              <th>文件大小</th>
-              <th>最后修改</th>
-              <th style="width: 120px; text-align: right">操作</th>
-            </tr>
-          </thead>
-          <template v-if="loading">
-            <tbody>
-              <tr>
-                <td colspan="6" class="text-center">加载中...</td>
-              </tr>
-            </tbody>
-          </template>
-          <template v-else-if="groupedLogs.length === 0">
-            <tbody>
-              <tr>
-                <td colspan="6" class="text-center">暂无日志文件</td>
-              </tr>
-            </tbody>
-          </template>
-          <template v-else>
-            <tbody v-for="group in groupedLogs" :key="group.taskName" class="group-tbody">
-              <tr class="group-header">
-                <td class="checkbox-cell" @click.stop>
-                   <input type="checkbox" :checked="isGroupSelected(group)" @change="toggleGroupSelection(group)" />
-                </td>
-                <td colspan="5" @click="toggleGroup(group.taskName)">
-                  <div class="group-title">
-                    <component :is="expandedGroups[group.taskName] ? ChevronDownIcon : ChevronRightIcon" :size="20" />
-                    <span class="task-name">{{ group.taskName }}</span>
-                    <span class="count-badge">{{ group.files.length }} 个文件</span>
-                  </div>
-                </td>
-              </tr>
-              <tr v-for="log in group.files" :key="log.filename" v-show="expandedGroups[group.taskName]" class="log-row">
-                <td class="checkbox-cell">
-                  <input type="checkbox" :value="log.filename" v-model="selectedLogs" />
-                </td>
-                <td></td>
-                <td class="filename-cell">
-                  <div class="file-info">
-                    <FileTextIcon :size="16" class="text-gray" />
-                    {{ log.filename }}
-                  </div>
-                </td>
-                <td>{{ log.size }}</td>
-                <td>{{ formatDate(log.created_at) }}</td>
-                <td>
-                  <div class="action-buttons">
-                    <button class="btn-icon" title="查看内容" @click="viewLog(log)">
-                      <EyeIcon :size="16" class="text-blue" />
-                    </button>
-                    <a 
-                      :href="`${API_BASE}/logs/${log.filename}/download`" 
-                      class="btn-icon" 
-                      title="下载日志"
-                      download
-                    >
-                      <DownloadIcon :size="16" class="text-blue" />
-                    </a>
-                    <button class="btn-icon delete" title="删除日志" @click="deleteLog(log)">
-                      <Trash2Icon :size="16" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </template>
-        </table>
-      </div>
-    </div>
-
-    <!-- Log Viewer Modal -->
-    <div v-if="showLogModal" class="modal-overlay" @click="closeLogModal">
-      <div class="modal-content" @click.stop>
-        <div class="modal-header">
-          <h3>{{ viewingLog?.filename }}</h3>
-          <button class="close-btn" @click="closeLogModal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <pre v-if="logContent">{{ logContent }}</pre>
-          <div v-else class="loading-text">加载中...</div>
-        </div>
-      </div>
-    </div>
+    <!-- Audit Logs Tab -->
+    <AuditLogs v-if="activeTab === 'audit'" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import AuditLogs from './AuditLogs.vue'
 import { 
   RefreshCwIcon, Trash2Icon, ClockIcon, DownloadIcon, FileTextIcon,
   ChevronDownIcon, ChevronRightIcon, EyeIcon
@@ -146,6 +163,7 @@ interface LogFile {
   path: string
 }
 
+const activeTab = ref('system')
 const logs = ref<LogFile[]>([])
 const loading = ref(false)
 const cleanupDays = ref(7)
