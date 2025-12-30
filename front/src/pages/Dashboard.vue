@@ -71,10 +71,33 @@
         </div>
       </div>
 
-      <!-- Task Statistics Chart -->
-      <div class="card chart-card">
-        <h3 class="chart-title">每日调度任务执行统计</h3>
-        <div ref="chartRef" class="chart-container"></div>
+      <!-- Charts Grid -->
+      <div class="charts-grid">
+        <!-- Task Statistics Chart -->
+        <div class="card chart-card">
+          <h3 class="chart-title">每日调度任务执行统计</h3>
+          <div ref="chartRef" class="chart-container"></div>
+        </div>
+
+        <!-- Failure Top 5 -->
+        <div class="card chart-card">
+            <h3 class="chart-title">失败任务 TOP 5</h3>
+            <div class="failure-list">
+                <div v-for="(item, index) in dashboardStats.failure_stats" :key="item.task_id" class="failure-item">
+                    <div class="failure-info">
+                        <span class="failure-rank" :class="'rank-' + (index + 1)">{{ index + 1 }}</span>
+                        <span class="failure-name" :title="item.task_name">{{ item.task_name }}</span>
+                    </div>
+                    <div class="failure-bar-wrapper">
+                         <div class="failure-bar" :style="{ width: getFailureBarWidth(item.failure_count) + '%' }"></div>
+                         <span class="failure-count">{{ item.failure_count }}次</span>
+                    </div>
+                </div>
+                <div v-if="!dashboardStats.failure_stats?.length" class="empty-state">
+                    暂无失败记录
+                </div>
+            </div>
+        </div>
       </div>
     </section>
 
@@ -305,6 +328,11 @@ interface DashboardStats {
     success: number
     failed: number
   }>
+  failure_stats?: Array<{
+      task_id: number
+      task_name: string
+      failure_count: number
+  }>
 }
 
 const activeTab = ref<'overview' | 'performance'>('overview')
@@ -316,7 +344,8 @@ const dashboardStats = ref<DashboardStats>({
     total_executions: 0,
     success_rate_7d: 0,
     recent_executions: [],
-    daily_stats: []
+    daily_stats: [],
+    failure_stats: []
 })
 const timer = ref<number | null>(null)
 const chartRef = ref<HTMLElement | null>(null)
@@ -375,6 +404,12 @@ const getUsageColor = (percent: number) => {
     if (percent < 50) return '#52c41a' // Green
     if (percent < 80) return '#faad14' // Orange
     return '#ff4d4f' // Red
+}
+
+const getFailureBarWidth = (count: number) => {
+    if (!dashboardStats.value.failure_stats?.length) return 0
+    const max = Math.max(...dashboardStats.value.failure_stats.map(s => s.failure_count))
+    return max ? (count / max) * 100 : 0
 }
 
 const initChart = () => {
@@ -465,7 +500,7 @@ onMounted(() => {
   // Refresh stats every 3 seconds
   timer.value = setInterval(() => {
       fetchSystemStats()
-      // fetchDashboardStats() // Don't refresh chart too often, or maybe every minute?
+      fetchDashboardStats()
   }, 3000) as unknown as number
 })
 
@@ -795,8 +830,80 @@ onUnmounted(() => {
 .mt-3 { margin-top: 12px; }
 
 @media (max-width: 768px) {
-    .overview-grid, .bottom-grid, .perf-row-stats {
+    .overview-grid, .bottom-grid, .perf-row-stats, .charts-grid {
         grid-template-columns: 1fr;
     }
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+}
+.failure-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 0 10px;
+    flex: 1;
+    overflow-y: auto;
+}
+.failure-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.failure-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+.failure-rank {
+    width: 20px;
+    height: 20px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    color: #666;
+}
+.failure-rank.rank-1 { background: #ff4d4f; color: white; }
+.failure-rank.rank-2 { background: #ff7875; color: white; }
+.failure-rank.rank-3 { background: #ffccc7; color: #cf1322; }
+
+.failure-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+    color: #333;
+}
+.failure-bar-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 8px;
+}
+.failure-bar {
+    height: 100%;
+    background: #ff4d4f;
+    border-radius: 4px;
+    min-width: 2px;
+}
+.failure-count {
+    font-size: 12px;
+    color: #999;
+    min-width: 30px;
+    text-align: right;
+}
+.empty-state {
+    text-align: center;
+    color: #ccc;
+    margin-top: 40px;
 }
 </style>

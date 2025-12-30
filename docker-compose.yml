@@ -26,6 +26,7 @@ services:
       - TZ=Asia/Shanghai
       - PYTHONUNBUFFERED=1
       - WATCHFILES_FORCE_POLLING=true
+      - MAX_CONCURRENT_TASKS=50
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/docs || exit 1"]
       interval: 30s

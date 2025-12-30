@@ -7,6 +7,7 @@ import logging
 import json
 from sqlalchemy.orm import Session
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
@@ -29,7 +30,20 @@ class TaskManager:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(TaskManager, cls).__new__(cls)
-            cls._instance.scheduler = BackgroundScheduler()
+            
+            # High Performance Concurrency Config
+            max_workers = int(os.environ.get('MAX_CONCURRENT_TASKS', 20))
+            executors = {
+                'default': ThreadPoolExecutor(max_workers),
+                'processpool': ProcessPoolExecutor(5)
+            }
+            job_defaults = {
+                'coalesce': False,
+                'max_instances': 3
+            }
+            
+            print(f"[TaskManager] Initializing with max_workers={max_workers}")
+            cls._instance.scheduler = BackgroundScheduler(executors=executors, job_defaults=job_defaults)
             # cls._instance.scheduler.start() # Do not auto start
         return cls._instance
 

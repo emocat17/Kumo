@@ -59,6 +59,22 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
     
     daily_stats.reverse()
     
+    # 6. Failure Stats (Top 5 Failed Tasks)
+    failure_stats_query = db.query(
+        models.TaskExecution.task_id,
+        func.count(models.TaskExecution.id).label("failure_count")
+    ).filter(models.TaskExecution.status == 'failed').group_by(models.TaskExecution.task_id).order_by(func.count(models.TaskExecution.id).desc()).limit(5).all()
+    
+    failure_stats = []
+    for stat in failure_stats_query:
+        task = db.query(models.Task).filter(models.Task.id == stat.task_id).first()
+        task_name = task.name if task else f"Unknown Task ({stat.task_id})"
+        failure_stats.append({
+            "task_id": stat.task_id,
+            "task_name": task_name,
+            "failure_count": stat.failure_count
+        })
+
     return {
         "total_tasks": total_tasks,
         "active_tasks": active_tasks,
@@ -66,7 +82,8 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
         "total_executions": total_executions,
         "success_rate_7d": success_rate_7d,
         "recent_executions": recent_executions,
-        "daily_stats": daily_stats
+        "daily_stats": daily_stats,
+        "failure_stats": failure_stats
     }
 
 @router.get("", response_model=List[schemas.Task])

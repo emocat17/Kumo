@@ -66,11 +66,17 @@ class DailyStats(BaseModel):
     success: int
     failed: int
 
+class FailureStat(BaseModel):
+    task_id: int
+    task_name: str
+    failure_count: int
+
 class DashboardStats(BaseModel):
     total_tasks: int
     active_tasks: int
-    running_executions: int  # New field
+    running_executions: int
     total_executions: int
     success_rate_7d: float
     recent_executions: List[TaskExecution]
     daily_stats: List[DailyStats]
+    failure_stats: List[FailureStat]
