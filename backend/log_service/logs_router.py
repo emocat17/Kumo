@@ -27,37 +27,53 @@ def format_size(size):
     return f"{size:.2f} TB"
 
 @router.get("")
-async def list_logs(db: Session = Depends(get_db)):
+async def list_logs(
+    db: Session = Depends(get_db),
+    project_id: int = Query(None, description="Filter by project ID")
+):
     log_dir = get_log_dir()
     files = []
     
-    # Pre-fetch all tasks to map ID to Name
-    tasks = db.query(task_models.Task).all()
+    # Pre-fetch all tasks to map ID to Name and Project
+    tasks_query = db.query(task_models.Task)
+    if project_id:
+        tasks_query = tasks_query.filter(task_models.Task.project_id == project_id)
+        
+    tasks = tasks_query.all()
+    # Map task_id -> task_name (and effectively serves as a set of allowed task_ids if filtered)
     task_map = {t.id: t.name for t in tasks}
+    allowed_task_ids = set(task_map.keys()) if project_id else None
     
     if os.path.exists(log_dir):
         for f in os.listdir(log_dir):
             if f.endswith(".log"):
-                path = os.path.join(log_dir, f)
-                stat = os.stat(path)
-                
                 # Parse filename: task_{task_id}_exec_{exec_id}.log
-                task_name = "Unknown Task"
                 try:
                     parts = f.split('_')
-                    # parts: ['task', '1', 'exec', '5.log']
                     if len(parts) >= 2 and parts[0] == 'task':
                         task_id = int(parts[1])
+                        
+                        # Filter by project
+                        if project_id and task_id not in allowed_task_ids:
+                            continue
+                            
                         task_name = task_map.get(task_id, f"Task {task_id}")
+                    else:
+                        if project_id: continue # Skip unknown files when filtering
+                        task_name = "Unknown Task"
                 except:
-                    pass
+                    if project_id: continue
+                    task_name = "Unknown Task"
+
+                path = os.path.join(log_dir, f)
+                stat = os.stat(path)
                 
                 files.append({
                     "filename": f,
                     "task_name": task_name,
                     "size": format_size(stat.st_size),
                     "size_raw": stat.st_size,
-                    "created_at": datetime.datetime.fromtimestamp(stat.st_mtime), # Using mtime as creation time usually updates on write
+                    "created_at": datetime.datetime.fromtimestamp(stat.st_mtime),
                     "path": path
                 })
     

@@ -14,18 +14,30 @@ import asyncio
 router = APIRouter()
 
 @router.get("/dashboard/stats", response_model=schemas.DashboardStats)
-async def get_dashboard_stats(db: Session = Depends(get_db)):
+async def get_dashboard_stats(
+    db: Session = Depends(get_db),
+    project_id: int = Query(None, description="Filter by project ID")
+):
+    # Base filters
+    task_filter = []
+    if project_id:
+        task_filter.append(models.Task.project_id == project_id)
+
     # 1. Task Counts
-    total_tasks = db.query(models.Task).count()
-    active_tasks = db.query(models.Task).filter(models.Task.status == 'active').count()
+    total_tasks = db.query(models.Task).filter(*task_filter).count()
+    active_tasks = db.query(models.Task).filter(models.Task.status == 'active', *task_filter).count()
     
     # 2. Total Executions
-    total_executions = db.query(models.TaskExecution).count()
-    running_executions = db.query(models.TaskExecution).filter(models.TaskExecution.status == 'running').count()
+    exec_query = db.query(models.TaskExecution)
+    if project_id:
+        exec_query = exec_query.join(models.Task).filter(models.Task.project_id == project_id)
+        
+    total_executions = exec_query.count()
+    running_executions = exec_query.filter(models.TaskExecution.status == 'running').count()
     
     # 3. Success Rate (Last 7 Days)
     seven_days_ago = datetime.datetime.now() - datetime.timedelta(days=7)
-    recent_execs_query = db.query(models.TaskExecution).filter(models.TaskExecution.start_time >= seven_days_ago)
+    recent_execs_query = exec_query.filter(models.TaskExecution.start_time >= seven_days_ago)
     
     total_recent = recent_execs_query.count()
     success_recent = recent_execs_query.filter(models.TaskExecution.status == 'success').count()
@@ -35,7 +47,7 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
         success_rate_7d = round((success_recent / total_recent) * 100, 2)
         
     # 4. Recent Executions (Limit 5)
-    recent_executions = db.query(models.TaskExecution).order_by(models.TaskExecution.start_time.desc()).limit(5).all()
+    recent_executions = exec_query.order_by(models.TaskExecution.start_time.desc()).limit(5).all()
     
     # 5. Daily Stats (Last 7 Days)
     daily_stats = []
@@ -44,7 +56,7 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
         day_start = datetime.datetime.combine(day, datetime.time.min)
         day_end = datetime.datetime.combine(day, datetime.time.max)
         
-        day_execs = db.query(models.TaskExecution).filter(
+        day_execs = exec_query.filter(
             models.TaskExecution.start_time >= day_start,
             models.TaskExecution.start_time <= day_end
         )
@@ -61,10 +73,16 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
     daily_stats.reverse()
     
     # 6. Failure Stats (Top 5 Failed Tasks)
-    failure_stats_query = db.query(
+    # Need to rebuild query to support join if filtered
+    failure_stats_base = db.query(
         models.TaskExecution.task_id,
         func.count(models.TaskExecution.id).label("failure_count")
-    ).filter(models.TaskExecution.status == 'failed').group_by(models.TaskExecution.task_id).order_by(func.count(models.TaskExecution.id).desc()).limit(5).all()
+    )
+    
+    if project_id:
+        failure_stats_base = failure_stats_base.join(models.Task).filter(models.Task.project_id == project_id)
+        
+    failure_stats_query = failure_stats_base.filter(models.TaskExecution.status == 'failed').group_by(models.TaskExecution.task_id).order_by(func.count(models.TaskExecution.id).desc()).limit(5).all()
     
     failure_stats = []
     for stat in failure_stats_query:

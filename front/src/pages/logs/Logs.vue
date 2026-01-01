@@ -23,6 +23,7 @@
       <!-- Toolbar -->
       <div class="toolbar-card card">
         <div class="toolbar-left">
+          <ProjectSelector v-model="selectedProjectId" style="width: 200px; margin-right: 12px;" />
           <select v-model="cleanupDays" class="form-select days-select">
             <option :value="7">7 天</option>
             <option :value="30">30 天</option>
@@ -146,8 +147,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import ProjectSelector from '@/components/common/ProjectSelector.vue'
 import AuditLogs from './AuditLogs.vue'
 import { 
   RefreshCwIcon, Trash2Icon, ClockIcon, DownloadIcon, FileTextIcon,
@@ -166,6 +168,7 @@ interface LogFile {
 const activeTab = ref('system')
 const logs = ref<LogFile[]>([])
 const loading = ref(false)
+const selectedProjectId = ref<number | null>(null)
 const cleanupDays = ref(7)
 const expandedGroups = ref<Record<string, boolean>>({})
 const selectedLogs = ref<string[]>([])
@@ -237,10 +240,18 @@ onMounted(() => {
   fetchLogs()
 })
 
+watch(selectedProjectId, () => {
+  fetchLogs()
+})
+
 const fetchLogs = async () => {
   loading.value = true
   try {
-    const res = await fetch(`${API_BASE}/logs`)
+    let url = `${API_BASE}/logs`
+    if (selectedProjectId.value) {
+      url += `?project_id=${selectedProjectId.value}`
+    }
+    const res = await fetch(url)
     if (res.ok) {
       logs.value = await res.json()
       // Clear selection on refresh

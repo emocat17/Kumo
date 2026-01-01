@@ -122,8 +122,75 @@ async def create_project(
         details=f"Created project '{db_project.name}'",
         operator_ip=request.client.host
     )
+
+@router.get("/{project_id}/detect", response_model=dict)
+async def detect_project_framework(project_id: int, db: Session = Depends(get_db)):
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
     
-    return db_project
+    path = project.path
+    if project.work_dir and project.work_dir != "./":
+        path = os.path.join(path, project.work_dir)
+        
+    if not os.path.exists(path):
+         return {"framework": "unknown", "command": ""}
+
+    # 1. Check for Scrapy
+    if os.path.exists(os.path.join(path, "scrapy.cfg")):
+        # Try to find spider name
+        spider_name = "myspider"
+        # Simple heuristic: look for spiders folder
+        # Usually: project_name/spiders
+        # We can walk depth 2
+        for root, dirs, files in os.walk(path):
+            if "spiders" in dirs:
+                spiders_dir = os.path.join(root, "spiders")
+                for f in os.listdir(spiders_dir):
+                    if f.endswith(".py") and f != "__init__.py":
+                        # Try to read name
+                        try:
+                            with open(os.path.join(spiders_dir, f), 'r', encoding='utf-8') as pf:
+                                content = pf.read()
+                                import re
+                                match = re.search(r"name\s*=\s*['\"](.+?)['\"]", content)
+                                if match:
+                                    spider_name = match.group(1)
+                                    break
+                        except:
+                            pass
+                break
+                
+        return {
+            "framework": "scrapy", 
+            "command": f"scrapy crawl {spider_name}",
+            "description": "Detected Scrapy project"
+        }
+
+    # 2. Check for main.py / app.py
+    if os.path.exists(os.path.join(path, "main.py")):
+        return {
+            "framework": "python",
+            "command": "python main.py",
+            "description": "Detected main.py"
+        }
+        
+    if os.path.exists(os.path.join(path, "app.py")):
+        return {
+            "framework": "python",
+            "command": "python app.py",
+            "description": "Detected app.py"
+        }
+
+    # 3. Check for requirements.txt but no main script
+    if os.path.exists(os.path.join(path, "requirements.txt")):
+         return {
+            "framework": "python",
+            "command": "python script.py",
+            "description": "Detected requirements.txt"
+        }
+
+    return {"framework": "unknown", "command": ""}
 
 @router.put("/{project_id}", response_model=schemas.Project)
 async def update_project(

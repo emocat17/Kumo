@@ -188,6 +188,10 @@
               placeholder="python main.py"
             />
           </div>
+          <div v-if="detectedFramework" class="helper-text" style="font-size: 12px; color: #1890ff; margin-top: 4px; cursor: pointer;" @click="form.command = detectedFramework.command">
+            <InfoIcon :size="12" style="display: inline; vertical-align: middle;" />
+            检测到 {{ detectedFramework.description }}，建议使用: <strong>{{ detectedFramework.command }}</strong> (点击应用)
+          </div>
         </div>
 
         <div class="form-group">
@@ -336,7 +340,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import TaskHistoryModal from '@/components/task/TaskHistoryModal.vue'
@@ -391,6 +395,7 @@ const editingId = ref<string | null>(null)
 const cronPreview = ref<string[]>([])
 const currentTask = ref<Task | null>(null)
 const initialExecId = ref<number | undefined>(undefined)
+const detectedFramework = ref<{ command: string, description: string } | null>(null)
 
 const form = reactive({
   name: '',
@@ -508,7 +513,37 @@ const resetForm = () => {
   form.retry_delay = 60
   form.timeout = 3600
   cronPreview.value = []
+  detectedFramework.value = null
 }
+
+watch(() => form.project_id, async (newVal) => {
+  if (!newVal) {
+    detectedFramework.value = null
+    return
+  }
+  
+  // If we are editing and the project hasn't changed from original, maybe don't overwrite?
+  // But here we just show suggestion, we don't overwrite unless user clicks.
+  // Exception: if command is empty, we auto-fill.
+  
+  try {
+    const res = await fetch(`${API_BASE}/projects/${newVal}/detect`)
+    if (res.ok) {
+      const data = await res.json()
+      if (data.command) {
+        detectedFramework.value = data
+        // Auto-fill if command is empty
+        if (!form.command) {
+          form.command = data.command
+        }
+      } else {
+        detectedFramework.value = null
+      }
+    }
+  } catch (e) {
+    console.error("Failed to detect framework", e)
+  }
+})
 
 const handleSaveTask = async () => {
   let triggerValue: any = ''

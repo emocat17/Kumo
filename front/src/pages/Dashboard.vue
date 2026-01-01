@@ -20,6 +20,12 @@
 
     <!-- System Overview -->
     <section v-if="activeTab === 'overview'" class="section">
+      <!-- Filter Bar -->
+      <div class="filter-bar" style="margin-bottom: 20px; display: flex; align-items: center; justify-content: flex-end;">
+         <span style="margin-right: 10px; color: #666; font-size: 14px;">筛选项目:</span>
+         <ProjectSelector v-model="selectedProjectId" />
+      </div>
+
       <!-- Top Cards -->
       <div class="overview-grid">
         <!-- CPU Card -->
@@ -272,6 +278,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
+import ProjectSelector from '@/components/common/ProjectSelector.vue'
 import * as echarts from 'echarts'
 
 interface SystemStats {
@@ -336,6 +343,7 @@ interface DashboardStats {
 }
 
 const activeTab = ref<'overview' | 'performance'>('overview')
+const selectedProjectId = ref<number | null>(null)
 const systemStats = ref<SystemStats>({} as SystemStats)
 const dashboardStats = ref<DashboardStats>({
     total_tasks: 0,
@@ -390,7 +398,11 @@ const fetchSystemStats = async () => {
 
 const fetchDashboardStats = async () => {
     try {
-        const res = await fetch(`${API_BASE}/tasks/dashboard/stats`)
+        let url = `${API_BASE}/tasks/dashboard/stats`
+        if (selectedProjectId.value) {
+            url += `?project_id=${selectedProjectId.value}`
+        }
+        const res = await fetch(url)
         if (res.ok) {
             dashboardStats.value = await res.json()
             initChart()
@@ -399,6 +411,10 @@ const fetchDashboardStats = async () => {
         console.error(e)
     }
 }
+
+watch(selectedProjectId, () => {
+    fetchDashboardStats()
+})
 
 const getUsageColor = (percent: number) => {
     if (percent < 50) return '#52c41a' // Green

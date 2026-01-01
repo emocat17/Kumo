@@ -40,6 +40,10 @@ D:/GitWorks/Spider_front/
 ### 3.2 项目管理 (`project_service`)
 *   **存储**: ZIP 上传自动解压。
 *   **输出路径**: `output_dir` 字段持久化存储于数据库。
+*   **智能识别**:
+    *   **API**: `GET /api/projects/{id}/detect`。
+    *   **逻辑**: 自动检测 `scrapy.cfg` (推荐 `scrapy crawl`), `main.py`/`app.py` (推荐 `python ...`)。
+    *   **前端**: 任务创建时，选择项目后自动填充或推荐执行命令。
 *   **环境变量**: 任务执行时自动注入 `OUTPUT_DIR`, `DATA_DIR`。
 *   **删除保护**: **禁止删除**被定时任务引用的项目 (Backend 校验 + Frontend 禁用)。
 
@@ -66,6 +70,11 @@ D:/GitWorks/Spider_front/
     *   **策略**: 支持自定义备份间隔 (Hours) 和保留份数 (Retention Count)。
     *   **触发**: 启动时加载，配置变更时自动重置 (`refresh_jobs`)。
     *   **存储**: `data/backups/TaskManage_Auto_*.db`。
+
+### 3.7 日志服务 (`log_service`)
+*   **功能**: 管理任务执行日志 (System Logs) 和操作审计 (Audit Logs)。
+*   **过滤**: 支持按**项目维度**筛选日志文件。后端通过 `project_id` 关联任务 ID 进行过滤，前端复用 `ProjectSelector` 组件。
+*   **文件解析**: 自动解析文件名格式 `task_{id}_exec_{id}.log` 以识别任务归属。
 
 ---
 
