@@ -137,12 +137,41 @@
 
         <!-- Backup Config Tab -->
         <div v-else-if="activeTab === 'backup'" key="backup" class="section">
+          
+          <!-- Auto Backup Settings -->
+          <div class="card settings-card" style="margin-bottom: 24px;">
+            <div class="card-header">
+              <h3>自动备份策略</h3>
+            </div>
+            <div class="form-row">
+                <div class="form-group checkbox-group" style="margin-top: 30px;">
+                    <label>
+                        <input type="checkbox" v-model="autoBackupForm.enabled" />
+                        启用自动备份
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>备份间隔 (小时)</label>
+                    <input type="number" v-model.number="autoBackupForm.interval" min="1" :disabled="!autoBackupForm.enabled" />
+                </div>
+                <div class="form-group">
+                    <label>保留份数 (最新的 N 份)</label>
+                    <input type="number" v-model.number="autoBackupForm.retention" min="1" :disabled="!autoBackupForm.enabled" />
+                </div>
+                <div class="form-group" style="display: flex; align-items: flex-end;">
+                    <button class="btn btn-primary" @click="saveAutoBackupConfig" :disabled="autoBackupSaving">
+                        {{ autoBackupSaving ? '保存中...' : '保存配置' }}
+                    </button>
+                </div>
+            </div>
+          </div>
+
           <div class="card settings-card">
             <div class="card-header">
-              <h3>数据库备份</h3>
+              <h3>备份列表</h3>
               <button class="btn btn-primary btn-sm" @click="createBackup" :disabled="backupLoading">
                 <span v-if="backupLoading">创建中...</span>
-                <span v-else>+ 立即备份</span>
+                <span v-else>+ 立即手动备份</span>
               </button>
             </div>
             <p class="section-desc">
@@ -313,6 +342,68 @@ interface BackupFile {
 const backups = ref<BackupFile[]>([])
 const backupLoading = ref(false)
 
+// Auto Backup Logic
+const autoBackupForm = reactive({
+    enabled: false,
+    interval: 24,
+    retention: 7
+})
+const autoBackupSaving = ref(false)
+
+const fetchAutoBackupConfig = async () => {
+    try {
+        const [resEnabled, resInterval, resRetention] = await Promise.all([
+            fetch(`${API_BASE}/system/config/backup.enabled`),
+            fetch(`${API_BASE}/system/config/backup.interval_hours`),
+            fetch(`${API_BASE}/system/config/backup.retention_count`)
+        ])
+        
+        if (resEnabled.ok) {
+            const data = await resEnabled.json()
+            autoBackupForm.enabled = data.value === 'true'
+        }
+        if (resInterval.ok) {
+            const data = await resInterval.json()
+            autoBackupForm.interval = parseInt(data.value || '24')
+        }
+        if (resRetention.ok) {
+            const data = await resRetention.json()
+            autoBackupForm.retention = parseInt(data.value || '7')
+        }
+    } catch (e) {
+        console.error("Failed to fetch auto backup config", e)
+    }
+}
+
+const saveAutoBackupConfig = async () => {
+    autoBackupSaving.value = true
+    try {
+        await Promise.all([
+            fetch(`${API_BASE}/system/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: 'backup.enabled', value: autoBackupForm.enabled ? 'true' : 'false', description: 'Enable auto backup' })
+            }),
+            fetch(`${API_BASE}/system/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: 'backup.interval_hours', value: String(autoBackupForm.interval), description: 'Backup interval in hours' })
+            }),
+            fetch(`${API_BASE}/system/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: 'backup.retention_count', value: String(autoBackupForm.retention), description: 'Number of backups to keep' })
+            })
+        ])
+        alert('配置保存成功')
+    } catch (e) {
+        console.error("Failed to save auto backup config", e)
+        alert('配置保存失败')
+    } finally {
+        autoBackupSaving.value = false
+    }
+}
+
 const fetchBackups = async () => {
     try {
         const res = await fetch(`${API_BASE}/system/backups`)
@@ -366,6 +457,7 @@ onMounted(() => {
     fetchConfig()
     fetchEnvVars()
     fetchBackups()
+    fetchAutoBackupConfig()
 })
 
 const syncConfigToBackend = async () => {

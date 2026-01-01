@@ -9,6 +9,7 @@ from system_service import models as system_models # Register System models
 from audit_service import models as audit_models # Register Audit models
 from task_service import models as task_models # Register Task models
 from task_service.task_manager import task_manager
+from system_service.system_scheduler import SystemScheduler
 
 def run_migrations():
     print("Checking for schema migrations...")
@@ -57,6 +58,8 @@ async def lifespan(app: FastAPI):
         task_manager.start()
         task_manager.load_jobs_from_db()
         print("Task manager started.")
+        SystemScheduler().start()
+        print("System scheduler started.")
     except Exception as e:
         print(f"Startup failed: {e}")
         raise e
@@ -64,6 +67,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     print("Shutting down...")
     task_manager.shutdown()
+    SystemScheduler().shutdown()
 
 from environment_service.python_version_router import router as python_version_router
 from environment_service.env_router import router as env_router

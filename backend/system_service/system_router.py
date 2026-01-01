@@ -12,6 +12,7 @@ from environment_service import models as env_models
 from project_service import models as project_models
 from system_service import models as system_models
 from system_service import schemas as system_schemas
+from system_service.system_scheduler import SystemScheduler
 from fastapi.responses import FileResponse
 
 router = APIRouter()
@@ -63,6 +64,11 @@ async def create_or_update_config(config: system_schemas.SystemConfigCreate, db:
     
     db.commit()
     db.refresh(db_config)
+    
+    # Trigger scheduler refresh if backup config changed
+    if config.key.startswith("backup."):
+        SystemScheduler().refresh_jobs()
+        
     return db_config
 
 @router.get("/config/{key}", response_model=system_schemas.SystemConfig)

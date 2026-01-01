@@ -60,6 +60,13 @@ D:/GitWorks/Spider_front/
     *   **查询**: 支持分页 (`skip`, `limit`)、过滤 (`operation_type`, `target_type`) 和搜索 (名称/详情/IP)。
 *   **前端**: `AuditLogs.vue` 提供可视化查询与筛选界面。
 
+### 3.6 系统管理 (`system_service`)
+*   **自动备份**:
+    *   **调度器**: 独立的 `SystemScheduler` (基于 APScheduler)，避免与任务调度混杂。
+    *   **策略**: 支持自定义备份间隔 (Hours) 和保留份数 (Retention Count)。
+    *   **触发**: 启动时加载，配置变更时自动重置 (`refresh_jobs`)。
+    *   **存储**: `data/backups/TaskManage_Auto_*.db`。
+
 ---
 
 ## 4. 开发与运行
