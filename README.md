@@ -120,3 +120,6 @@ Kumo/
 - `./backend/data`: 系统数据 (DB/Key)
 - `./backend/projects`: 项目代码
 - `./backend/envs`: Python 环境
+
+![1767279439951](image/README/1767279439951.png)
+![1767279462549](image/README/1767279462549.png)

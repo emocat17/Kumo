@@ -497,6 +497,7 @@ const initChart = () => {
 // Watch active tab to re-init chart when switching back to overview
 watch(activeTab, async (newVal) => {
     if (newVal === 'overview') {
+        fetchDashboardStats()
         await nextTick()
         initChart()
     }
@@ -515,8 +516,12 @@ onMounted(() => {
   
   // Refresh stats every 3 seconds
   timer.value = setInterval(() => {
+      if (document.hidden) return
+      
       fetchSystemStats()
-      fetchDashboardStats()
+      if (activeTab.value === 'overview') {
+          fetchDashboardStats()
+      }
   }, 3000) as unknown as number
 })
 

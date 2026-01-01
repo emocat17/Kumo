@@ -26,6 +26,9 @@
             class="form-input"
             @keyup.enter="handleSearch"
           >
+          <button class="btn btn-primary" @click="handleSearch">
+            <SearchIcon :size="16" /> 搜索
+          </button>
         </div>
         <button class="btn btn-secondary" @click="fetchLogs">
           <RefreshCwIcon :size="16" :class="{ 'spin': loading }" /> 刷新
@@ -124,6 +127,7 @@ const fetchLogs = async () => {
     const params = new URLSearchParams()
     if (filterOp.value) params.append('operation_type', filterOp.value)
     if (filterTarget.value) params.append('target_type', filterTarget.value)
+    if (searchQuery.value) params.append('search', searchQuery.value)
     
     // Pagination
     params.append('skip', ((page.value - 1) * pageSize.value).toString())
@@ -140,6 +144,11 @@ const fetchLogs = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const handleSearch = () => {
+  page.value = 1
+  fetchLogs()
 }
 
 watch([filterOp, filterTarget], () => {
@@ -169,6 +178,11 @@ const getOpClass = (op: string) => {
 </script>
 
 <style scoped>
+.btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .toolbar-card {
   padding: 16px;
   margin-bottom: 20px;
@@ -185,6 +199,10 @@ const getOpClass = (op: string) => {
   align-items: center;
   gap: 8px;
   font-size: 14px;
+}
+
+.filter-group label {
+  white-space: nowrap;
 }
 
 .form-select {
@@ -255,7 +273,7 @@ const getOpClass = (op: string) => {
 .status-dot.failed { background-color: #ef4444; }
 
 .details-cell {
-  max-width: 400px;
+  max-width: 250px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

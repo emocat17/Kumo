@@ -57,6 +57,9 @@ D:/GitWorks/Spider_front/
 ### 3.4 仪表盘 (`Dashboard`)
 *   **架构**: 基于 Tab 栏设计 ("系统概览" / "性能配置")。
 *   **状态**: 容器内部指标及**任务执行状态**（如正在运行的任务数）每 3 秒自动刷新。
+*   **性能优化**: 
+    *   **可见性检查**: 页面隐藏 (`document.hidden`) 时自动暂停轮询。
+    *   **按需加载**: "性能配置" Tab 下仅刷新系统指标，不加载任务统计数据。
 
 ### 3.5 审计服务 (`audit_service`)
 *   **功能**: 记录系统关键操作 (如创建/删除任务、环境变更、项目上传等)。
@@ -65,6 +68,8 @@ D:/GitWorks/Spider_front/
     *   **统一入口**: 提供 `create_audit_log` 辅助函数，确保日志格式统一。
     *   **查询**: 支持分页 (`skip`, `limit`)、过滤 (`operation_type`, `target_type`) 和搜索 (名称/详情/IP)。
 *   **前端**: `AuditLogs.vue` 提供可视化查询与筛选界面。
+    *   **搜索集成**: 通过 `searchQuery` 参数调用后端 API，支持回车触发搜索 (`handleSearch`)。
+    *   **布局优化**: "详情"列采用 `max-width` + `text-overflow: ellipsis` 防止长文本导致表格溢出。
 
 ### 3.6 系统管理 (`system_service`)
 *   **自动备份**:
