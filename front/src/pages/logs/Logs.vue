@@ -131,10 +131,34 @@
         <div class="modal-content" @click.stop>
           <div class="modal-header">
             <h3>{{ viewingLog?.filename }}</h3>
+            <div class="search-bar">
+              <input 
+                v-model="searchQuery" 
+                placeholder="搜索日志内容..." 
+                class="form-input search-input"
+                @keyup.enter="handleSearch"
+              />
+              <button class="btn btn-primary btn-icon" @click="handleSearch" :disabled="searchLoading">
+                <SearchIcon :size="16" />
+              </button>
+              <button v-if="isSearching" class="btn btn-secondary btn-icon" @click="clearSearch" title="清除搜索">
+                <XIcon :size="16" />
+              </button>
+            </div>
             <button class="close-btn" @click="closeLogModal">&times;</button>
           </div>
           <div class="modal-body">
-            <pre v-if="logContent">{{ logContent }}</pre>
+            <div v-if="isSearching" class="search-results">
+              <div v-if="searchLoading" class="loading-text">搜索中...</div>
+              <div v-else-if="searchResults.length === 0" class="no-results">未找到匹配内容</div>
+              <div v-else class="results-list">
+                <div v-for="(match, idx) in searchResults" :key="idx" class="result-line">
+                  <span class="line-num">{{ match.line }}:</span>
+                  <span class="line-content">{{ match.content }}</span>
+                </div>
+              </div>
+            </div>
+            <pre v-else-if="logContent">{{ logContent }}</pre>
             <div v-else class="loading-text">加载中...</div>
           </div>
         </div>
@@ -153,7 +177,7 @@ import ProjectSelector from '@/components/common/ProjectSelector.vue'
 import AuditLogs from './AuditLogs.vue'
 import { 
   RefreshCwIcon, Trash2Icon, ClockIcon, DownloadIcon, FileTextIcon,
-  ChevronDownIcon, ChevronRightIcon, EyeIcon
+  ChevronDownIcon, ChevronRightIcon, EyeIcon, SearchIcon, XIcon
 } from 'lucide-vue-next'
 
 interface LogFile {
@@ -163,6 +187,11 @@ interface LogFile {
   size_raw: number
   created_at: string
   path: string
+}
+
+interface SearchMatch {
+  line: number
+  content: string
 }
 
 const activeTab = ref('system')
@@ -175,6 +204,10 @@ const selectedLogs = ref<string[]>([])
 const showLogModal = ref(false)
 const viewingLog = ref<LogFile | null>(null)
 const logContent = ref('')
+const searchQuery = ref('')
+const searchResults = ref<SearchMatch[]>([])
+const isSearching = ref(false)
+const searchLoading = ref(false)
 
 const API_BASE = 'http://localhost:8000/api'
 
@@ -268,6 +301,9 @@ const viewLog = async (log: LogFile) => {
   viewingLog.value = log
   showLogModal.value = true
   logContent.value = '' // Clear previous content
+  searchQuery.value = ''
+  isSearching.value = false
+  searchResults.value = []
   
   try {
     // Request last 200KB to prevent browser crash
@@ -283,9 +319,38 @@ const viewLog = async (log: LogFile) => {
   }
 }
 
+const handleSearch = async () => {
+  if (!viewingLog.value || !searchQuery.value.trim()) return
+  
+  searchLoading.value = true
+  isSearching.value = true
+  try {
+    const res = await fetch(`${API_BASE}/logs/${viewingLog.value.filename}/search?q=${encodeURIComponent(searchQuery.value)}`)
+    if (res.ok) {
+      const data = await res.json()
+      searchResults.value = data.matches
+    } else {
+      alert('搜索失败')
+    }
+  } catch (e) {
+    console.error(e)
+    alert('搜索出错')
+  } finally {
+    searchLoading.value = false
+  }
+}
+
+const clearSearch = () => {
+  searchQuery.value = ''
+  isSearching.value = false
+  searchResults.value = []
+}
+
 const closeLogModal = () => {
   showLogModal.value = false
   viewingLog.value = null
+  isSearching.value = false
+  searchQuery.value = ''
 }
 
 const handleBatchDelete = async () => {
@@ -497,28 +562,29 @@ const formatDate = (iso: string) => {
   width: 40px;
 }
 
+/* Modal Styles */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(0, 0, 0, 0.5);
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   z-index: 1000;
 }
 
 .modal-content {
-  background-color: white;
-  width: 80%;
-  max-width: 900px;
+  background: white;
+  width: 90%;
+  max-width: 1000px;
   height: 80vh;
   border-radius: 8px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .modal-header {
@@ -527,13 +593,34 @@ const formatDate = (iso: string) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 20px;
 }
 
 .modal-header h3 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #111827;
   margin: 0;
+  font-size: 18px;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.search-bar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 500px;
+}
+
+.search-input {
+  flex: 1;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
 }
 
 .close-btn {
@@ -542,27 +629,77 @@ const formatDate = (iso: string) => {
   font-size: 24px;
   color: #6b7280;
   cursor: pointer;
+  line-height: 1;
+  padding: 0;
+}
+
+.close-btn:hover {
+  color: #111827;
 }
 
 .modal-body {
   flex: 1;
   overflow: auto;
-  padding: 16px 24px;
-  background-color: #f9fafb;
+  padding: 16px;
+  background: #f9fafb;
 }
 
 .modal-body pre {
   margin: 0;
   white-space: pre-wrap;
   word-wrap: break-word;
-  font-family: monospace;
-  font-size: 14px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  line-height: 1.5;
   color: #374151;
+}
+
+.search-results {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.result-line {
+  display: flex;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f3f4f6;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.result-line:last-child {
+  border-bottom: none;
+}
+
+.result-line:hover {
+  background-color: #f3f4f6;
+}
+
+.line-num {
+  width: 50px;
+  color: #9ca3af;
+  flex-shrink: 0;
+  user-select: none;
+  text-align: right;
+  margin-right: 12px;
+}
+
+.line-content {
+  color: #374151;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.no-results {
+  padding: 32px;
+  text-align: center;
+  color: #6b7280;
 }
 
 .loading-text {
   text-align: center;
   color: #6b7280;
-  margin-top: 40px;
+  padding: 20px;
 }
 </style>

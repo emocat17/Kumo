@@ -120,6 +120,36 @@ async def get_log_content(filename: str, tail_kb: int = Query(None, description=
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/{filename}/search")
+async def search_log(filename: str, q: str = Query(..., description="Keyword to search"), limit: int = 1000):
+    """
+    Search for a keyword in the log file (case-insensitive).
+    Returns matching lines with line numbers.
+    """
+    log_dir = get_log_dir()
+    path = os.path.join(log_dir, filename)
+    
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Log file not found")
+        
+    if not q:
+        return {"matches": []}
+        
+    matches = []
+    try:
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            for i, line in enumerate(f, 1):
+                if q.lower() in line.lower():
+                    matches.append({
+                        "line": i,
+                        "content": line.strip()
+                    })
+                    if len(matches) >= limit:
+                        break
+        return {"matches": matches}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/batch-delete")
 async def batch_delete_logs(request: BatchDeleteRequest):
     log_dir = get_log_dir()

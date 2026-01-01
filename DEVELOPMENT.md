@@ -77,6 +77,7 @@ D:/GitWorks/Spider_front/
 *   **功能**: 管理任务执行日志 (System Logs) 和操作审计 (Audit Logs)。
 *   **过滤**: 支持按**项目维度**筛选日志文件。后端通过 `project_id` 关联任务 ID 进行过滤，前端复用 `ProjectSelector` 组件。
 *   **文件解析**: 自动解析文件名格式 `task_{id}_exec_{id}.log` 以识别任务归属。
+*   **内容搜索**: 提供 API `GET /api/logs/{filename}/search` 支持在日志文件中搜索关键词 (grep-like)，返回匹配行号与内容。
 
 ---
 
