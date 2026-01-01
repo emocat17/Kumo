@@ -127,8 +127,7 @@
                       </button>
                       <button 
                         class="btn btn-danger btn-sm" 
-                        :title="ver.is_in_use && ver.used_by_tasks?.length ? `无法删除：${ver.used_by_tasks.join(', ')} 定时任务使用中` : '删除'" 
-                        :disabled="ver.is_in_use"
+                        title="删除" 
                         @click="deleteVersion(ver)"
                       >
                          <Trash2 :size="16" />

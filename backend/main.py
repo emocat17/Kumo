@@ -5,8 +5,9 @@ from core.database import init_db, engine
 from sqlalchemy import text
 from environment_service import models as env_models # Import models to ensure they are registered with Base
 from project_service import models as project_models # Register Project models
-from task_service import models as task_models # Register Task models
 from system_service import models as system_models # Register System models
+from audit_service import models as audit_models # Register Audit models
+from task_service import models as task_models # Register Task models
 from task_service.task_manager import task_manager
 
 def run_migrations():
@@ -72,6 +73,7 @@ from system_service.env_vars_router import router as env_vars_router
 from system_service.fs_router import router as fs_router
 from task_service.task_router import router as task_router
 from log_service.logs_router import router as logs_router
+from audit_service.audit_router import router as audit_router
 
 app = FastAPI(title="Kumo Backend", lifespan=lifespan)
 

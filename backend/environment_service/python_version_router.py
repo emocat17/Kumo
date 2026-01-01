@@ -456,10 +456,6 @@ def background_delete_version(version_id: int):
             except Exception as e:
                 print(f"Error in background deletion: {e}")
                 pass
-
-            except Exception as e:
-                print(f"Error in background deletion: {e}")
-                pass
         
         # Finally delete the record
         # Re-query to ensure we have the latest session state
@@ -480,6 +476,11 @@ async def delete_version(version_id: int, req: Request, db: Session = Depends(ge
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
     
+    # Check if used by any tasks
+    used_tasks = db.query(Task).filter(Task.env_id == version_id).first()
+    if used_tasks:
+        raise HTTPException(status_code=400, detail=f"Cannot delete environment '{version.name}': It is used by task '{used_tasks.name}'")
+
     # Audit Log
     create_audit_log(
         db=db,
