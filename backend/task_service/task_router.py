@@ -6,6 +6,7 @@ from core.database import get_db
 from task_service import models, schemas
 from task_service.task_manager import task_manager, run_task_execution
 from audit_service.service import create_audit_log
+from apscheduler.triggers.cron import CronTrigger
 import json
 import datetime
 import os
@@ -49,147 +50,189 @@ async def get_dashboard_stats(
     # 4. Recent Executions (Limit 5)
     recent_executions = exec_query.order_by(models.TaskExecution.start_time.desc()).limit(5).all()
     
-    # 5. Daily Stats (Last 7 Days)
-    daily_stats = []
-    for i in range(7):
-        day = datetime.date.today() - datetime.timedelta(days=i)
-        day_start = datetime.datetime.combine(day, datetime.time.min)
-        day_end = datetime.datetime.combine(day, datetime.time.max)
-        
-        day_execs = exec_query.filter(
-            models.TaskExecution.start_time >= day_start,
-            models.TaskExecution.start_time <= day_end
-        )
-        
-        success = day_execs.filter(models.TaskExecution.status == 'success').count()
-        failed = day_execs.filter(models.TaskExecution.status == 'failed').count()
-        
-        daily_stats.append({
-            "date": day.strftime("%Y-%m-%d"),
-            "success": success,
-            "failed": failed
-        })
+    # 5. Daily Stats (Last 14 days)
+    # We will fetch this in a separate call or here? 
+    # The Schema expects daily_stats, failure_stats.
+    # Let's add them here to match schema.
     
-    daily_stats.reverse()
+    end_date = datetime.date.today()
+    start_date = end_date - datetime.timedelta(days=14)
     
-    # 6. Failure Stats (Top 5 Failed Tasks)
-    # Need to rebuild query to support join if filtered
-    failure_stats_base = db.query(
-        models.TaskExecution.task_id,
-        func.count(models.TaskExecution.id).label("failure_count")
+    date_col = func.date(models.TaskExecution.start_time)
+    
+    daily_results = db.query(
+        date_col.label("date"),
+        models.TaskExecution.status,
+        func.count(models.TaskExecution.id).label("count")
+    ).filter(
+        models.TaskExecution.start_time >= start_date
     )
-    
     if project_id:
-        failure_stats_base = failure_stats_base.join(models.Task).filter(models.Task.project_id == project_id)
+        daily_results = daily_results.join(models.Task).filter(models.Task.project_id == project_id)
         
-    failure_stats_query = failure_stats_base.filter(models.TaskExecution.status == 'failed').group_by(models.TaskExecution.task_id).order_by(func.count(models.TaskExecution.id).desc()).limit(5).all()
+    daily_results = daily_results.group_by(
+        date_col,
+        models.TaskExecution.status
+    ).all()
     
-    failure_stats = []
-    for stat in failure_stats_query:
-        task = db.query(models.Task).filter(models.Task.id == stat.task_id).first()
-        task_name = task.name if task else f"Unknown Task ({stat.task_id})"
-        failure_stats.append({
-            "task_id": stat.task_id,
-            "task_name": task_name,
-            "failure_count": stat.failure_count
-        })
-
-    return {
-        "total_tasks": total_tasks,
-        "active_tasks": active_tasks,
-        "running_executions": running_executions,
-        "total_executions": total_executions,
-        "success_rate_7d": success_rate_7d,
-        "recent_executions": recent_executions,
-        "daily_stats": daily_stats,
-        "failure_stats": failure_stats
-    }
-
-@router.get("", response_model=List[schemas.Task])
-async def list_tasks(db: Session = Depends(get_db)):
-    tasks = db.query(models.Task).all()
-    # Populate next_run and execution info
-    for task in tasks:
-        next_run = task_manager.get_next_run_time(task.id)
-        task.next_run = next_run
+    stats_map = {}
+    current = start_date
+    while current <= end_date:
+        date_str = current.strftime("%Y-%m-%d")
+        stats_map[date_str] = {"success": 0, "failed": 0}
+        current += datetime.timedelta(days=1)
         
-        # Get latest execution
-        latest_exec = db.query(models.TaskExecution).filter(models.TaskExecution.task_id == task.id).order_by(models.TaskExecution.start_time.desc()).first()
-        if latest_exec:
-            task.last_execution_status = latest_exec.status
-            task.latest_execution_id = latest_exec.id
-            task.latest_execution_time = latest_exec.start_time
-            
-    return tasks
+    for r in daily_results:
+        date_str = r.date
+        status = r.status
+        count = r.count
+        if date_str in stats_map:
+            if status == "success":
+                stats_map[date_str]["success"] += count
+            elif status == "failed":
+                stats_map[date_str]["failed"] += count
+                
+    daily_stats_list = []
+    for d in sorted(stats_map.keys()):
+        daily_stats_list.append(schemas.DailyStats(
+            date=d,
+            success=stats_map[d]["success"],
+            failed=stats_map[d]["failed"]
+        ))
+        
+    # 6. Failure Stats (Top 5)
+    fail_query = db.query(
+        models.TaskExecution.task_id,
+        models.Task.name.label("task_name"),
+        func.count(models.TaskExecution.id).label("failure_count")
+    ).join(models.Task).filter(
+        models.TaskExecution.status == 'failed'
+    )
+    if project_id:
+        fail_query = fail_query.filter(models.Task.project_id == project_id)
+        
+    fail_results = fail_query.group_by(
+        models.TaskExecution.task_id,
+        models.Task.name
+    ).order_by(func.count(models.TaskExecution.id).desc()).limit(5).all()
+    
+    failure_stats_list = [
+        schemas.FailureStat(task_id=r.task_id, task_name=r.task_name, failure_count=r.failure_count)
+        for r in fail_results
+    ]
+
+    return schemas.DashboardStats(
+        total_tasks=total_tasks,
+        active_tasks=active_tasks,
+        running_executions=running_executions,
+        total_executions=total_executions,
+        success_rate_7d=success_rate_7d,
+        recent_executions=recent_executions,
+        daily_stats=daily_stats_list,
+        failure_stats=failure_stats_list
+    )
 
 @router.post("", response_model=schemas.Task)
-async def create_task(task_in: schemas.TaskCreate, background_tasks: BackgroundTasks, request: Request, db: Session = Depends(get_db)):
-    task = models.Task(**task_in.dict(), status="active") # Default to active
-    db.add(task)
+async def create_task(task: schemas.TaskCreate, request: Request, db: Session = Depends(get_db)):
+    db_task = models.Task(**task.model_dump())
+    db.add(db_task)
     db.commit()
-    db.refresh(task)
+    db.refresh(db_task)
     
-    # Add to scheduler
-    if task.trigger_type == 'immediate':
-        background_tasks.add_task(run_task_execution, task.id)
-    elif task.status == 'active':
-        task_manager.add_job(task.id, task.trigger_type, task.trigger_value, task.status, task.priority or 0)
-    
+    # Audit Log
     create_audit_log(
         db=db,
         operation_type="CREATE",
         target_type="TASK",
-        target_id=str(task.id),
-        target_name=task.name,
-        details=f"Created task '{task.name}' with trigger {task.trigger_type}",
+        target_id=str(db_task.id),
+        target_name=db_task.name,
+        details=f"Created task '{db_task.name}' with command '{db_task.command}'",
         operator_ip=request.client.host
     )
+    
+    # Schedule task
+    try:
+        task_manager.add_job(db_task)
+    except Exception as e:
+        print(f"Error scheduling task {db_task.id}: {e}")
         
-    return task
+    return db_task
 
-@router.put("/{task_id}", response_model=schemas.Task)
-async def update_task(task_id: int, task_in: schemas.TaskUpdate, request: Request, db: Session = Depends(get_db)):
+@router.get("", response_model=List[schemas.Task])
+async def list_tasks(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    tasks = db.query(models.Task).offset(skip).limit(limit).all()
+    # Update runtime status
+    for t in tasks:
+        t.next_run = task_manager.get_next_run_time(t.id)
+        # Get latest execution info
+        latest_exec = db.query(models.TaskExecution).filter(
+            models.TaskExecution.task_id == t.id
+        ).order_by(models.TaskExecution.start_time.desc()).first()
+        
+        if latest_exec:
+            t.last_execution_status = latest_exec.status
+            t.latest_execution_id = latest_exec.id
+            t.latest_execution_time = latest_exec.start_time
+            
+    return tasks
+
+@router.get("/{task_id}", response_model=schemas.Task)
+async def get_task(task_id: int, db: Session = Depends(get_db)):
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    task.next_run = task_manager.get_next_run_time(task.id)
+    return task
+
+@router.put("/{task_id}", response_model=schemas.Task)
+async def update_task(task_id: int, task_update: schemas.TaskUpdate, request: Request, db: Session = Depends(get_db)):
+    db_task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not db_task:
+        raise HTTPException(status_code=404, detail="Task not found")
         
-    update_data = task_in.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(task, field, value)
+    update_data = task_update.model_dump(exclude_unset=True)
+    
+    # Check if critical fields changed
+    reschedule_needed = False
+    critical_fields = ['trigger_type', 'trigger_value', 'command', 'env_id', 'project_id', 'status', 'timeout', 'retry_count', 'retry_delay']
+    if any(k in update_data for k in critical_fields):
+        reschedule_needed = True
+        
+    for key, value in update_data.items():
+        setattr(db_task, key, value)
         
     db.commit()
-    db.refresh(task)
+    db.refresh(db_task)
     
-    # Update scheduler
-    # If status changed to paused, pause job
-    # If status changed to active, add/resume job
-    # If config changed, re-add job
-    
-    # Simple strategy: re-add job if active, remove if not
-    if task.status == 'active':
-        task_manager.add_job(task.id, task.trigger_type, task.trigger_value, task.status, task.priority or 0)
-    else:
-        task_manager.remove_job(task.id)
-
+    # Audit Log
     create_audit_log(
         db=db,
         operation_type="UPDATE",
         target_type="TASK",
-        target_id=str(task.id),
-        target_name=task.name,
-        details=f"Updated task properties",
+        target_id=str(db_task.id),
+        target_name=db_task.name,
+        details=f"Updated task '{db_task.name}'. Fields: {', '.join(update_data.keys())}",
         operator_ip=request.client.host
     )
-        
-    return task
+    
+    if reschedule_needed:
+        if db_task.status == 'active':
+            task_manager.update_job(db_task)
+        else:
+            task_manager.remove_job(db_task.id)
+            
+    return db_task
 
 @router.delete("/{task_id}")
 async def delete_task(task_id: int, request: Request, db: Session = Depends(get_db)):
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+        
+    # Remove from scheduler
+    task_manager.remove_job(task_id)
     
-    # Audit Log (before delete to capture name)
+    # Audit Log
     create_audit_log(
         db=db,
         operation_type="DELETE",
@@ -199,96 +242,59 @@ async def delete_task(task_id: int, request: Request, db: Session = Depends(get_
         details=f"Deleted task '{task.name}'",
         operator_ip=request.client.host
     )
-
-    # Remove from scheduler
-    task_manager.remove_job(task.id)
     
     db.delete(task)
     db.commit()
     return {"message": "Task deleted"}
 
 @router.post("/{task_id}/run")
-async def run_task(task_id: int, background_tasks: BackgroundTasks, request: Request, db: Session = Depends(get_db)):
-    task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-    
-    background_tasks.add_task(run_task_execution, task_id)
-
-    create_audit_log(
-        db=db,
-        operation_type="EXECUTE",
-        target_type="TASK",
-        target_id=str(task.id),
-        target_name=task.name,
-        details=f"Manually triggered execution for task '{task.name}'",
-        operator_ip=request.client.host
-    )
-
-    return {"message": "Task execution started"}
-
-@router.post("/{task_id}/pause")
-async def pause_task(task_id: int, request: Request, db: Session = Depends(get_db)):
+async def run_task(task_id: int, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
         
-    task.status = "paused"
+    # Create execution record immediately
+    execution = models.TaskExecution(
+        task_id=task.id,
+        status='pending',
+        start_time=datetime.datetime.now(),
+        attempt=1
+    )
+    db.add(execution)
     db.commit()
+    db.refresh(execution)
     
-    task_manager.pause_job(task.id)
-
+    # Audit Log
     create_audit_log(
         db=db,
-        operation_type="UPDATE",
+        operation_type="RUN",
         target_type="TASK",
         target_id=str(task.id),
         target_name=task.name,
-        details=f"Paused task '{task.name}'",
+        details=f"Manually triggered task '{task.name}' (Exec ID: {execution.id})",
         operator_ip=request.client.host
     )
-
-    return {"message": "Task paused"}
-
-@router.post("/{task_id}/resume")
-async def resume_task(task_id: int, request: Request, db: Session = Depends(get_db)):
-    task = db.query(models.Task).filter(models.Task.id == task_id).first()
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-        
-    task.status = "active"
-    db.commit()
     
-    # Re-add job to be sure parameters are up to date and it's scheduled
-    task_manager.add_job(task.id, task.trigger_type, task.trigger_value, task.status, task.priority or 0)
-
-    create_audit_log(
-        db=db,
-        operation_type="UPDATE",
-        target_type="TASK",
-        target_id=str(task.id),
-        target_name=task.name,
-        details=f"Resumed task '{task.name}'",
-        operator_ip=request.client.host
-    )
-
-    return {"message": "Task resumed"}
+    # Run in background
+    background_tasks.add_task(run_task_execution, execution.id)
+    
+    return {"message": "Task started", "execution_id": execution.id}
 
 @router.post("/executions/{execution_id}/stop")
-async def stop_execution_endpoint(execution_id: int, request: Request, db: Session = Depends(get_db)):
+async def stop_execution(execution_id: int, request: Request, db: Session = Depends(get_db)):
     execution = db.query(models.TaskExecution).filter(models.TaskExecution.id == execution_id).first()
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
-    
-    if execution.status != 'running':
-        return {"message": "Execution is not running"}
         
-    success = task_manager.stop_execution(execution_id)
-    if success:
-        execution.status = "stopped"
-        execution.end_time = datetime.datetime.now()
-        execution.output = (execution.output or "") + "\n[Process stopped by user]"
-        db.commit()
+    if execution.status == 'running' or execution.status == 'pending':
+        stopped = task_manager.stop_execution(execution_id)
+        
+        # Update DB status if not already updated by the process
+        if execution.status != 'stopped' and execution.status != 'failed' and execution.status != 'success':
+             execution.status = 'stopped'
+             execution.end_time = datetime.datetime.now()
+             execution.output = (execution.output or "") + "\n[System] Execution stopped by user."
+             db.commit()
         
         # Audit Log
         task = db.query(models.Task).filter(models.Task.id == execution.task_id).first()
@@ -387,10 +393,12 @@ async def search_execution_log(execution_id: int, q: str = Query(..., min_length
     results = []
     try:
         with open(execution.log_file, "r", encoding="utf-8", errors="ignore") as f:
-            for i, line in enumerate(f):
+            line_num = 0
+            for line in f:
+                line_num += 1
                 if q.lower() in line.lower():
                     results.append({
-                        "line": i + 1,
+                        "line": line_num,
                         "content": line.strip()
                     })
                     if len(results) >= limit:
@@ -524,3 +532,22 @@ async def get_daily_task_stats(days: int = 14, db: Session = Depends(get_db)):
         "success": success_data,
         "failed": failed_data
     }
+
+@router.post("/cron/preview", response_model=schemas.CronPreviewResponse)
+async def preview_cron(request: schemas.CronPreviewRequest):
+    try:
+        trigger = CronTrigger.from_crontab(request.cron_expression)
+        now = datetime.datetime.now()
+        next_times = []
+        next_run = now
+        for _ in range(5):
+            next_run = trigger.get_next_fire_time(None, next_run)
+            if next_run:
+                next_times.append(next_run.strftime("%Y-%m-%d %H:%M:%S"))
+                # Advance slightly to find the next one
+                next_run = next_run + datetime.timedelta(seconds=1)
+            else:
+                break
+        return {"next_run_times": next_times}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid cron expression: {str(e)}")

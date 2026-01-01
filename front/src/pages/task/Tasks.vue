@@ -691,13 +691,29 @@ const closeLogModal = () => {
 }
 
 
-const previewCron = () => {
-  // Mock preview
-  const now = new Date()
-  cronPreview.value = Array.from({length: 5}, (_, i) => {
-     const d = new Date(now.getTime() + (i + 1) * 3600000 * 24) // +1 day for mock
-     return d.toLocaleString()
-  })
+const previewCron = async () => {
+  if (!form.trigger_value_cron) return
+  
+  try {
+    const res = await fetch(`${API_BASE}/tasks/cron/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cron_expression: form.trigger_value_cron })
+    })
+    
+    if (res.ok) {
+      const data = await res.json()
+      cronPreview.value = data.next_run_times
+    } else {
+      const err = await res.json()
+      alert(`Cron 表达式错误: ${err.detail}`)
+      cronPreview.value = []
+    }
+  } catch (e) {
+    console.error(e)
+    cronPreview.value = []
+    alert("无法连接到服务器进行预览")
+  }
 }
 
 // Helpers

@@ -84,3 +84,9 @@ class DashboardStats(BaseModel):
     recent_executions: List[TaskExecution]
     daily_stats: List[DailyStats]
     failure_stats: List[FailureStat]
+
+class CronPreviewRequest(BaseModel):
+    cron_expression: str
+
+class CronPreviewResponse(BaseModel):
+    next_run_times: List[str]
