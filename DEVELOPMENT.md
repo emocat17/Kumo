@@ -52,6 +52,7 @@ D:/GitWorks/Spider_front/
 *   **流程**: 数据库加载 -> 注入 Env/Path -> `subprocess` 执行 -> 日志重定向。
 *   **容错**: 环境路径失效时自动降级为系统默认 Python。
 *   **Cron 预览**: 提供 API `POST /api/tasks/cron/preview` 验证 Cron 表达式并返回下 5 次执行时间，前端实时预览。
+*   **资源监控**: 后端 `TaskManager` 独立线程监控子进程 CPU/Memory，并在任务结束时持久化 `max_cpu_percent` / `max_memory_mb` 到数据库。前端 `TaskHistoryModal` 展示历史峰值。
 
 ### 3.4 仪表盘 (`Dashboard`)
 *   **架构**: 基于 Tab 栏设计 ("系统概览" / "性能配置")。

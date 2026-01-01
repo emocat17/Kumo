@@ -378,6 +378,14 @@ def run_task_execution(task_id: int, attempt: int = 1):
             execution.end_time = datetime.datetime.now()
             execution.duration = (execution.end_time - execution.start_time).total_seconds()
             
+            # Save Resource Stats
+            if execution.id in task_manager.execution_stats:
+                stats = task_manager.execution_stats[execution.id]
+                execution.max_cpu_percent = stats.get('max_cpu')
+                execution.max_memory_mb = stats.get('max_mem')
+                # Cleanup stats
+                del task_manager.execution_stats[execution.id]
+            
             # Read back some output for the DB record (optional, maybe first 4KB)
             try:
                 with open(log_file_path, "r", encoding="utf-8") as f:

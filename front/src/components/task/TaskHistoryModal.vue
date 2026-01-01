@@ -37,12 +37,14 @@
                    <th>开始时间</th>
                    <th>结束时间</th>
                    <th>耗时(秒)</th>
+                   <th>CPU (Max)</th>
+                   <th>Mem (Max)</th>
                    <th>操作</th>
                 </tr>
              </thead>
              <tbody>
                 <tr v-if="executions.length === 0">
-                   <td :colspan="isEditing ? 7 : 6" class="empty-cell">暂无执行记录</td>
+                   <td :colspan="isEditing ? 9 : 8" class="empty-cell">暂无执行记录</td>
                 </tr>
                 <tr v-for="exec in executions" :key="exec.id">
                    <td v-if="isEditing" class="checkbox-col">
@@ -55,6 +57,8 @@
                    <td>{{ formatTime(exec.start_time) }}</td>
                    <td>{{ exec.end_time ? formatTime(exec.end_time) : '-' }}</td>
                    <td>{{ exec.duration ? exec.duration.toFixed(2) : '-' }}</td>
+                   <td>{{ exec.max_cpu_percent ? exec.max_cpu_percent.toFixed(1) + '%' : '-' }}</td>
+                   <td>{{ exec.max_memory_mb ? exec.max_memory_mb.toFixed(1) + ' MB' : '-' }}</td>
                    <td>
                       <button class="btn-icon" title="查看日志" @click="viewLog(exec.id)">
                          <TerminalIcon :size="14" />
