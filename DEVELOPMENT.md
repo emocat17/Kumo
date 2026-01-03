@@ -98,6 +98,22 @@ docker-compose restart backend
 # 查看日志
 docker-compose logs -f backend
 ```
+
+### 4.1 浏览器环境支持 (Selenium/DrissionPage)
+若需运行依赖浏览器的爬虫任务 (如 Selenium, DrissionPage)，需切换到包含 Chromium 的后端镜像。
+
+1.  修改 `docker-compose.yml`:
+    ```yaml
+    backend:
+      build:
+        dockerfile: Dockerfile.browser # 取消此行注释
+    ```
+2.  重新构建镜像:
+    ```bash
+    docker-compose up -d --build backend
+    ```
+3.  环境变量: 镜像已预设 `CHROME_BIN=/usr/bin/chromium` 和 `CHROMEDRIVER_PATH=/usr/bin/chromedriver`。
+
 *   **Frontend**: http://localhost:6677
 *   **API Docs**: http://localhost:8000/docs
 

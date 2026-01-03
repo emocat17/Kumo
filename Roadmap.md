@@ -84,7 +84,7 @@
 ## 6. 生态集成 (Ecosystem)
 ### 6.1 框架模板支持
 - [x] **项目类型识别**: 自动识别 `scrapy.cfg`, `main.py`, `app.py` 并推荐执行命令。
-- [ ] **Selenium/DrissionPage**: 提供包含 Headless 浏览器环境的 Docker 镜像变体。
+- [x] **Selenium/DrissionPage**: 提供包含 Headless 浏览器环境的 Docker 镜像变体 (`Dockerfile.browser`)。
 
 ---
 

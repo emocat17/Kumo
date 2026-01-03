@@ -7,6 +7,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      # dockerfile: Dockerfile.browser # 启用此行以支持 Selenium/DrissionPage (包含 Chromium)
     volumes:
       # 1. 代码映射：宿主机修改代码，容器内实时生效 (热重载)
       - ./backend:/app
