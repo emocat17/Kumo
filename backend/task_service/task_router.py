@@ -258,8 +258,7 @@ async def run_task(task_id: int, request: Request, background_tasks: BackgroundT
         task_id=task.id,
         status='pending',
         start_time=datetime.datetime.now(),
-        attempt=1,
-        node_id=os.environ.get("KUMO_NODE_ID", "master")
+        attempt=1
     )
     db.add(execution)
     db.commit()

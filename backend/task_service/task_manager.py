@@ -232,8 +232,7 @@ def run_task_execution(task_id: int, attempt: int = 1):
             task_id=task.id,
             status="running",
             attempt=attempt,
-            start_time=datetime.datetime.now(),
-            node_id=os.environ.get("KUMO_NODE_ID", "master")
+            start_time=datetime.datetime.now()
         )
         db.add(execution)
         db.commit()

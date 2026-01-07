@@ -45,6 +45,5 @@ class TaskExecution(Base):
     output = Column(Text, nullable=True) # Snippet of output
     max_cpu_percent = Column(Float, nullable=True)
     max_memory_mb = Column(Float, nullable=True)
-    node_id = Column(String, nullable=True) # Node identity
     
     task = relationship("Task", back_populates="executions")

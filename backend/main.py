@@ -45,13 +45,6 @@ def run_migrations():
             conn.execute(text("ALTER TABLE task_executions ADD COLUMN max_cpu_percent FLOAT DEFAULT NULL"))
             conn.execute(text("ALTER TABLE task_executions ADD COLUMN max_memory_mb FLOAT DEFAULT NULL"))
 
-        # Check if node_id exists in task_executions
-        try:
-            conn.execute(text("SELECT node_id FROM task_executions LIMIT 1"))
-        except Exception:
-            print("Migrating task_executions table: adding node_id column")
-            conn.execute(text("ALTER TABLE task_executions ADD COLUMN node_id VARCHAR DEFAULT NULL"))
-
         conn.commit()
 
 @asynccontextmanager
