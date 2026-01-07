@@ -33,6 +33,7 @@
                       <input type="checkbox" :checked="selectedIds.size === executions.length && executions.length > 0" @change="toggleAll">
                    </th>
                    <th>ID</th>
+                   <th>Node</th>
                    <th>状态</th>
                    <th>开始时间</th>
                    <th>结束时间</th>
@@ -44,13 +45,14 @@
              </thead>
              <tbody>
                 <tr v-if="executions.length === 0">
-                   <td :colspan="isEditing ? 9 : 8" class="empty-cell">暂无执行记录</td>
+                   <td :colspan="isEditing ? 10 : 9" class="empty-cell">暂无执行记录</td>
                 </tr>
                 <tr v-for="exec in executions" :key="exec.id">
                    <td v-if="isEditing" class="checkbox-col">
                       <input type="checkbox" :checked="selectedIds.has(exec.id)" @change="toggleSelection(exec.id)">
                    </td>
                    <td>#{{ exec.id }}</td>
+                   <td><span class="node-tag">{{ exec.node_id || 'master' }}</span></td>
                    <td>
                       <span :class="['status-badge', exec.status]">{{ exec.status }}</span>
                    </td>
@@ -312,4 +314,14 @@ defineExpose({})
 
 .text-blue { color: #3b82f6; }
 .checkbox-col { width: 40px; text-align: center; }
+
+.node-tag {
+  background: #f0f5ff;
+  color: #1d39c4;
+  border: 1px solid #adc6ff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: monospace;
+}
 </style>

@@ -117,6 +117,17 @@ docker-compose logs -f backend
 *   **Frontend**: http://localhost:6677
 *   **API Docs**: http://localhost:8000/docs
 
+### 4.2 节点标识配置 (Node Identity)
+支持通过环境变量配置当前后端节点的标识，用于在分布式部署或多实例场景下区分任务执行来源。
+
+*   **环境变量**: `KUMO_NODE_ID`
+*   **默认值**: `master`
+*   **配置方式**: 在 `docker-compose.yml` 的 `backend` 服务中添加：
+    ```yaml
+    environment:
+      - KUMO_NODE_ID=worker-1
+    ```
+
 ---
 
 ## 5. 开发规范 (AI 维护指南)
