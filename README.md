@@ -1,4 +1,4 @@
-# Kumo (Spider_front)
+# Kumo
 
 > **基于 Docker 的现代化 Python 任务调度与全栈环境管理平台**
 >
