@@ -284,6 +284,21 @@ def run_task_execution(task_id: int, attempt: int = 1, execution_id: int = None)
                     val = ev.value
                 
                 env_vars[ev.key] = val
+            
+            # Inject Network Proxy (If Enabled)
+            proxy_enabled = db.query(system_models.SystemConfig).filter(system_models.SystemConfig.key == "proxy.enabled").first()
+            if proxy_enabled and proxy_enabled.value == "true":
+                proxy_url = db.query(system_models.SystemConfig).filter(system_models.SystemConfig.key == "proxy.url").first()
+                if proxy_url and proxy_url.value:
+                    p_url = proxy_url.value
+                    env_vars["http_proxy"] = p_url
+                    env_vars["https_proxy"] = p_url
+                    env_vars["all_proxy"] = p_url
+                    env_vars["HTTP_PROXY"] = p_url
+                    env_vars["HTTPS_PROXY"] = p_url
+                    env_vars["ALL_PROXY"] = p_url
+                    print(f" injected global proxy: {p_url}")
+
         except Exception as e:
             print(f"Error injecting Kumo environment variables: {e}")
         

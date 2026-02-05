@@ -133,6 +133,34 @@
               </tbody>
             </table>
           </div>
+
+          <!-- Network Proxy Config -->
+          <div class="card settings-card" style="margin-top: 24px;">
+            <div class="card-header">
+              <h3>网络代理配置</h3>
+            </div>
+            
+            <div style="padding-top: 10px;">
+                <div class="form-group">
+                    <label class="custom-label">
+                        <input type="checkbox" v-model="proxyForm.enabled" class="custom-checkbox" />
+                        <span>启用全局代理</span>
+                    </label>
+                </div>
+                
+                <div class="form-group" v-if="proxyForm.enabled">
+                     <label>代理地址 (URL)</label>
+                     <input type="text" v-model="proxyForm.url" placeholder="例如: http://192.168.1.100:7890" class="form-input" />
+                     <p class="help-text">此代理将应用于所有任务执行及 Python 包安装过程。</p>
+                </div>
+
+                <div class="form-actions" style="margin-top: 20px;">
+                    <button class="btn btn-primary" @click="saveProxyConfig" :disabled="proxySaving">
+                        {{ proxySaving ? '保存中...' : '保存配置' }}
+                    </button>
+                </div>
+            </div>
+          </div>
         </div>
 
         <!-- Backup Config Tab -->
@@ -346,6 +374,57 @@ interface BackupFile {
 const backups = ref<BackupFile[]>([])
 const backupLoading = ref(false)
 
+// Proxy Logic
+const proxyForm = reactive({
+    enabled: false,
+    url: ''
+})
+const proxySaving = ref(false)
+
+const fetchProxyConfig = async () => {
+    try {
+        const [resEnabled, resUrl] = await Promise.all([
+            fetch(`${API_BASE}/system/config/proxy.enabled`),
+            fetch(`${API_BASE}/system/config/proxy.url`)
+        ])
+        
+        if (resEnabled.ok) {
+            const data = await resEnabled.json()
+            proxyForm.enabled = data.value === 'true'
+        }
+        if (resUrl.ok) {
+            const data = await resUrl.json()
+            proxyForm.url = data.value || ''
+        }
+    } catch (e) {
+        console.error("Failed to fetch proxy config", e)
+    }
+}
+
+const saveProxyConfig = async () => {
+    proxySaving.value = true
+    try {
+        await Promise.all([
+            fetch(`${API_BASE}/system/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: 'proxy.enabled', value: proxyForm.enabled ? 'true' : 'false', description: 'Enable global network proxy' })
+            }),
+            fetch(`${API_BASE}/system/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: 'proxy.url', value: proxyForm.url, description: 'Global proxy URL' })
+            })
+        ])
+        alert('代理配置保存成功')
+    } catch (e) {
+        console.error("Failed to save proxy config", e)
+        alert('代理配置保存失败')
+    } finally {
+        proxySaving.value = false
+    }
+}
+
 // Auto Backup Logic
 const autoBackupForm = reactive({
     enabled: false,
@@ -462,6 +541,7 @@ onMounted(async () => {
     fetchEnvVars()
     fetchBackups()
     fetchAutoBackupConfig()
+    fetchProxyConfig()
     loadSourcesFromStorage()
 })
 

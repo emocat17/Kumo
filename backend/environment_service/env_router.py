@@ -58,10 +58,29 @@ def run_install_background(version_id: int, cmd: list):
         cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
         append_log(version_id, f"Starting installation with command: {cmd_str}")
         
+        # Prepare environment with Proxy support
+        env_vars = os.environ.copy()
+        try:
+            proxy_enabled = db.query(system_models.SystemConfig).filter(system_models.SystemConfig.key == "proxy.enabled").first()
+            if proxy_enabled and proxy_enabled.value == "true":
+                proxy_url = db.query(system_models.SystemConfig).filter(system_models.SystemConfig.key == "proxy.url").first()
+                if proxy_url and proxy_url.value:
+                    p_url = proxy_url.value
+                    env_vars["http_proxy"] = p_url
+                    env_vars["https_proxy"] = p_url
+                    env_vars["all_proxy"] = p_url
+                    env_vars["HTTP_PROXY"] = p_url
+                    env_vars["HTTPS_PROXY"] = p_url
+                    env_vars["ALL_PROXY"] = p_url
+                    append_log(version_id, f"Using Proxy: {p_url}")
+        except Exception as e:
+            append_log(version_id, f"Warning: Failed to inject proxy settings: {e}")
+
         # Use shell=False for list to avoid redirection issues
         process = subprocess.Popen(
             cmd, 
-            shell=False, 
+            shell=False,
+            env=env_vars,
             stdout=subprocess.PIPE, 
             stderr=subprocess.STDOUT, 
             text=True,
