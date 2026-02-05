@@ -21,14 +21,37 @@ FROM continuumio/miniconda3:latest
 
 WORKDIR /app
 
-# Install runtime dependencies
-# git: for pip install git+... (if needed) and project operations
-# curl: for healthcheck
-# tzdata: for timezone support
+# Install runtime dependencies & Browser environment
+# 1. Basic Tools: git, curl, tzdata
+# 2. Selenium/DrissionPage: chromium, chromium-driver
+# 3. Fonts: fonts-noto-cjk (Chinese)
+# 4. Playwright Dependencies: libnss3, libnspr4, libgbm1, libasound2, etc. (Commonly needed)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
     tzdata \
+    chromium \
+    chromium-driver \
+    fonts-noto-cjk \
+    libnss3 \
+    libnspr4 \
+    libgbm1 \
+    libasound2 \
+    libxss1 \
+    fonts-liberation \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Chrome environment variables for Selenium/DrissionPage
+ENV CHROME_BIN=/usr/bin/chromium
+ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
+
+# Pre-install Playwright and its browsers (Chromium only to save space, user can install others if needed)
+# This ensures system dependencies are fully ready and the browser binary is cached
+RUN pip install --no-cache-dir playwright \
+    && playwright install chromium \
+    && playwright install-deps chromium \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy wheels from builder

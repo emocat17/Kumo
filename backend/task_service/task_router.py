@@ -350,7 +350,7 @@ async def run_task(task_id: int, request: Request, background_tasks: BackgroundT
     )
     
     # Run in background
-    background_tasks.add_task(run_task_execution, execution.id)
+    background_tasks.add_task(run_task_execution, task.id, 1, execution.id)
     
     return {"message": "Task started", "execution_id": execution.id}
 

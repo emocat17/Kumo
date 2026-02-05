@@ -167,7 +167,68 @@ def detect_project_framework(project_id: int, db: Session = Depends(get_db)):
             "description": "Detected Scrapy project"
         }
 
-    # 2. Check for main.py / app.py
+    # 2. Advanced Detection: Check requirements.txt or imports for other frameworks
+    detected_framework = None
+    
+    # Helper to check content
+    def check_file_content(filepath, keywords):
+        try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read().lower()
+                for k in keywords:
+                    if k.lower() in content:
+                        return k
+        except:
+            pass
+        return None
+
+    # Check requirements.txt
+    req_path = os.path.join(path, "requirements.txt")
+    if os.path.exists(req_path):
+        fw = check_file_content(req_path, ["playwright", "selenium", "DrissionPage"])
+        if fw:
+            detected_framework = fw
+
+    # If not found in requirements, scan python files (shallow scan)
+    if not detected_framework:
+        for root, dirs, files in os.walk(path):
+            if root != path: continue # Only scan root for efficiency
+            for f in files:
+                if f.endswith(".py"):
+                    fw = check_file_content(os.path.join(root, f), ["playwright", "selenium", "DrissionPage"])
+                    if fw:
+                        detected_framework = fw
+                        break
+            if detected_framework: break
+
+    # Determine command based on file existence
+    command = "python main.py"
+    desc_suffix = ""
+    
+    if os.path.exists(os.path.join(path, "main.py")):
+        command = "python main.py"
+        desc_suffix = " (main.py)"
+    elif os.path.exists(os.path.join(path, "app.py")):
+        command = "python app.py"
+        desc_suffix = " (app.py)"
+    else:
+        command = "python script.py"
+        desc_suffix = " (Generic)"
+
+    if detected_framework:
+        # Normalize name
+        fw_name = detected_framework
+        if fw_name.lower() == "drissionpage": fw_name = "DrissionPage"
+        elif fw_name.lower() == "playwright": fw_name = "Playwright"
+        elif fw_name.lower() == "selenium": fw_name = "Selenium"
+        
+        return {
+            "framework": fw_name.lower(),
+            "command": command,
+            "description": f"Detected {fw_name} project{desc_suffix}"
+        }
+
+    # 3. Fallback: Generic Python
     if os.path.exists(os.path.join(path, "main.py")):
         return {
             "framework": "python",
@@ -182,7 +243,7 @@ def detect_project_framework(project_id: int, db: Session = Depends(get_db)):
             "description": "Detected app.py"
         }
 
-    # 3. Check for requirements.txt but no main script
+    # 4. Check for requirements.txt but no main script
     if os.path.exists(os.path.join(path, "requirements.txt")):
          return {
             "framework": "python",

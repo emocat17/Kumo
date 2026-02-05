@@ -219,24 +219,39 @@ class TaskManager:
 
 task_manager = TaskManager()
 
-def run_task_execution(task_id: int, attempt: int = 1):
+def run_task_execution(task_id: int, attempt: int = 1, execution_id: int = None):
     db = SessionLocal()
     try:
+        execution = None
+        if execution_id:
+            execution = db.query(models.TaskExecution).filter(models.TaskExecution.id == execution_id).first()
+            if execution:
+                # Update existing execution to running
+                execution.status = "running"
+                # Update start time to actual execution start
+                execution.start_time = datetime.datetime.now()
+                db.commit()
+                # Ensure we use the task_id from the execution record if available, or the passed one
+                if execution.task_id:
+                    task_id = execution.task_id
+
         task = db.query(models.Task).filter(models.Task.id == task_id).first()
         if not task:
             print(f"Task {task_id} not found execution skipped.")
             return
 
-        # Create Execution Record
-        execution = models.TaskExecution(
-            task_id=task.id,
-            status="running",
-            attempt=attempt,
-            start_time=datetime.datetime.now()
-        )
-        db.add(execution)
-        db.commit()
-        db.refresh(execution)
+        # Create Execution Record if not provided (Scheduler mode)
+        if not execution:
+            execution = models.TaskExecution(
+                task_id=task.id,
+                status="running",
+                attempt=attempt,
+                start_time=datetime.datetime.now()
+            )
+            db.add(execution)
+            db.commit()
+            db.refresh(execution)
+        
         
         # Prepare Environment and Path
         project = db.query(project_models.Project).filter(project_models.Project.id == task.project_id).first()
