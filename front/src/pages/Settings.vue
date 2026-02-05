@@ -143,22 +143,26 @@
             <div class="card-header">
               <h3>自动备份策略</h3>
             </div>
-            <div class="form-row">
-                <div class="form-group checkbox-group" style="margin-top: 30px;">
-                    <label>
-                        <input type="checkbox" v-model="autoBackupForm.enabled" />
-                        启用自动备份
+            
+            <div style="padding-top: 20px;">
+                <div class="form-group">
+                    <label class="custom-label">
+                        <input type="checkbox" v-model="autoBackupForm.enabled" class="custom-checkbox" />
+                        <span>启用自动备份</span>
                     </label>
                 </div>
+
                 <div class="form-group">
                     <label>备份间隔 (小时)</label>
-                    <input type="number" v-model.number="autoBackupForm.interval" min="1" :disabled="!autoBackupForm.enabled" />
+                    <input type="number" v-model.number="autoBackupForm.interval" min="1" :disabled="!autoBackupForm.enabled" class="form-input" />
                 </div>
+
                 <div class="form-group">
                     <label>保留份数 (最新的 N 份)</label>
-                    <input type="number" v-model.number="autoBackupForm.retention" min="1" :disabled="!autoBackupForm.enabled" />
+                    <input type="number" v-model.number="autoBackupForm.retention" min="1" :disabled="!autoBackupForm.enabled" class="form-input" />
                 </div>
-                <div class="form-group" style="display: flex; align-items: flex-end;">
+
+                <div class="form-actions">
                     <button class="btn btn-primary" @click="saveAutoBackupConfig" :disabled="autoBackupSaving">
                         {{ autoBackupSaving ? '保存中...' : '保存配置' }}
                     </button>
@@ -453,24 +457,25 @@ const formatDate = (iso: string) => {
     return new Date(iso).toLocaleString()
 }
 
-onMounted(() => {
-    fetchConfig()
+onMounted(async () => {
+    await fetchConfig()
     fetchEnvVars()
     fetchBackups()
     fetchAutoBackupConfig()
+    loadSourcesFromStorage()
 })
 
-const syncConfigToBackend = async () => {
+const syncConfigToBackend = async (silent = false) => {
     // Automatically set the first source as the active mirror in backend
     const topSource = pypiSources.value.length > 0 ? pypiSources.value[0].url : ''
     // Only update if changed
     if (topSource !== backendMirrorUrl.value) {
-        await savePypiConfig(topSource)
+        await savePypiConfig(topSource, silent)
         backendMirrorUrl.value = topSource
     }
 }
 
-const savePypiConfig = async (url: string) => {
+const savePypiConfig = async (url: string, silent = false) => {
   try {
     await fetch(`${API_BASE}/system/config`, {
       method: 'POST',
@@ -483,7 +488,7 @@ const savePypiConfig = async (url: string) => {
     })
   } catch (e) {
     console.error('Failed to save config', e)
-    alert('同步配置到后端失败')
+    if (!silent) alert('同步配置到后端失败')
   }
 }
 
@@ -554,7 +559,7 @@ const loadSourcesFromStorage = () => {
         }
     }
     // Initial sync check
-    syncConfigToBackend()
+    syncConfigToBackend(true)
 }
 
 // --- Env Vars Logic ---
@@ -1017,5 +1022,32 @@ input[type="text"]:focus, input[type="password"]:focus {
 .modal-leave-to {
   opacity: 0;
   transform: scale(0.96);
+}
+
+/* Auto Backup Styles */
+.custom-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #374151; /* Match system label color */
+    font-weight: 500;
+    margin-bottom: 0; /* Override default label margin */
+    user-select: none;
+}
+
+.custom-checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: #1890ff;
+    cursor: pointer;
+    margin: 0;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-start;
+    margin-top: 10px;
 }
 </style>
