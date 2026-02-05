@@ -67,7 +67,7 @@
     </div>
 
     <!-- Install Packages Modal -->
-    <BaseModal v-model="showInstallModal" title="编辑环境依赖" width="600px">
+    <BaseModal v-model="showInstallModal" title="编辑环境依赖" width="700px" height="75vh">
         <div v-if="selectedEnv" class="install-container">
             <div class="env-summary-card">
                 <div class="summary-item">

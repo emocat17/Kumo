@@ -1,7 +1,7 @@
 <template>
   <Transition name="modal-fade">
     <div v-if="modelValue" class="modal-backdrop" @click="handleBackdropClick">
-      <div class="modal-container" :style="{ width: width }" @click.stop>
+      <div class="modal-container" :style="{ width: width, height: height }" @click.stop>
         <!-- Header -->
         <div class="modal-header">
           <h3 class="modal-title">{{ title }}</h3>
@@ -37,6 +37,10 @@ const props = defineProps({
   width: {
     type: String,
     default: '500px'
+  },
+  height: {
+    type: String,
+    default: 'auto'
   },
   closeOnBackdrop: {
     type: Boolean,

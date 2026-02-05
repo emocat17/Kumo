@@ -69,7 +69,7 @@
     </div>
 
     <!-- Create/Edit Project Modal -->
-    <BaseModal v-model="showCreateModal" :title="isEditing ? '编辑项目' : '新建项目'" width="500px">
+    <BaseModal v-model="showCreateModal" :title="isEditing ? '编辑项目' : '新建项目'" width="620px" height="70vh">
       <form class="create-form" @submit.prevent="handleProjectSubmit">
         <div class="form-group">
           <label for="name">项目名称 <span class="required">*</span></label>
