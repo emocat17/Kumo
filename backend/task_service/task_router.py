@@ -152,7 +152,13 @@ async def create_task(task: schemas.TaskCreate, request: Request, db: Session = 
     
     # Schedule task
     try:
-        task_manager.add_job(db_task)
+        task_manager.add_job(
+            db_task.id,
+            db_task.trigger_type,
+            db_task.trigger_value,
+            db_task.status,
+            db_task.priority or 0
+        )
     except Exception as e:
         print(f"Error scheduling task {db_task.id}: {e}")
         
@@ -217,11 +223,79 @@ async def update_task(task_id: int, task_update: schemas.TaskUpdate, request: Re
     
     if reschedule_needed:
         if db_task.status == 'active':
-            task_manager.update_job(db_task)
+            task_manager.add_job(
+                db_task.id,
+                db_task.trigger_type,
+                db_task.trigger_value,
+                db_task.status,
+                db_task.priority or 0
+            )
         else:
             task_manager.remove_job(db_task.id)
             
     return db_task
+
+@router.post("/{task_id}/pause")
+async def pause_task(task_id: int, request: Request, db: Session = Depends(get_db)):
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    task.status = 'paused'
+    db.commit()
+    
+    # Audit Log
+    create_audit_log(
+        db=db,
+        operation_type="PAUSE",
+        target_type="TASK",
+        target_id=str(task.id),
+        target_name=task.name,
+        details=f"Paused task '{task.name}'",
+        operator_ip=request.client.host
+    )
+    
+    task_manager.pause_job(task_id)
+    return {"message": "Task paused"}
+
+@router.post("/{task_id}/resume")
+async def resume_task(task_id: int, request: Request, db: Session = Depends(get_db)):
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    task.status = 'active'
+    db.commit()
+    
+    # Audit Log
+    create_audit_log(
+        db=db,
+        operation_type="RESUME",
+        target_type="TASK",
+        target_id=str(task.id),
+        target_name=task.name,
+        details=f"Resumed task '{task.name}'",
+        operator_ip=request.client.host
+    )
+    
+    # Check if job exists (if it was removed due to update or not loaded)
+    # Since we can't easily check scheduler job existence from here without accessing private method or catching exception,
+    # and add_job handles replacement, we can just call add_job to be safe.
+    # But resume_job is more efficient if it exists.
+    # task_manager.scheduler.get_job(str(task_id)) is available if we import task_manager
+    
+    if task_manager.scheduler.get_job(str(task_id)):
+        task_manager.resume_job(task_id)
+    else:
+        task_manager.add_job(
+            task.id,
+            task.trigger_type,
+            task.trigger_value,
+            task.status,
+            task.priority or 0
+        )
+         
+    return {"message": "Task resumed"}
 
 @router.delete("/{task_id}")
 async def delete_task(task_id: int, request: Request, db: Session = Depends(get_db)):

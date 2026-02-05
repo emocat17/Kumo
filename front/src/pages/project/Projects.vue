@@ -328,7 +328,18 @@ const handleProjectSubmit = async () => {
             }
         } catch (e) {
             console.error(e)
-            alert('创建失败: 网络错误')
+            // 尝试检查是否实际上创建成功 (针对超时情况)
+            try {
+                await fetchProjects()
+                const exists = projects.value.find(p => p.name === form.name)
+                if (exists) {
+                    showCreateModal.value = false
+                    return
+                }
+            } catch (innerE) {
+                console.error("Recovery check failed", innerE)
+            }
+            alert('创建失败: 网络错误 (可能是上传超时，请刷新页面查看)')
         } finally {
             isSubmitting.value = false
         }

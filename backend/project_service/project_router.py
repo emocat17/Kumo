@@ -53,11 +53,11 @@ def ensure_project_columns():
 ensure_project_columns()
 
 @router.get("", response_model=List[schemas.Project])
-async def list_projects(db: Session = Depends(get_db)):
+def list_projects(db: Session = Depends(get_db)):
     return db.query(models.Project).all()
 
 @router.post("/create", response_model=schemas.Project)
-async def create_project(
+def create_project(
     request: Request,
     name: str = Form(...),
     work_dir: str = Form("./"),
@@ -124,7 +124,7 @@ async def create_project(
     )
 
 @router.get("/{project_id}/detect", response_model=dict)
-async def detect_project_framework(project_id: int, db: Session = Depends(get_db)):
+def detect_project_framework(project_id: int, db: Session = Depends(get_db)):
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -193,7 +193,7 @@ async def detect_project_framework(project_id: int, db: Session = Depends(get_db
     return {"framework": "unknown", "command": ""}
 
 @router.put("/{project_id}", response_model=schemas.Project)
-async def update_project(
+def update_project(
     project_id: int,
     project_in: schemas.ProjectUpdate,
     request: Request,
@@ -241,7 +241,7 @@ def remove_readonly(func, path, excinfo):
     func(path)
 
 @router.delete("/{project_id}")
-async def delete_project(project_id: int, request: Request, db: Session = Depends(get_db)):
+def delete_project(project_id: int, request: Request, db: Session = Depends(get_db)):
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -339,7 +339,7 @@ def build_file_tree(base_path, rel_path=""):
     return items
 
 @router.get("/{project_id}/files")
-async def get_project_files(project_id: int, db: Session = Depends(get_db)):
+def get_project_files(project_id: int, db: Session = Depends(get_db)):
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -350,7 +350,7 @@ async def get_project_files(project_id: int, db: Session = Depends(get_db)):
     return build_file_tree(project.path)
 
 @router.get("/{project_id}/files/content")
-async def get_file_content(project_id: int, path: str, db: Session = Depends(get_db)):
+def get_file_content(project_id: int, path: str, db: Session = Depends(get_db)):
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -399,7 +399,7 @@ class DirListRequest(BaseModel):
     path: str = "/"
 
 @router.post("/browse-dirs")
-async def browse_server_directories(request: DirListRequest):
+def browse_server_directories(request: DirListRequest):
     # Only allow browsing, no modification
     target_path = request.path
     if not target_path or target_path == "":
