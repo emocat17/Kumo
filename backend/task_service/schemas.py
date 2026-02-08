@@ -102,9 +102,6 @@ class LatestExecutionStat(BaseModel):
     max_cpu_percent: Optional[float] = None
     max_memory_mb: Optional[float] = None
     log_file: Optional[str] = None
-    parse_time: Optional[float] = None
-    index_time: Optional[float] = None
-    api_time: Optional[float] = None
 
 class TimeSeriesPoint(BaseModel):
     label: str
@@ -114,9 +111,6 @@ class TimeSeriesGroup(BaseModel):
     duration: List[TimeSeriesPoint]
     max_cpu: List[TimeSeriesPoint]
     max_memory: List[TimeSeriesPoint]
-    parse_time: List[TimeSeriesPoint] = []
-    index_time: List[TimeSeriesPoint] = []
-    api_time: List[TimeSeriesPoint] = []
 
 class TestMetricsEvidence(BaseModel):
     output_samples: List[OutputSample]

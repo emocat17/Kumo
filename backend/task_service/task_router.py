@@ -227,46 +227,6 @@ def parse_task_ids(task_ids: str):
     parts = [p.strip() for p in task_ids.split(",")]
     return [int(p) for p in parts if p.isdigit()]
 
-import re
-
-def extract_log_metrics(log_path: str):
-    metrics = {
-        "parse_time": None,
-        "index_time": None,
-        "api_time": None
-    }
-    if not log_path or not os.path.exists(log_path):
-        return metrics
-    
-    try:
-        # Read last 50 lines to find metrics summary
-        with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
-            lines = f.readlines()[-100:]
-            content = "".join(lines)
-            
-            # Regex patterns for flexible matching
-            # Format: "Parse Time: 1.23s" or "Parsing took 1.23 seconds" or "parse_time=1.23"
-            
-            # Parse Time
-            parse_match = re.search(r'(?:parse|parsing).{0,20}(?:time|took|duration).{0,5}?[:=]\s*(\d+(\.\d+)?)', content, re.IGNORECASE)
-            if parse_match:
-                metrics["parse_time"] = float(parse_match.group(1))
-                
-            # Index Time
-            index_match = re.search(r'(?:index|indexing).{0,20}(?:time|took|duration).{0,5}?[:=]\s*(\d+(\.\d+)?)', content, re.IGNORECASE)
-            if index_match:
-                metrics["index_time"] = float(index_match.group(1))
-                
-            # API Time
-            api_match = re.search(r'(?:api|query).{0,20}(?:time|took|duration).{0,5}?[:=]\s*(\d+(\.\d+)?)', content, re.IGNORECASE)
-            if api_match:
-                metrics["api_time"] = float(api_match.group(1))
-                
-    except Exception as e:
-        print(f"Error parsing logs for metrics: {e}")
-        
-    return metrics
-
 @router.get("/test-metrics/overview", response_model=schemas.TestMetricsOverview)
 async def get_test_metrics_overview(project_id: int = None, task_ids: str = None, window_seconds: int = 10, sample_limit: int = 50, db: Session = Depends(get_db)):
     ids = parse_task_ids(task_ids)
@@ -360,9 +320,6 @@ async def get_test_metrics_overview(project_id: int = None, task_ids: str = None
     for t in tasks:
         latest = db.query(models.TaskExecution).filter(models.TaskExecution.task_id == t.id).order_by(models.TaskExecution.start_time.desc()).first()
         if latest:
-            # Extract log metrics if log file exists
-            log_metrics = extract_log_metrics(latest.log_file) if latest.log_file else {}
-            
             item = {
                 "task_id": t.id,
                 "task_name": t.name,
@@ -373,10 +330,7 @@ async def get_test_metrics_overview(project_id: int = None, task_ids: str = None
                 "duration": latest.duration,
                 "max_cpu_percent": latest.max_cpu_percent,
                 "max_memory_mb": latest.max_memory_mb,
-                "log_file": latest.log_file,
-                "parse_time": log_metrics.get("parse_time"),
-                "index_time": log_metrics.get("index_time"),
-                "api_time": log_metrics.get("api_time")
+                "log_file": latest.log_file
             }
         else:
             item = {
@@ -400,15 +354,6 @@ async def get_test_metrics_overview(project_id: int = None, task_ids: str = None
         duration_series.append({"label": label, "value": float(e.duration or 0)})
         cpu_series.append({"label": label, "value": float(e.max_cpu_percent or 0)})
         mem_series.append({"label": label, "value": float(e.max_memory_mb or 0)})
-        
-        # Also try to extract historical metrics from logs (might be slow if many logs, but limited by series_limit)
-        # Optimization: Only read if log file exists and we really need history.
-        # For now, let's keep it simple and just do it for the latest ones or skip for history to save IO.
-        # Let's do it for history too since series_limit is small (30).
-        hist_metrics = extract_log_metrics(e.log_file) if e.log_file else {}
-        parse_series.append({"label": label, "value": float(hist_metrics.get("parse_time") or 0)})
-        index_series.append({"label": label, "value": float(hist_metrics.get("index_time") or 0)})
-        api_series.append({"label": label, "value": float(hist_metrics.get("api_time") or 0)})
 
     recent_sample_pairs = []
     try:
@@ -537,36 +482,36 @@ async def export_test_metrics(project_id: int = None, task_ids: str = None, wind
         writer = csv.writer(buffer)
         
         # 1. Summary Section
-        writer.writerow(["=== Test Report Summary ==="])
-        writer.writerow(["Project ID", payload.get("project_id")])
-        writer.writerow(["Project Name", payload.get("project_name")])
-        writer.writerow(["Export Time", timestamp])
+        writer.writerow(["=== 测试报告汇总 ==="])
+        writer.writerow(["项目 ID", payload.get("project_id")])
+        writer.writerow(["项目名称", payload.get("project_name")])
+        writer.writerow(["导出时间", timestamp])
         writer.writerow([])
         
         # 2. Performance Metrics
-        writer.writerow(["=== Performance Metrics ==="])
-        writer.writerow(["Metric", "Value", "Unit"])
-        writer.writerow(["Total Files", payload.get("output", {}).get("total_files"), "count"])
-        writer.writerow(["Total Bytes", payload.get("output", {}).get("total_bytes"), "bytes"])
-        writer.writerow(["Throughput (Files)", f"{payload.get('output', {}).get('recent_files', 0) / (window_seconds or 1):.2f}", "files/s"])
-        writer.writerow(["Throughput (Data)", f"{(payload.get('output', {}).get('recent_bytes', 0) / 1024 / 1024) / (window_seconds or 1):.2f}", "MB/s"])
+        writer.writerow(["=== 核心性能指标 ==="])
+        writer.writerow(["指标", "数值", "单位"])
+        writer.writerow(["产出文件总数", payload.get("output", {}).get("total_files"), "个"])
+        writer.writerow(["产出数据总量", payload.get("output", {}).get("total_bytes"), "bytes"])
+        writer.writerow(["吞吐量 (文件/秒)", f"{payload.get('output', {}).get('recent_files', 0) / (window_seconds or 1):.2f}", "files/s"])
+        writer.writerow(["吞吐量 (MB/秒)", f"{(payload.get('output', {}).get('recent_bytes', 0) / 1024 / 1024) / (window_seconds or 1):.2f}", "MB/s"])
         
         cpu_peak = max([e.get("max_cpu_percent") or 0 for e in payload.get("latest_executions", [])] or [0])
         mem_peak = max([e.get("max_memory_mb") or 0 for e in payload.get("latest_executions", [])] or [0])
-        writer.writerow(["Peak CPU", f"{cpu_peak:.2f}", "%"])
-        writer.writerow(["Peak Memory", f"{mem_peak:.2f}", "MB"])
+        writer.writerow(["CPU 峰值", f"{cpu_peak:.2f}", "%"])
+        writer.writerow(["内存峰值", f"{mem_peak:.2f}", "MB"])
         writer.writerow([])
         
         # 3. Throughput Series (New)
-        writer.writerow(["=== Throughput Series (Calculated from Output) ==="])
-        writer.writerow(["Time", "Files", "Bytes"])
+        writer.writerow(["=== 吞吐量趋势 (时间序列) ==="])
+        writer.writerow(["时间点", "文件数", "数据量(Bytes)"])
         for item in sorted_throughput:
             writer.writerow([item["time"], item["files"], item["bytes"]])
         writer.writerow([])
 
         # 4. Execution Details
-        writer.writerow(["=== Execution Details ==="])
-        writer.writerow(["Task ID", "Task Name", "Status", "Start Time", "Duration (s)", "CPU (%)", "Mem (MB)", "Parse Time (s)", "Index Time (s)", "API Time (s)"])
+        writer.writerow(["=== 任务执行详情 ==="])
+        writer.writerow(["任务 ID", "任务名称", "状态", "开始时间", "耗时(秒)", "CPU使用率(%)", "内存使用(MB)"])
         for item in payload.get("latest_executions", []):
             writer.writerow([
                 item.get("task_id"),
@@ -575,16 +520,13 @@ async def export_test_metrics(project_id: int = None, task_ids: str = None, wind
                 item.get("start_time"),
                 item.get("duration"),
                 item.get("max_cpu_percent"),
-                item.get("max_memory_mb"),
-                item.get("parse_time") or "N/A",
-                item.get("index_time") or "N/A",
-                item.get("api_time") or "N/A"
+                item.get("max_memory_mb")
             ])
         writer.writerow([])
         
-        # 4. Output Samples
-        writer.writerow(["=== Output Samples (Top 50) ==="])
-        writer.writerow(["Name", "Size (bytes)", "Time"])
+        # 5. Output Samples
+        writer.writerow(["=== 产出样本 (Top 50) ==="])
+        writer.writerow(["文件名", "大小(Bytes)", "修改时间"])
         for item in payload.get("evidence", {}).get("output_samples", []):
             writer.writerow([item.get("name"), item.get("size"), item.get("mtime")])
             
