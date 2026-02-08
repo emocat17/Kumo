@@ -102,6 +102,9 @@ class LatestExecutionStat(BaseModel):
     max_cpu_percent: Optional[float] = None
     max_memory_mb: Optional[float] = None
     log_file: Optional[str] = None
+    parse_time: Optional[float] = None
+    index_time: Optional[float] = None
+    api_time: Optional[float] = None
 
 class TimeSeriesPoint(BaseModel):
     label: str
@@ -111,10 +114,19 @@ class TimeSeriesGroup(BaseModel):
     duration: List[TimeSeriesPoint]
     max_cpu: List[TimeSeriesPoint]
     max_memory: List[TimeSeriesPoint]
+    parse_time: List[TimeSeriesPoint] = []
+    index_time: List[TimeSeriesPoint] = []
+    api_time: List[TimeSeriesPoint] = []
 
 class TestMetricsEvidence(BaseModel):
     output_samples: List[OutputSample]
     log_files: List[LatestExecutionStat]
+
+class LatencyStats(BaseModel):
+    first_output_latency_seconds: Optional[float] = None
+    avg_output_latency_seconds: Optional[float] = None
+    last_output_latency_seconds: Optional[float] = None
+    sample_count: int = 0
 
 class TestMetricsOverview(BaseModel):
     project_id: int
@@ -127,6 +139,7 @@ class TestMetricsOverview(BaseModel):
     latest_executions: List[LatestExecutionStat]
     timeseries: TimeSeriesGroup
     evidence: TestMetricsEvidence
+    latency: LatencyStats
 
 class DailyStats(BaseModel):
     date: str

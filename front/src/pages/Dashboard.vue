@@ -324,86 +324,150 @@
       </div>
 
       <div class="overview-grid test-overview-grid">
-        <div class="card overview-card">
-          <div class="card-icon task-icon">
-            <i class="icon-task">📦</i>
+        <template v-if="fullCategory === 'collection'">
+          <div class="card overview-card">
+            <div class="card-icon task-icon">
+              <i class="icon-task">📦</i>
+            </div>
+            <div class="card-content">
+              <div class="card-title">产出总量</div>
+              <div class="card-value blue">{{ testMetrics?.output.total_files ?? 0 }}</div>
+              <div class="card-sub">{{ formatBytes(testMetrics?.output.total_bytes ?? 0) }}</div>
+            </div>
           </div>
-          <div class="card-content">
-            <div class="card-title">产出总量</div>
-            <div class="card-value blue">{{ testMetrics?.output.total_files ?? 0 }}</div>
-            <div class="card-sub">{{ formatBytes(testMetrics?.output.total_bytes ?? 0) }}</div>
+          <div class="card overview-card">
+            <div class="card-icon task-icon">
+              <i class="icon-task">📥</i>
+            </div>
+            <div class="card-content">
+              <div class="card-title">吞吐量(文件/s)</div>
+              <div class="card-value green">{{ throughputFilesPerSec.toFixed(2) }}</div>
+              <div class="card-sub">窗口 {{ timeWindow }}s</div>
+            </div>
           </div>
-        </div>
-        <div class="card overview-card">
-          <div class="card-icon cpu-icon">
-            <i class="icon-cpu">⚡</i>
+          <div class="card overview-card">
+            <div class="card-icon disk-icon">
+              <i class="icon-disk">💾</i>
+            </div>
+            <div class="card-content">
+              <div class="card-title">吞吐量(MB/s)</div>
+              <div class="card-value orange">{{ throughputMbPerSec.toFixed(2) }}</div>
+              <div class="card-sub">窗口 {{ timeWindow }}s</div>
+            </div>
           </div>
-          <div class="card-content">
-            <div class="card-title">窗口新增</div>
-            <div class="card-value green">{{ testMetrics?.output.recent_files ?? 0 }}</div>
-            <div class="card-sub">{{ formatBytes(testMetrics?.output.recent_bytes ?? 0) }}</div>
+          <div class="card overview-card">
+            <div class="card-icon task-icon">
+              <i class="icon-task">⏱️</i>
+            </div>
+            <div class="card-content">
+              <div class="card-title">首次产出延迟</div>
+              <div class="card-value blue">{{ formatSeconds(latencyFirst) }}</div>
+              <div class="card-sub">窗口 {{ timeWindow }}s</div>
+            </div>
           </div>
-        </div>
-        <div class="card overview-card">
-          <div class="card-icon mem-icon">
-            <i class="icon-mem">🚦</i>
+          <div class="card overview-card">
+            <div class="card-icon task-icon">
+              <i class="icon-task">⏱️</i>
+            </div>
+            <div class="card-content">
+              <div class="card-title">平均产出延迟</div>
+              <div class="card-value blue">{{ formatSeconds(latencyAvg) }}</div>
+              <div class="card-sub">{{ latencySampleCount }} 样本</div>
+            </div>
           </div>
-          <div class="card-content">
-            <div class="card-title">窗口执行</div>
-            <div class="card-value purple">{{ testMetrics?.executions_window.started ?? 0 }}</div>
-            <div class="card-sub">{{ testMetrics?.executions_window.running ?? 0 }} 运行中</div>
+          <div class="card overview-card">
+            <div class="card-icon cpu-icon">
+              <i class="icon-cpu"></i>
+            </div>
+            <div class="card-content">
+              <div class="card-title">CPU峰值</div>
+              <div class="card-value blue">{{ peakCpuPercent.toFixed(1) }}%</div>
+              <div class="card-sub">近次执行峰值</div>
+            </div>
           </div>
-        </div>
-        <div class="card overview-card">
-          <div class="card-icon disk-icon">
-            <i class="icon-disk">✅</i>
+          <div class="card overview-card">
+            <div class="card-icon mem-icon">
+              <i class="icon-mem">🧠</i>
+            </div>
+            <div class="card-content">
+              <div class="card-title">内存峰值</div>
+              <div class="card-value purple">{{ peakMemoryMb.toFixed(1) }} MB</div>
+              <div class="card-sub">近次执行峰值</div>
+            </div>
           </div>
-          <div class="card-content">
-            <div class="card-title">窗口成功</div>
-            <div class="card-value orange">{{ testMetrics?.executions_window.success ?? 0 }}</div>
-            <div class="card-sub">{{ testMetrics?.executions_window.failed ?? 0 }} 失败</div>
+          <div class="card overview-card">
+            <div class="card-icon task-icon">
+              <i class="icon-task">✅</i>
+            </div>
+            <div class="card-content">
+              <div class="card-title">系统可用性</div>
+              <div class="card-value green">{{ availabilityRate.toFixed(1) }}%</div>
+              <div class="card-sub">窗口 {{ timeWindow }}s</div>
+            </div>
           </div>
-        </div>
-        <div class="card overview-card">
-          <div class="card-icon cpu-icon">
-            <i class="icon-cpu">📈</i>
+        </template>
+        <template v-else>
+          <div class="card overview-card">
+            <div class="card-icon task-icon">
+              <i class="icon-task">⏲️</i>
+            </div>
+            <div class="card-content">
+              <div class="card-title">最近执行耗时</div>
+              <div class="card-value blue">{{ formatSeconds(lastDurationSec) }}</div>
+              <div class="card-sub">最近一次完成</div>
+            </div>
           </div>
-          <div class="card-content">
-            <div class="card-title">CPU峰值</div>
-            <div class="card-value blue">{{ peakCpuPercent.toFixed(1) }}%</div>
-            <div class="card-sub">近次执行峰值</div>
+          <div class="card overview-card">
+            <div class="card-icon task-icon">
+              <i class="icon-task">📈</i>
+            </div>
+            <div class="card-content">
+              <div class="card-title">平均执行耗时</div>
+              <div class="card-value blue">{{ formatSeconds(avgDurationSec) }}</div>
+              <div class="card-sub">{{ latestExecCount }} 次样本</div>
+            </div>
           </div>
-        </div>
-        <div class="card overview-card">
-          <div class="card-icon mem-icon">
-            <i class="icon-mem">🧠</i>
+          <div class="card overview-card">
+            <div class="card-icon task-icon">
+              <i class="icon-task">📥</i>
+            </div>
+            <div class="card-content">
+              <div class="card-title">吞吐量(文件/s)</div>
+              <div class="card-value green">{{ throughputFilesPerSec.toFixed(2) }}</div>
+              <div class="card-sub">窗口 {{ timeWindow }}s</div>
+            </div>
           </div>
-          <div class="card-content">
-            <div class="card-title">内存峰值</div>
-            <div class="card-value purple">{{ peakMemoryMb.toFixed(1) }} MB</div>
-            <div class="card-sub">近次执行峰值</div>
+          <div class="card overview-card">
+            <div class="card-icon disk-icon">
+              <i class="icon-disk">💾</i>
+            </div>
+            <div class="card-content">
+              <div class="card-title">吞吐量(MB/s)</div>
+              <div class="card-value orange">{{ throughputMbPerSec.toFixed(2) }}</div>
+              <div class="card-sub">窗口 {{ timeWindow }}s</div>
+            </div>
           </div>
-        </div>
-        <div class="card overview-card">
-          <div class="card-icon task-icon">
-            <i class="icon-task">📥</i>
+          <div class="card overview-card">
+            <div class="card-icon cpu-icon">
+              <i class="icon-cpu"></i>
+            </div>
+            <div class="card-content">
+              <div class="card-title">CPU峰值(平均)</div>
+              <div class="card-value green">{{ avgCpuPercent.toFixed(1) }}%</div>
+              <div class="card-sub">近次执行</div>
+            </div>
           </div>
-          <div class="card-content">
-            <div class="card-title">吞吐量(文件/s)</div>
-            <div class="card-value green">{{ throughputFilesPerSec.toFixed(2) }}</div>
-            <div class="card-sub">窗口 {{ timeWindow }}s</div>
+          <div class="card overview-card">
+            <div class="card-icon mem-icon">
+              <i class="icon-mem">🧠</i>
+            </div>
+            <div class="card-content">
+              <div class="card-title">内存峰值(平均)</div>
+              <div class="card-value purple">{{ avgMemoryMb.toFixed(1) }} MB</div>
+              <div class="card-sub">近次执行</div>
+            </div>
           </div>
-        </div>
-        <div class="card overview-card">
-          <div class="card-icon disk-icon">
-            <i class="icon-disk">💾</i>
-          </div>
-          <div class="card-content">
-            <div class="card-title">吞吐量(MB/s)</div>
-            <div class="card-value orange">{{ throughputMbPerSec.toFixed(2) }}</div>
-            <div class="card-sub">窗口 {{ timeWindow }}s</div>
-          </div>
-        </div>
+        </template>
       </div>
 
       <div class="charts-grid">
@@ -413,6 +477,42 @@
         </div>
         <div class="card chart-card">
           <h3 class="chart-title">全程指标</h3>
+          <div class="chart-controls">
+            <div class="control-item">
+              <label>测试类型</label>
+              <select v-model="fullCategory" class="form-select form-select-sm">
+                <option value="collection">采集效率测试</option>
+                <option value="processing">数据处理速度测试</option>
+              </select>
+            </div>
+            <div class="control-item">
+              <label>指标</label>
+              <select v-model="fullMetric" class="form-select form-select-sm">
+                <template v-if="fullCategory === 'collection'">
+                  <option value="throughput_files">吞吐量(文件/s)</option>
+                  <option value="throughput_mb">吞吐量(MB/s)</option>
+                  <option value="max_cpu">CPU峰值(%)</option>
+                  <option value="max_memory">内存峰值(MB)</option>
+                </template>
+                <template v-else>
+                  <option value="duration">任务执行耗时(秒)</option>
+                  <option value="parse_time">文档解析耗时(秒)</option>
+                  <option value="index_time">索引构建耗时(秒)</option>
+                  <option value="api_time">API 查询耗时(秒)</option>
+                </template>
+              </select>
+            </div>
+          </div>
+          <div class="chart-description">
+            <div v-if="fullCategory === 'collection'">
+              <div class="desc-title">采集效率测试</div>
+              <div class="desc-text">单位时间采集数据量与资源占用，用于评估高负载下的稳定性与可靠性。</div>
+            </div>
+            <div v-else>
+              <div class="desc-title">数据处理速度测试</div>
+              <div class="desc-text">评估采集完成后各处理阶段的耗时，定位处理瓶颈。</div>
+            </div>
+          </div>
           <div ref="fullChartRef" class="chart-container"></div>
         </div>
       </div>
@@ -587,10 +687,19 @@ interface TestMetricsOverview {
     duration: Array<{ label: string; value: number }>
     max_cpu: Array<{ label: string; value: number }>
     max_memory: Array<{ label: string; value: number }>
+    parse_time: Array<{ label: string; value: number }>
+    index_time: Array<{ label: string; value: number }>
+    api_time: Array<{ label: string; value: number }>
   }
   evidence: {
     output_samples: Array<{ name: string; path: string; size: number; mtime: string }>
     log_files: Array<{ task_id: number; task_name: string; log_file?: string }>
+  }
+  latency: {
+    first_output_latency_seconds?: number
+    avg_output_latency_seconds?: number
+    last_output_latency_seconds?: number
+    sample_count: number
   }
 }
 
@@ -623,6 +732,8 @@ const fullChartRef = ref<HTMLElement | null>(null)
 let dynamicChartInstance: echarts.ECharts | null = null
 let fullChartInstance: echarts.ECharts | null = null
 const dynamicHistory = ref<Array<{ label: string; files: number; bytes: number }>>([])
+const fullCategory = ref<'collection' | 'processing'>('collection')
+const fullMetric = ref<'throughput_files' | 'throughput_mb' | 'max_cpu' | 'max_memory' | 'duration' | 'parse_time' | 'index_time' | 'api_time'>('throughput_files')
 
 const API_BASE = 'http://localhost:8000/api'
 
@@ -664,6 +775,61 @@ const throughputMbPerSec = computed(() => {
   const bytes = testMetrics.value?.output?.recent_bytes ?? 0
   const win = timeWindow.value || 1
   return (bytes / 1024 / 1024) / win
+})
+
+const formatSeconds = (s?: number | null) => {
+  if (s === null || s === undefined) return 'N/A'
+  return `${s.toFixed(2)}s`
+}
+
+const latencyFirst = computed(() => testMetrics.value?.latency?.first_output_latency_seconds ?? null)
+const latencyAvg = computed(() => testMetrics.value?.latency?.avg_output_latency_seconds ?? null)
+const latencySampleCount = computed(() => testMetrics.value?.latency?.sample_count ?? 0)
+
+const availabilityRate = computed(() => {
+  const finished = testMetrics.value?.executions_window.finished ?? 0
+  const success = testMetrics.value?.executions_window.success ?? 0
+  if (finished <= 0) return 0
+  return (success / finished) * 100
+})
+
+const latestExecCount = computed(() => (testMetrics.value?.latest_executions || []).length)
+const avgDurationSec = computed(() => {
+  const vals = (testMetrics.value?.latest_executions || [])
+    .map(i => (typeof i.duration === 'number' ? i.duration : null))
+    .filter((v): v is number => v !== null)
+  if (!vals.length) return null
+  const sum = vals.reduce((a, b) => a + b, 0)
+  return sum / vals.length
+})
+const lastDurationSec = computed(() => {
+  const items = (testMetrics.value?.latest_executions || [])
+    .filter(i => typeof i.duration === 'number' && !!i.end_time)
+    .sort((a, b) => {
+      const ta = new Date(a.end_time || a.start_time || '').getTime()
+      const tb = new Date(b.end_time || b.start_time || '').getTime()
+      return tb - ta
+    })
+  return items.length ? (items[0].duration as number) : null
+})
+const parseTimeSec = computed(() => null)
+const indexTimeSec = computed(() => null)
+const apiTimeSec = computed(() => null)
+const avgCpuPercent = computed(() => {
+  const vals = (testMetrics.value?.latest_executions || [])
+    .map(i => (typeof i.max_cpu_percent === 'number' ? i.max_cpu_percent : null))
+    .filter((v): v is number => v !== null)
+  if (!vals.length) return 0
+  const sum = vals.reduce((a, b) => a + b, 0)
+  return sum / vals.length
+})
+const avgMemoryMb = computed(() => {
+  const vals = (testMetrics.value?.latest_executions || [])
+    .map(i => (typeof i.max_memory_mb === 'number' ? i.max_memory_mb : null))
+    .filter((v): v is number => v !== null)
+  if (!vals.length) return 0
+  const sum = vals.reduce((a, b) => a + b, 0)
+  return sum / vals.length
 })
 
 const fetchSystemStats = async () => {
@@ -748,6 +914,8 @@ const refreshTestMetrics = async () => {
   await fetchTestMetrics()
 }
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
 const exportTestMetrics = async (format: 'json' | 'csv') => {
   if (!testProjectId.value) return
   try {
@@ -786,12 +954,34 @@ const runSelectedTasks = async () => {
   if (selectedTaskIds.value.length === 0) return
   isRunningTests.value = true
   try {
+    const prevStarted = testMetrics.value?.executions_window.started ?? 0
+    const prevRunning = testMetrics.value?.executions_window.running ?? 0
     for (const id of selectedTaskIds.value) {
-      await fetch(`${API_BASE}/tasks/${id}/run`, { method: 'POST' })
+      const res = await fetch(`${API_BASE}/tasks/${id}/run`, { method: 'POST' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || '任务启动失败')
+      }
     }
-    await fetchTestMetrics()
+    
+    // Aggressive polling for 30 seconds or until tasks finish
+    const pollInterval = 1000 // 1s
+    const maxPolls = 60 // 1 minute max
+    
+    for (let i = 0; i < maxPolls; i += 1) {
+      await fetchTestMetrics()
+      const running = testMetrics.value?.executions_window.running ?? 0
+      
+      // If no running tasks and we have started some (or finished), we can slow down or stop
+      // But "One-click Run" implies we want to watch it.
+      if (running === 0 && i > 5) { // Wait at least 5s to ensure start
+        break
+      }
+      await sleep(pollInterval)
+    }
   } catch (e) {
     console.error(e)
+    alert('任务启动失败')
   } finally {
     isRunningTests.value = false
   }
@@ -807,10 +997,22 @@ const startMetricsTimer = () => {
   }, Math.max(timeWindow.value * 1000, 1000)) as unknown as number
 }
 
+watch(activeTab, () => {
+  if (activeTab.value === 'tests') {
+    startMetricsTimer()
+  } else if (metricsTimer.value) {
+    clearInterval(metricsTimer.value)
+    metricsTimer.value = null
+  }
+})
+
 watch(testProjectId, async () => {
   dynamicHistory.value = []
   await fetchTestTasks()
   await fetchTestMetrics()
+  if (activeTab.value === 'tests') {
+    startMetricsTimer()
+  }
 })
 
 watch(selectedTaskIds, async () => {
@@ -929,26 +1131,73 @@ const initDynamicChart = () => {
 }
 
 const initFullChart = () => {
-  if (!fullChartRef.value || !testMetrics.value) return
+  if (!fullChartRef.value) return
   if (fullChartInstance) {
     fullChartInstance.dispose()
   }
   fullChartInstance = echarts.init(fullChartRef.value)
-  const labels = testMetrics.value.timeseries.duration.map(p => p.label)
-  const durationSeries = testMetrics.value.timeseries.duration.map(p => p.value)
-  const cpuSeries = testMetrics.value.timeseries.max_cpu.map(p => p.value)
-  const memSeries = testMetrics.value.timeseries.max_memory.map(p => p.value)
+  const metricKey = fullMetric.value
+  const isCollection = fullCategory.value === 'collection'
+  const hasTestMetrics = Boolean(testMetrics.value)
+  const labels = isCollection
+    ? dynamicHistory.value.map(p => p.label)
+    : hasTestMetrics
+    ? testMetrics.value!.timeseries.duration.map(p => p.label)
+    : []
+  const seriesName =
+    metricKey === 'throughput_files'
+      ? '吞吐量(文件/s)'
+      : metricKey === 'throughput_mb'
+      ? '吞吐量(MB/s)'
+      : metricKey === 'max_cpu'
+      ? 'CPU峰值(%)'
+      : metricKey === 'max_memory'
+      ? '内存峰值(MB)'
+      : metricKey === 'duration'
+      ? '任务执行耗时(秒)'
+      : metricKey === 'parse_time'
+      ? '文档解析耗时(秒)'
+      : metricKey === 'index_time'
+      ? '索引构建耗时(秒)'
+      : 'API 查询耗时(秒)'
+  let data: number[] = []
+  if (metricKey === 'throughput_files') {
+    const win = timeWindow.value || 1
+    data = dynamicHistory.value.map(p => p.files / win)
+  } else if (metricKey === 'throughput_mb') {
+    const win = timeWindow.value || 1
+    data = dynamicHistory.value.map(p => (p.bytes / 1024 / 1024) / win)
+  } else if (metricKey === 'max_cpu' && hasTestMetrics) {
+    data = testMetrics.value!.timeseries.max_cpu.map(p => p.value)
+  } else if (metricKey === 'max_memory' && hasTestMetrics) {
+    data = testMetrics.value!.timeseries.max_memory.map(p => p.value)
+  } else if (metricKey === 'duration' && hasTestMetrics) {
+    data = testMetrics.value!.timeseries.duration.map(p => p.value)
+  } else if (metricKey === 'parse_time' && hasTestMetrics) {
+    data = testMetrics.value!.timeseries.parse_time.map(p => p.value)
+  } else if (metricKey === 'index_time' && hasTestMetrics) {
+    data = testMetrics.value!.timeseries.index_time.map(p => p.value)
+  } else if (metricKey === 'api_time' && hasTestMetrics) {
+    data = testMetrics.value!.timeseries.api_time.map(p => p.value)
+  }
+  const color =
+    metricKey === 'throughput_files'
+      ? '#52c41a'
+      : metricKey === 'throughput_mb'
+      ? '#faad14'
+      : metricKey === 'max_cpu'
+      ? '#faad14'
+      : metricKey === 'max_memory'
+      ? '#722ed1'
+      : '#1890ff'
+  const type = ['duration', 'parse_time', 'index_time', 'api_time'].includes(metricKey) ? 'bar' : 'line'
   const option = {
     tooltip: { trigger: 'axis' },
-    legend: { data: ['耗时(秒)', 'CPU峰值(%)', '内存峰值(MB)'], top: 6, right: 12, itemGap: 12, textStyle: { fontSize: 12 } },
+    legend: { data: [seriesName], top: 6, right: 12, itemGap: 12, textStyle: { fontSize: 12 } },
     grid: { left: '3%', right: '4%', top: 56, bottom: 28, containLabel: true },
     xAxis: { type: 'category', data: labels, axisLabel: { color: '#666', margin: 12 } },
     yAxis: { type: 'value', splitLine: { lineStyle: { type: 'dashed' } } },
-    series: [
-      { name: '耗时(秒)', type: 'bar', data: durationSeries, itemStyle: { color: '#1890ff' } },
-      { name: 'CPU峰值(%)', type: 'line', data: cpuSeries, smooth: true, itemStyle: { color: '#faad14' } },
-      { name: '内存峰值(MB)', type: 'line', data: memSeries, smooth: true, itemStyle: { color: '#722ed1' } }
-    ]
+    series: [{ name: seriesName, type, data, smooth: type === 'line', itemStyle: { color } }]
   }
   fullChartInstance.setOption(option)
 }
@@ -983,6 +1232,13 @@ watch(activeTab, async (newVal) => {
         initFullChart()
         startMetricsTimer()
     }
+})
+watch(fullCategory, () => {
+  fullMetric.value = fullCategory.value === 'collection' ? 'throughput_files' : 'duration'
+  initFullChart()
+})
+watch(fullMetric, () => {
+  initFullChart()
 })
 
 // Resize handler
@@ -1479,6 +1735,48 @@ onUnmounted(() => {
 
 .test-section .chart-container {
     min-height: 300px;
+}
+
+.chart-controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.chart-controls .control-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chart-controls label {
+    font-size: 13px;
+    color: #666;
+}
+
+.form-select-sm {
+    height: 32px;
+}
+
+.chart-description {
+    background: #fafafa;
+    border: 1px solid #f0f0f0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+}
+
+.desc-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+}
+
+.desc-text {
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
 }
 .failure-list {
     display: flex;

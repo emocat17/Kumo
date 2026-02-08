@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect, Query, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, cast, Date
 from typing import List
@@ -9,6 +11,8 @@ from task_service.task_manager import task_manager, run_task_execution
 from audit_service.service import create_audit_log
 from apscheduler.triggers.cron import CronTrigger
 import json
+import csv
+import io
 import datetime
 import os
 import asyncio
@@ -187,17 +191,81 @@ async def list_tasks(skip: int = 0, limit: int = 100, project_id: int = None, db
     return tasks
 
 def resolve_output_dir(project: project_models.Project):
+    # Check if project has a specific output directory configured
     if project.output_dir:
+        # Check if it's an absolute path
+        if os.path.isabs(project.output_dir):
+            return project.output_dir
+        # If relative, it's relative to project path? Or root?
+        # Usually users might enter "/Data" which is absolute in container.
+        # But if they enter "data", where is it?
         return project.output_dir
+
+    # Fallback to default /data directory which is mapped to host ./Data
+    # In Docker, we map ./Data -> /data.
+    # So we should default to /data if no specific output dir is set.
+    # However, existing code was trying to resolve relative to backend dir which is wrong for Docker volume mapping.
+    
+    # Check if we are in Docker (simple check: /data exists and is a directory)
+    if os.path.exists("/data") and os.path.isdir("/data"):
+        return "/data"
+        
+    # Local development fallback (Windows/Mac host without Docker)
+    # We assume the project root is 2 levels up from this file (backend/task_service/task_router.py -> backend)
+    # And Data is sibling to backend.
     backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     root_dir = os.path.dirname(backend_dir)
-    return os.path.join(root_dir, "Data")
+    data_dir = os.path.join(root_dir, "Data")
+    if os.path.exists(data_dir):
+        return data_dir
+        
+    return None
 
 def parse_task_ids(task_ids: str):
     if not task_ids:
         return []
     parts = [p.strip() for p in task_ids.split(",")]
     return [int(p) for p in parts if p.isdigit()]
+
+import re
+
+def extract_log_metrics(log_path: str):
+    metrics = {
+        "parse_time": None,
+        "index_time": None,
+        "api_time": None
+    }
+    if not log_path or not os.path.exists(log_path):
+        return metrics
+    
+    try:
+        # Read last 50 lines to find metrics summary
+        with open(log_path, 'r', encoding='utf-8', errors='ignore') as f:
+            lines = f.readlines()[-100:]
+            content = "".join(lines)
+            
+            # Regex patterns for flexible matching
+            # Format: "Parse Time: 1.23s" or "Parsing took 1.23 seconds" or "parse_time=1.23"
+            
+            # Parse Time
+            parse_match = re.search(r'(?:parse|parsing).{0,20}(?:time|took|duration).{0,5}?[:=]\s*(\d+(\.\d+)?)', content, re.IGNORECASE)
+            if parse_match:
+                metrics["parse_time"] = float(parse_match.group(1))
+                
+            # Index Time
+            index_match = re.search(r'(?:index|indexing).{0,20}(?:time|took|duration).{0,5}?[:=]\s*(\d+(\.\d+)?)', content, re.IGNORECASE)
+            if index_match:
+                metrics["index_time"] = float(index_match.group(1))
+                
+            # API Time
+            api_match = re.search(r'(?:api|query).{0,20}(?:time|took|duration).{0,5}?[:=]\s*(\d+(\.\d+)?)', content, re.IGNORECASE)
+            if api_match:
+                metrics["api_time"] = float(api_match.group(1))
+                
+    except Exception as e:
+        print(f"Error parsing logs for metrics: {e}")
+        
+    return metrics
 
 @router.get("/test-metrics/overview", response_model=schemas.TestMetricsOverview)
 async def get_test_metrics_overview(project_id: int, task_ids: str = None, window_seconds: int = 10, sample_limit: int = 50, db: Session = Depends(get_db)):
@@ -224,6 +292,8 @@ async def get_test_metrics_overview(project_id: int, task_ids: str = None, windo
     samples = []
 
     if output_dir and os.path.exists(output_dir):
+        # Optimization: If directory is large, os.walk can be slow.
+        # But for now we assume it's manageable.
         for root, _, files in os.walk(output_dir):
             for filename in files:
                 if scanned >= max_scan:
@@ -239,9 +309,17 @@ async def get_test_metrics_overview(project_id: int, task_ids: str = None, windo
                 total_bytes += stat.st_size
                 ext = os.path.splitext(filename)[1].lower() or "no_ext"
                 type_map[ext] = type_map.get(ext, 0) + 1
+                
+                # Check if file was modified within the window
+                # Also consider creation time (st_ctime) on Windows, but st_mtime is usually enough for "throughput"
+                # If file is being written to, mtime updates.
+                # However, st_mtime might be in local time or UTC depending on OS.
+                # datetime.datetime.now().timestamp() is local time.
+                # os.stat().st_mtime is epoch time. They should match.
                 if now_ts - stat.st_mtime <= window_seconds:
                     recent_files += 1
                     recent_bytes += stat.st_size
+                    
                 samples.append({
                     "name": filename,
                     "path": full_path,
@@ -265,13 +343,16 @@ async def get_test_metrics_overview(project_id: int, task_ids: str = None, windo
     finished = exec_query.filter(models.TaskExecution.end_time != None, models.TaskExecution.end_time >= start_window).count()
     success = exec_query.filter(models.TaskExecution.status == "success", models.TaskExecution.start_time >= start_window).count()
     failed = exec_query.filter(models.TaskExecution.status == "failed", models.TaskExecution.start_time >= start_window).count()
-    running = exec_query.filter(models.TaskExecution.status == "running").count()
+    running = exec_query.filter(models.TaskExecution.status.in_(["running", "pending"])).count()
 
     latest_executions = []
     log_files = []
     for t in tasks:
         latest = db.query(models.TaskExecution).filter(models.TaskExecution.task_id == t.id).order_by(models.TaskExecution.start_time.desc()).first()
         if latest:
+            # Extract log metrics if log file exists
+            log_metrics = extract_log_metrics(latest.log_file) if latest.log_file else {}
+            
             item = {
                 "task_id": t.id,
                 "task_name": t.name,
@@ -282,7 +363,10 @@ async def get_test_metrics_overview(project_id: int, task_ids: str = None, windo
                 "duration": latest.duration,
                 "max_cpu_percent": latest.max_cpu_percent,
                 "max_memory_mb": latest.max_memory_mb,
-                "log_file": latest.log_file
+                "log_file": latest.log_file,
+                "parse_time": log_metrics.get("parse_time"),
+                "index_time": log_metrics.get("index_time"),
+                "api_time": log_metrics.get("api_time")
             }
         else:
             item = {
@@ -297,11 +381,51 @@ async def get_test_metrics_overview(project_id: int, task_ids: str = None, windo
     duration_series = []
     cpu_series = []
     mem_series = []
+    parse_series = []
+    index_series = []
+    api_series = []
+    
     for e in reversed(series_execs):
         label = e.start_time.strftime("%m-%d %H:%M:%S") if e.start_time else str(e.id)
         duration_series.append({"label": label, "value": float(e.duration or 0)})
         cpu_series.append({"label": label, "value": float(e.max_cpu_percent or 0)})
         mem_series.append({"label": label, "value": float(e.max_memory_mb or 0)})
+        
+        # Also try to extract historical metrics from logs (might be slow if many logs, but limited by series_limit)
+        # Optimization: Only read if log file exists and we really need history.
+        # For now, let's keep it simple and just do it for the latest ones or skip for history to save IO.
+        # Let's do it for history too since series_limit is small (30).
+        hist_metrics = extract_log_metrics(e.log_file) if e.log_file else {}
+        parse_series.append({"label": label, "value": float(hist_metrics.get("parse_time") or 0)})
+        index_series.append({"label": label, "value": float(hist_metrics.get("index_time") or 0)})
+        api_series.append({"label": label, "value": float(hist_metrics.get("api_time") or 0)})
+
+    recent_sample_pairs = []
+    try:
+        start_times = [item.get("start_time") for item in latest_executions if item.get("start_time") and item.get("start_time") >= start_window]
+        recent_samples = [s for s in samples if s["mtime"] >= start_window]
+        start_times_sorted = sorted([st for st in start_times if st], key=lambda x: x)
+        for s in recent_samples:
+            st_candidate = None
+            for st in reversed(start_times_sorted):
+                if st <= s["mtime"]:
+                    st_candidate = st
+                    break
+            if st_candidate:
+                latency = (s["mtime"] - st_candidate).total_seconds()
+                recent_sample_pairs.append((s["mtime"], latency))
+    except Exception:
+        recent_sample_pairs = []
+
+    first_latency = min([lat for _, lat in recent_sample_pairs]) if recent_sample_pairs else None
+    last_latency = recent_sample_pairs[-1][1] if recent_sample_pairs else None
+    avg_latency = (sum([lat for _, lat in recent_sample_pairs]) / len(recent_sample_pairs)) if recent_sample_pairs else None
+    latency_stats = {
+        "first_output_latency_seconds": first_latency,
+        "avg_output_latency_seconds": avg_latency,
+        "last_output_latency_seconds": last_latency,
+        "sample_count": len(recent_sample_pairs)
+    }
 
     return {
         "project_id": project.id,
@@ -329,13 +453,69 @@ async def get_test_metrics_overview(project_id: int, task_ids: str = None, windo
         "timeseries": {
             "duration": duration_series,
             "max_cpu": cpu_series,
-            "max_memory": mem_series
+            "max_memory": mem_series,
+            "parse_time": parse_series,
+            "index_time": index_series,
+            "api_time": api_series
         },
         "evidence": {
             "output_samples": output_samples,
             "log_files": log_files
-        }
+        },
+        "latency": latency_stats
     }
+
+@router.get("/test-metrics/export")
+async def export_test_metrics(project_id: int, task_ids: str = None, window_seconds: int = 10, sample_limit: int = 50, format: str = "json", db: Session = Depends(get_db)):
+    metrics = await get_test_metrics_overview(project_id, task_ids, window_seconds, sample_limit, db)
+    payload = jsonable_encoder(metrics)
+    fmt = (format or "json").lower()
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"test_metrics_project_{project_id}_{timestamp}.{fmt}"
+
+    if fmt == "json":
+        content = json.dumps(payload, ensure_ascii=False, indent=2)
+        return StreamingResponse(io.BytesIO(content.encode("utf-8")), media_type="application/json", headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        })
+    if fmt == "csv":
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(["section", "field", "value"])
+        writer.writerow(["summary", "project_id", payload.get("project_id")])
+        writer.writerow(["summary", "project_name", payload.get("project_name")])
+        writer.writerow(["summary", "output_dir", payload.get("output_dir")])
+        writer.writerow(["summary", "task_count", payload.get("task_count")])
+        writer.writerow(["summary", "window_seconds", payload.get("window_seconds")])
+        writer.writerow(["latency", "first_output_latency_seconds", payload.get("latency", {}).get("first_output_latency_seconds")])
+        writer.writerow(["latency", "avg_output_latency_seconds", payload.get("latency", {}).get("avg_output_latency_seconds")])
+        writer.writerow(["latency", "last_output_latency_seconds", payload.get("latency", {}).get("last_output_latency_seconds")])
+        writer.writerow(["latency", "sample_count", payload.get("latency", {}).get("sample_count")])
+        writer.writerow([])
+        writer.writerow(["output_samples"])
+        writer.writerow(["name", "path", "size", "mtime"])
+        for item in payload.get("evidence", {}).get("output_samples", []):
+            writer.writerow([item.get("name"), item.get("path"), item.get("size"), item.get("mtime")])
+        writer.writerow([])
+        writer.writerow(["latest_executions"])
+        writer.writerow(["task_id", "task_name", "status", "start_time", "end_time", "duration", "max_cpu_percent", "max_memory_mb", "log_file"])
+        for item in payload.get("latest_executions", []):
+            writer.writerow([
+                item.get("task_id"),
+                item.get("task_name"),
+                item.get("status"),
+                item.get("start_time"),
+                item.get("end_time"),
+                item.get("duration"),
+                item.get("max_cpu_percent"),
+                item.get("max_memory_mb"),
+                item.get("log_file")
+            ])
+        content = buffer.getvalue()
+        return StreamingResponse(io.BytesIO(content.encode("utf-8")), media_type="text/csv", headers={
+            "Content-Disposition": f"attachment; filename={filename}"
+        })
+    raise HTTPException(status_code=400, detail="Invalid format, use json or csv")
 
 @router.get("/{task_id}", response_model=schemas.Task)
 async def get_task(task_id: int, db: Session = Depends(get_db)):

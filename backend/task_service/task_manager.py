@@ -193,6 +193,24 @@ class TaskManager:
                                 stats['max_cpu'] = cpu
                             if mem_mb > stats['max_mem']:
                                 stats['max_mem'] = mem_mb
+                            
+                            # Update DB periodically (e.g. every 3 seconds) to allow real-time monitoring
+                            # We check if it's time to update
+                            now = time.time()
+                            last_update = stats.get('last_update', 0)
+                            if now - last_update > 3:
+                                db = SessionLocal()
+                                try:
+                                    execution = db.query(models.TaskExecution).filter(models.TaskExecution.id == exec_id).first()
+                                    if execution:
+                                        execution.max_cpu_percent = stats['max_cpu']
+                                        execution.max_memory_mb = stats['max_mem']
+                                        db.commit()
+                                        stats['last_update'] = now
+                                except Exception as e:
+                                    print(f"Error updating execution stats: {e}")
+                                finally:
+                                    db.close()
                                 
                         except (psutil.NoSuchProcess, psutil.AccessDenied):
                             # Process might have died just now
