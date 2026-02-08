@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
       watch: {
         usePolling: true
       },
-      open: true,
+      open: false,
       proxy: apiBase
         ? {
             '/api': {
