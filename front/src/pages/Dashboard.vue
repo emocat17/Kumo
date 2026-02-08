@@ -20,7 +20,7 @@
         :class="['tab-btn', { active: activeTab === 'tests' }]" 
         @click="activeTab = 'tests'"
       >
-        测试与性能
+        测试指标
       </button>
     </div>
 
@@ -304,11 +304,17 @@
         </div>
         <div class="test-action-row">
           <div class="action-buttons">
-            <button class="btn btn-primary" @click="runSelectedTasks" :disabled="selectedTaskIds.length === 0 || isRunningTests">
+            <button class="btn btn-primary" :disabled="selectedTaskIds.length === 0 || isRunningTests" @click="runSelectedTasks">
               一键执行
             </button>
-            <button class="btn btn-secondary" @click="refreshTestMetrics" :disabled="isLoadingMetrics">
+            <button class="btn btn-secondary" :disabled="isLoadingMetrics" @click="refreshTestMetrics">
               刷新指标
+            </button>
+            <button class="btn btn-secondary" :disabled="!testProjectId" @click="exportTestMetrics('json')">
+              导出JSON
+            </button>
+            <button class="btn btn-secondary" :disabled="!testProjectId" @click="exportTestMetrics('csv')">
+              导出CSV
             </button>
           </div>
           <div class="output-hint">
@@ -356,6 +362,46 @@
             <div class="card-title">窗口成功</div>
             <div class="card-value orange">{{ testMetrics?.executions_window.success ?? 0 }}</div>
             <div class="card-sub">{{ testMetrics?.executions_window.failed ?? 0 }} 失败</div>
+          </div>
+        </div>
+        <div class="card overview-card">
+          <div class="card-icon cpu-icon">
+            <i class="icon-cpu">📈</i>
+          </div>
+          <div class="card-content">
+            <div class="card-title">CPU峰值</div>
+            <div class="card-value blue">{{ peakCpuPercent.toFixed(1) }}%</div>
+            <div class="card-sub">近次执行峰值</div>
+          </div>
+        </div>
+        <div class="card overview-card">
+          <div class="card-icon mem-icon">
+            <i class="icon-mem">🧠</i>
+          </div>
+          <div class="card-content">
+            <div class="card-title">内存峰值</div>
+            <div class="card-value purple">{{ peakMemoryMb.toFixed(1) }} MB</div>
+            <div class="card-sub">近次执行峰值</div>
+          </div>
+        </div>
+        <div class="card overview-card">
+          <div class="card-icon task-icon">
+            <i class="icon-task">📥</i>
+          </div>
+          <div class="card-content">
+            <div class="card-title">吞吐量(文件/s)</div>
+            <div class="card-value green">{{ throughputFilesPerSec.toFixed(2) }}</div>
+            <div class="card-sub">窗口 {{ timeWindow }}s</div>
+          </div>
+        </div>
+        <div class="card overview-card">
+          <div class="card-icon disk-icon">
+            <i class="icon-disk">💾</i>
+          </div>
+          <div class="card-content">
+            <div class="card-title">吞吐量(MB/s)</div>
+            <div class="card-value orange">{{ throughputMbPerSec.toFixed(2) }}</div>
+            <div class="card-sub">窗口 {{ timeWindow }}s</div>
           </div>
         </div>
       </div>
@@ -485,7 +531,7 @@ interface DashboardStats {
   running_executions: number
   total_executions: number
   success_rate_7d: number
-  recent_executions: any[]
+  recent_executions: Array<Record<string, unknown>>
   daily_stats: Array<{
     date: string
     success: number
@@ -592,6 +638,34 @@ const getMainDiskUsage = computed(() => {
     return `${d.used} / ${d.total}`
 })
 
+const peakCpuPercent = computed(() => {
+  const values = (testMetrics.value?.latest_executions || [])
+    .map(item => item.max_cpu_percent)
+    .filter(value => typeof value === 'number') as number[]
+  if (!values.length) return 0
+  return Math.max(...values)
+})
+
+const peakMemoryMb = computed(() => {
+  const values = (testMetrics.value?.latest_executions || [])
+    .map(item => item.max_memory_mb)
+    .filter(value => typeof value === 'number') as number[]
+  if (!values.length) return 0
+  return Math.max(...values)
+})
+
+const throughputFilesPerSec = computed(() => {
+  const files = testMetrics.value?.output?.recent_files ?? 0
+  const win = timeWindow.value || 1
+  return files / win
+})
+
+const throughputMbPerSec = computed(() => {
+  const bytes = testMetrics.value?.output?.recent_bytes ?? 0
+  const win = timeWindow.value || 1
+  return (bytes / 1024 / 1024) / win
+})
+
 const fetchSystemStats = async () => {
   try {
     const res = await fetch(`${API_BASE}/system/stats`)
@@ -672,6 +746,40 @@ const fetchTestMetrics = async () => {
 
 const refreshTestMetrics = async () => {
   await fetchTestMetrics()
+}
+
+const exportTestMetrics = async (format: 'json' | 'csv') => {
+  if (!testProjectId.value) return
+  try {
+    const params = new URLSearchParams()
+    params.append('project_id', String(testProjectId.value))
+    if (selectedTaskIds.value.length) {
+      params.append('task_ids', selectedTaskIds.value.join(','))
+    }
+    params.append('window_seconds', String(timeWindow.value))
+    params.append('format', format)
+    const res = await fetch(`${API_BASE}/tasks/test-metrics/export?${params.toString()}`)
+    if (!res.ok) {
+      const err = await res.json()
+      alert(`导出失败: ${err.detail || '未知错误'}`)
+      return
+    }
+    const blob = await res.blob()
+    const contentDisposition = res.headers.get('content-disposition') || ''
+    const match = contentDisposition.match(/filename=([^;]+)/i)
+    const filename = match ? match[1].replace(/"/g, '') : `test_metrics.${format}`
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    console.error(e)
+    alert('导出失败')
+  }
 }
 
 const runSelectedTasks = async () => {
@@ -805,9 +913,9 @@ const initDynamicChart = () => {
   const byteSeries = dynamicHistory.value.map(p => Number((p.bytes / 1024 / 1024).toFixed(3)))
   const option = {
     tooltip: { trigger: 'axis' },
-    legend: { data: ['新增文件', '新增体积(MB)'], bottom: 0 },
-    grid: { left: '3%', right: '4%', bottom: '10%', containLabel: true },
-    xAxis: { type: 'category', data: labels, axisLabel: { color: '#666' } },
+    legend: { data: ['新增文件', '新增体积(MB)'], top: 6, right: 12, itemGap: 12, textStyle: { fontSize: 12 } },
+    grid: { left: '3%', right: '4%', top: 56, bottom: 28, containLabel: true },
+    xAxis: { type: 'category', data: labels, axisLabel: { color: '#666', margin: 12 } },
     yAxis: [
       { type: 'value', name: '文件数', splitLine: { lineStyle: { type: 'dashed' } } },
       { type: 'value', name: 'MB', splitLine: { show: false } }
@@ -832,9 +940,9 @@ const initFullChart = () => {
   const memSeries = testMetrics.value.timeseries.max_memory.map(p => p.value)
   const option = {
     tooltip: { trigger: 'axis' },
-    legend: { data: ['耗时(秒)', 'CPU峰值(%)', '内存峰值(MB)'], bottom: 0 },
-    grid: { left: '3%', right: '4%', bottom: '10%', containLabel: true },
-    xAxis: { type: 'category', data: labels, axisLabel: { color: '#666' } },
+    legend: { data: ['耗时(秒)', 'CPU峰值(%)', '内存峰值(MB)'], top: 6, right: 12, itemGap: 12, textStyle: { fontSize: 12 } },
+    grid: { left: '3%', right: '4%', top: 56, bottom: 28, containLabel: true },
+    xAxis: { type: 'category', data: labels, axisLabel: { color: '#666', margin: 12 } },
     yAxis: { type: 'value', splitLine: { lineStyle: { type: 'dashed' } } },
     series: [
       { name: '耗时(秒)', type: 'bar', data: durationSeries, itemStyle: { color: '#1890ff' } },
@@ -1233,7 +1341,7 @@ onUnmounted(() => {
 .test-section {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 28px;
 }
 
 .test-control-card {
@@ -1242,8 +1350,8 @@ onUnmounted(() => {
 
 .test-control-row {
     display: grid;
-    grid-template-columns: 1.2fr 2fr 0.6fr;
-    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px 20px;
     align-items: end;
 }
 
@@ -1267,27 +1375,29 @@ onUnmounted(() => {
 .test-action-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-top: 16px;
-    gap: 16px;
+    align-items: flex-start;
+    margin-top: 18px;
+    gap: 12px 16px;
+    flex-wrap: wrap;
 }
 
 .action-buttons {
     display: flex;
-    gap: 12px;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .output-hint {
     font-size: 12px;
     color: #777;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 520px;
+    max-width: 100%;
+    line-height: 1.4;
+    white-space: normal;
 }
 
 .test-overview-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
 }
 
 .test-evidence-card {
@@ -1355,6 +1465,20 @@ onUnmounted(() => {
     display: grid;
     grid-template-columns: 2fr 1fr;
     gap: 24px;
+}
+
+.test-section .charts-grid {
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 20px;
+}
+
+.test-section .chart-title {
+    text-align: left;
+    margin-bottom: 12px;
+}
+
+.test-section .chart-container {
+    min-height: 300px;
 }
 .failure-list {
     display: flex;

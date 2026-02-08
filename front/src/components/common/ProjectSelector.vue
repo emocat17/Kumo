@@ -1,6 +1,6 @@
 <template>
   <div class="project-selector">
-    <select :value="modelValue" @change="updateValue" class="form-select">
+    <select class="form-select" :value="modelValue" @change="updateValue">
       <option :value="null">所有项目</option>
       <option v-for="project in projects" :key="project.id" :value="project.id">
         {{ project.name }}
@@ -12,7 +12,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 
-const props = defineProps<{
+defineProps<{
   modelValue?: number | null
 }>()
 

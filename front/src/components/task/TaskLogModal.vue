@@ -9,16 +9,16 @@
                    #{{ exec.id }} - {{ formatTime(exec.start_time) }} ({{ exec.status }})
                 </option>
              </select>
-             <button class="btn btn-secondary" @click="refreshLog" :disabled="loading">
+             <button class="btn btn-secondary" :disabled="loading" @click="refreshLog">
                 <RefreshCwIcon :size="16" />
              </button>
-             <button class="btn btn-secondary" @click="toggleSearch" :class="{ 'active': showSearch }">
+             <button class="btn btn-secondary" :class="{ 'active': showSearch }" @click="toggleSearch">
                 <SearchIcon :size="16" />
              </button>
-             <button class="btn btn-danger" @click="stopExecution(selectedExecutionId)" v-if="isRunning(selectedExecutionId)">
+             <button v-if="isRunning(selectedExecutionId)" class="btn btn-danger" @click="stopExecution(selectedExecutionId)">
                 <SquareIcon :size="16" fill="currentColor" />
              </button>
-             <button class="btn btn-danger" @click="deleteExecution(selectedExecutionId)" v-else>
+             <button v-else class="btn btn-danger" @click="deleteExecution(selectedExecutionId)">
                 <Trash2Icon :size="16" />
              </button>
           </div>
@@ -30,15 +30,15 @@
              <SearchIcon :size="14" class="search-icon" />
              <input 
                v-model="searchQuery" 
-               @keyup.enter="performSearch"
                placeholder="输入关键词搜索日志..." 
                class="search-input"
+               @keyup.enter="performSearch"
              />
              <button v-if="searchQuery" class="clear-btn" @click="searchQuery = ''">
                <XIcon :size="14" />
              </button>
           </div>
-          <button class="btn btn-primary btn-sm" @click="performSearch" :disabled="!searchQuery || isSearching">
+          <button class="btn btn-primary btn-sm" :disabled="!searchQuery || isSearching" @click="performSearch">
              {{ isSearching ? '搜索中...' : '搜索' }}
           </button>
        </div>
@@ -57,7 +57,7 @@
           </div>
        </div>
 
-       <div class="log-viewer" ref="logViewer">
+       <div ref="logViewer" class="log-viewer">
           <pre v-if="logContent">{{ logContent }}</pre>
           <div v-else-if="loading" class="loading-text">加载中...</div>
           <div v-else class="empty-text">暂无日志或日志为空</div>
@@ -67,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onUnmounted, onMounted } from 'vue'
+import { ref, nextTick, onUnmounted, onMounted } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { RefreshCwIcon, SquareIcon, Trash2Icon, SearchIcon, XIcon } from 'lucide-vue-next'
 
@@ -80,7 +80,18 @@ const props = defineProps<{
 const emit = defineEmits(['close'])
 
 const isOpen = ref(true)
-const executions = ref<any[]>([])
+interface TaskExecution {
+  id: number
+  status: string
+  start_time: string
+}
+
+interface SearchResult {
+  line: number
+  content: string
+}
+
+const executions = ref<TaskExecution[]>([])
 const selectedExecutionId = ref<number | null>(null)
 const logContent = ref('')
 const loading = ref(false)
@@ -90,7 +101,7 @@ let statusPollInterval: number | null = null
 
 // Search State
 const searchQuery = ref('')
-const searchResults = ref<any[]>([])
+const searchResults = ref<SearchResult[]>([])
 const isSearching = ref(false)
 const showSearch = ref(false)
 
@@ -277,6 +288,41 @@ const handleExecutionChange = () => {
 // Button refresh handler
 const refreshLog = () => {
     loadLog(selectedExecutionId.value)
+}
+
+const toggleSearch = () => {
+  showSearch.value = !showSearch.value
+  if (!showSearch.value) {
+    clearSearch()
+  }
+}
+
+const performSearch = async () => {
+  if (!searchQuery.value || !selectedExecutionId.value) return
+  isSearching.value = true
+  try {
+    const params = new URLSearchParams({
+      q: searchQuery.value,
+      limit: '100'
+    })
+    const res = await fetch(`${API_BASE}/tasks/executions/${selectedExecutionId.value}/log/search?${params.toString()}`)
+    if (res.ok) {
+      const data = await res.json()
+      searchResults.value = data.results || []
+    } else {
+      searchResults.value = []
+    }
+  } catch (e) {
+    console.error(e)
+    searchResults.value = []
+  } finally {
+    isSearching.value = false
+  }
+}
+
+const clearSearch = () => {
+  searchQuery.value = ''
+  searchResults.value = []
 }
 
 

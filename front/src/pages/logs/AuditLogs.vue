@@ -20,8 +20,8 @@
         </div>
         <div class="filter-group">
           <input 
-            type="text" 
             v-model="searchQuery" 
+            type="text" 
             placeholder="搜索名称/详情/IP..." 
             class="form-input"
             @keyup.enter="handleSearch"
@@ -74,7 +74,7 @@
     </div>
 
     <!-- Pagination -->
-    <div class="pagination-controls" v-if="total > 0">
+    <div v-if="total > 0" class="pagination-controls">
       <button class="btn btn-secondary btn-sm" :disabled="page === 1" @click="page--">上一页</button>
       <span class="page-info">第 {{ page }} 页 / 共 {{ Math.ceil(total / pageSize) }} 页 (总计 {{ total }} 条)</span>
       <button class="btn btn-secondary btn-sm" :disabled="page * pageSize >= total" @click="page++">下一页</button>

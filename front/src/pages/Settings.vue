@@ -72,10 +72,10 @@
                         </td>
                         <td class="font-mono">{{ source.url }}</td>
                         <td class="actions-cell">
-                            <button class="btn-icon" @click="moveSource(index, -1)" :disabled="index === 0" title="上移">
+                            <button class="btn-icon" :disabled="index === 0" title="上移" @click="moveSource(index, -1)">
                                 ↑
                             </button>
-                            <button class="btn-icon" @click="moveSource(index, 1)" :disabled="index === pypiSources.length - 1" title="下移">
+                            <button class="btn-icon" :disabled="index === pypiSources.length - 1" title="下移" @click="moveSource(index, 1)">
                                 ↓
                             </button>
                             <div class="divider-vertical"></div>
@@ -143,19 +143,19 @@
             <div style="padding-top: 10px;">
                 <div class="form-group">
                     <label class="custom-label">
-                        <input type="checkbox" v-model="proxyForm.enabled" class="custom-checkbox" />
+                        <input v-model="proxyForm.enabled" type="checkbox" class="custom-checkbox" />
                         <span>启用全局代理</span>
                     </label>
                 </div>
                 
-                <div class="form-group" v-if="proxyForm.enabled">
+                <div v-if="proxyForm.enabled" class="form-group">
                      <label>代理地址 (URL)</label>
-                     <input type="text" v-model="proxyForm.url" placeholder="例如: http://192.168.1.100:7890" class="form-input" />
+                     <input v-model="proxyForm.url" type="text" placeholder="例如: http://192.168.1.100:7890" class="form-input" />
                      <p class="help-text">此代理将应用于所有任务执行及 Python 包安装过程。</p>
                 </div>
 
                 <div class="form-actions" style="margin-top: 20px;">
-                    <button class="btn btn-primary" @click="saveProxyConfig" :disabled="proxySaving">
+                    <button class="btn btn-primary" :disabled="proxySaving" @click="saveProxyConfig">
                         {{ proxySaving ? '保存中...' : '保存配置' }}
                     </button>
                 </div>
@@ -175,23 +175,23 @@
             <div style="padding-top: 20px;">
                 <div class="form-group">
                     <label class="custom-label">
-                        <input type="checkbox" v-model="autoBackupForm.enabled" class="custom-checkbox" />
+                        <input v-model="autoBackupForm.enabled" type="checkbox" class="custom-checkbox" />
                         <span>启用自动备份</span>
                     </label>
                 </div>
 
                 <div class="form-group">
                     <label>备份间隔 (小时)</label>
-                    <input type="number" v-model.number="autoBackupForm.interval" min="1" :disabled="!autoBackupForm.enabled" class="form-input" />
+                    <input v-model.number="autoBackupForm.interval" type="number" min="1" :disabled="!autoBackupForm.enabled" class="form-input" />
                 </div>
 
                 <div class="form-group">
                     <label>保留份数 (最新的 N 份)</label>
-                    <input type="number" v-model.number="autoBackupForm.retention" min="1" :disabled="!autoBackupForm.enabled" class="form-input" />
+                    <input v-model.number="autoBackupForm.retention" type="number" min="1" :disabled="!autoBackupForm.enabled" class="form-input" />
                 </div>
 
                 <div class="form-actions">
-                    <button class="btn btn-primary" @click="saveAutoBackupConfig" :disabled="autoBackupSaving">
+                    <button class="btn btn-primary" :disabled="autoBackupSaving" @click="saveAutoBackupConfig">
                         {{ autoBackupSaving ? '保存中...' : '保存配置' }}
                     </button>
                 </div>
@@ -201,7 +201,7 @@
           <div class="card settings-card">
             <div class="card-header">
               <h3>备份列表</h3>
-              <button class="btn btn-primary btn-sm" @click="createBackup" :disabled="backupLoading">
+              <button class="btn btn-primary btn-sm" :disabled="backupLoading" @click="createBackup">
                 <span v-if="backupLoading">创建中...</span>
                 <span v-else>+ 立即手动备份</span>
               </button>
@@ -267,7 +267,7 @@
 
         <div class="form-group checkbox-group">
           <label>
-            <input type="checkbox" v-model="form.is_secret" />
+            <input v-model="form.is_secret" type="checkbox" />
             设为机密 (Secret)
           </label>
           <span class="help-text">机密变量在列表中将显示为 ******，并加密存储。</span>
@@ -651,6 +651,13 @@ interface EnvVar {
   is_secret: boolean
 }
 
+interface EnvVarPayload {
+  key: string
+  description: string
+  is_secret: boolean
+  value?: string
+}
+
 const envVars = ref<EnvVar[]>([])
 const showModal = ref(false)
 const isEditing = ref(false)
@@ -705,7 +712,7 @@ const submitEnvVar = async () => {
     
     const method = isEditing.value ? 'PUT' : 'POST'
     
-    const body: any = {
+    const body: EnvVarPayload = {
       key: form.key,
       description: form.description,
       is_secret: form.is_secret
@@ -728,7 +735,8 @@ const submitEnvVar = async () => {
       const err = await res.json()
       alert('操作失败: ' + (err.detail || '未知错误'))
     }
-  } catch (e) {
+  } catch (error) {
+    console.error(error)
     alert('请求出错')
   }
 }
@@ -739,7 +747,8 @@ const deleteEnvVar = async (id: number) => {
     const res = await fetch(`${API_BASE}/system/env-vars/${id}`, { method: 'DELETE' })
     if (res.ok) fetchEnvVars()
     else alert('删除失败')
-  } catch (e) {
+  } catch (error) {
+    console.error(error)
     alert('请求出错')
   }
 }

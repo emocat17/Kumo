@@ -194,6 +194,7 @@ interface PythonVersion {
   name: string
   is_in_use?: boolean
   is_conda: boolean
+  used_by_tasks?: string[]
 }
 
 const activeTab = ref<'path' | 'conda'>('path')

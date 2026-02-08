@@ -2,7 +2,7 @@
   <div class="page-container">
     <PageHeader title="定时任务" description="管理和调度您的自动化任务。">
       <template #actions>
-        <button class="btn btn-secondary" @click="refreshTasks" title="刷新">
+        <button class="btn btn-secondary" title="刷新" @click="refreshTasks">
           <RefreshCwIcon :size="18" :class="{ 'spin': isRefreshing }" />
         </button>
         <button class="btn btn-primary" @click="openCreateModal">
@@ -118,7 +118,7 @@
               <span>{{ getProjectName(task.project_id) }}</span>
             </div>
 
-            <div class="pill" v-if="task.env_id">
+            <div v-if="task.env_id" class="pill">
               <BoxIcon :size="14" />
               <span>{{ getEnvName(task.env_id) }}</span>
             </div>
@@ -145,7 +145,7 @@
       :title="isEditing ? '编辑任务' : '新建任务'" 
       width="600px"
     >
-      <form @submit.prevent="handleSaveTask" class="task-form">
+      <form class="task-form" @submit.prevent="handleSaveTask">
         <div class="form-group">
           <label for="task-name">任务名称 <span class="required">*</span></label>
           <input 
@@ -259,7 +259,7 @@
                  placeholder="* * * * *"
                  required
                />
-               <button type="button" class="btn btn-primary" @click="previewCron" title="预览运行时间">
+               <button type="button" class="btn btn-primary" title="预览运行时间" @click="previewCron">
                  预览
                </button>
             </div>
@@ -340,7 +340,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import TaskHistoryModal from '@/components/task/TaskHistoryModal.vue'
@@ -360,7 +360,7 @@ interface Task {
   project_id: number
   env_id?: number
   trigger_type: string
-  trigger_value: any
+  trigger_value: string | { value: number; unit: string }
   next_run?: string
   last_execution_status?: string
   latest_execution_id?: number
@@ -434,15 +434,19 @@ const loadData = async () => {
     if (projRes.ok) projects.value = await projRes.json()
     if (envRes.ok) environments.value = await envRes.json()
     if (taskRes.ok) {
-      const data = await taskRes.json()
-      // Parse trigger_value if string
-      tasks.value = data.map((t: any) => {
-        if (t.trigger_type === 'interval' && typeof t.trigger_value === 'string') {
+      const data = (await taskRes.json()) as Task[]
+      tasks.value = data.map((task) => {
+        if (task.trigger_type === 'interval' && typeof task.trigger_value === 'string') {
           try {
-             t.trigger_value = JSON.parse(t.trigger_value)
-          } catch (e) { /* ignore */ }
+             task.trigger_value = JSON.parse(task.trigger_value) as {
+               value: number
+               unit: string
+             }
+          } catch (error) {
+             console.error(error)
+          }
         }
-        return t
+        return task
       })
     }
   } catch (e) {
@@ -486,9 +490,10 @@ const editTask = (task: Task) => {
   // Parse trigger info back to form
   form.trigger_type = task.trigger_type
   if (task.trigger_type === 'interval') {
-     const val = task.trigger_value
-     form.trigger_value_interval = val.value || 1
-     form.trigger_unit_interval = val.unit || 'minutes'
+     if (typeof task.trigger_value === 'object' && task.trigger_value) {
+       form.trigger_value_interval = task.trigger_value.value || 1
+       form.trigger_unit_interval = task.trigger_value.unit || 'minutes'
+     }
   } else if (task.trigger_type === 'cron') {
      form.trigger_value_cron = task.trigger_value as string
   } else if (task.trigger_type === 'date') {
@@ -546,7 +551,7 @@ watch(() => form.project_id, async (newVal) => {
 })
 
 const handleSaveTask = async () => {
-  let triggerValue: any = ''
+  let triggerValue = ''
   if (form.trigger_type === 'interval') {
     triggerValue = JSON.stringify({
       value: form.trigger_value_interval,
@@ -723,7 +728,10 @@ const getEnvName = (id: number) => environments.value.find(e => e.id === id)?.na
 const formatTrigger = (task: Task) => {
   if (task.trigger_type === 'interval') {
     const val = task.trigger_value
-    return `Every ${val.value} ${val.unit}`
+    if (typeof val === 'object' && val) {
+      return `Every ${val.value} ${val.unit}`
+    }
+    return `Every ${val}`
   } else if (task.trigger_type === 'cron') {
     return `Cron: ${task.trigger_value}`
   } else if (task.trigger_type === 'date') {

@@ -36,7 +36,7 @@
             <span class="value" :title="proj.work_dir">{{ proj.work_dir }}</span>
           </div>
           
-          <div class="info-row" v-if="proj.output_dir">
+          <div v-if="proj.output_dir" class="info-row">
             <span class="label">输出路径:</span>
             <span class="value" :title="proj.output_dir">{{ proj.output_dir }}</span>
           </div>
@@ -48,12 +48,12 @@
              <button class="btn-icon" title="配置项目" @click="openProjectModal(proj)">
                <Edit :size="18" />
              </button>
-             <button 
-               class="btn-icon delete" 
-               :disabled="proj.used_by_tasks && proj.used_by_tasks.length > 0"
-               :title="proj.used_by_tasks && proj.used_by_tasks.length > 0 ? `无法删除：${proj.used_by_tasks.join(', ')} 定时任务使用中` : '删除'"
-               @click="deleteProject(proj)"
-             >
+            <button 
+              class="btn-icon delete" 
+              :disabled="proj.used_by_tasks && proj.used_by_tasks.length > 0"
+              :title="proj.used_by_tasks && proj.used_by_tasks.length > 0 ? `无法删除：${proj.used_by_tasks.join(', ')} 定时任务使用中` : '删除'"
+              @click="deleteProject(proj)"
+            >
                <Trash2 :size="18" />
              </button>
           </div>
@@ -227,10 +227,6 @@ const fetchProjects = async () => {
   } catch (e) {
     console.error(e)
   }
-}
-
-const fetchTasks = async () => {
-  // Logic moved to backend projects API
 }
 
 const openProjectModal = (proj?: Project) => {

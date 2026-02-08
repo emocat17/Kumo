@@ -73,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { TerminalIcon, RefreshCwIcon, EditIcon, Trash2Icon, DownloadIcon } from 'lucide-vue-next'
 
@@ -85,7 +85,17 @@ const props = defineProps<{
 const emit = defineEmits(['view-log', 'close'])
 
 const isOpen = ref(true)
-const executions = ref<any[]>([])
+interface TaskExecution {
+  id: number
+  status: string
+  start_time: string
+  end_time?: string | null
+  duration?: number | null
+  max_cpu_percent?: number | null
+  max_memory_mb?: number | null
+}
+
+const executions = ref<TaskExecution[]>([])
 const isEditing = ref(false)
 const selectedIds = ref<Set<number>>(new Set())
 

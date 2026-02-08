@@ -88,9 +88,9 @@
                     </div>
                   </td>
                 </tr>
-                <tr v-for="log in group.files" :key="log.filename" v-show="expandedGroups[group.taskName]" class="log-row">
+                <tr v-for="log in group.files" v-show="expandedGroups[group.taskName]" :key="log.filename" class="log-row">
                   <td class="checkbox-cell">
-                    <input type="checkbox" :value="log.filename" v-model="selectedLogs" />
+                    <input v-model="selectedLogs" type="checkbox" :value="log.filename" />
                   </td>
                   <td></td>
                   <td class="filename-cell">
@@ -138,10 +138,10 @@
                 class="form-input search-input"
                 @keyup.enter="handleSearch"
               />
-              <button class="btn btn-primary btn-icon" @click="handleSearch" :disabled="searchLoading">
+              <button class="btn btn-primary btn-icon" :disabled="searchLoading" @click="handleSearch">
                 <SearchIcon :size="16" />
               </button>
-              <button v-if="isSearching" class="btn btn-secondary btn-icon" @click="clearSearch" title="清除搜索">
+              <button v-if="isSearching" class="btn btn-secondary btn-icon" title="清除搜索" @click="clearSearch">
                 <XIcon :size="16" />
               </button>
             </div>
@@ -176,7 +176,7 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import ProjectSelector from '@/components/common/ProjectSelector.vue'
 import AuditLogs from './AuditLogs.vue'
 import { 
-  RefreshCwIcon, Trash2Icon, ClockIcon, DownloadIcon, FileTextIcon,
+  Trash2Icon, ClockIcon, DownloadIcon, FileTextIcon,
   ChevronDownIcon, ChevronRightIcon, EyeIcon, SearchIcon, XIcon
 } from 'lucide-vue-next'
 

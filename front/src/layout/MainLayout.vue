@@ -3,14 +3,14 @@
     <!-- Sidebar -->
     <aside :class="['sidebar', { collapsed: isCollapsed }]">
       <div class="sidebar-header">
-        <div class="brand-wrapper" v-if="!isCollapsed">
+        <div v-if="!isCollapsed" class="brand-wrapper">
           <img src="@/assets/Kumo.png" alt="Logo" class="logo" />
           <div class="brand-text">
             <span class="title">Kumo</span>
             <span class="version">v1.0</span>
           </div>
         </div>
-        <div class="brand-wrapper-collapsed" v-else>
+        <div v-else class="brand-wrapper-collapsed">
              <!-- Empty or maybe a mini icon, but we prioritize the toggle button -->
         </div>
         <button class="toggle-btn" @click="toggleCollapse">
@@ -88,8 +88,6 @@ import {
   FolderIcon, 
   BoxIcon, 
   Code2Icon, 
-  UsersIcon, 
-  NetworkIcon, 
   FileTextIcon, 
   SettingsIcon 
 } from 'lucide-vue-next'
