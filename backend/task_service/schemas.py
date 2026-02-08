@@ -122,12 +122,6 @@ class TestMetricsEvidence(BaseModel):
     output_samples: List[OutputSample]
     log_files: List[LatestExecutionStat]
 
-class LatencyStats(BaseModel):
-    first_output_latency_seconds: Optional[float] = None
-    avg_output_latency_seconds: Optional[float] = None
-    last_output_latency_seconds: Optional[float] = None
-    sample_count: int = 0
-
 class TestMetricsOverview(BaseModel):
     project_id: int
     project_name: str
@@ -139,7 +133,7 @@ class TestMetricsOverview(BaseModel):
     latest_executions: List[LatestExecutionStat]
     timeseries: TimeSeriesGroup
     evidence: TestMetricsEvidence
-    latency: LatencyStats
+
 
 class DailyStats(BaseModel):
     date: str

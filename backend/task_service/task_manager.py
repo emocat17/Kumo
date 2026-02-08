@@ -160,6 +160,7 @@ class TaskManager:
 
     running_processes = {} # execution_id -> subprocess.Popen
     execution_stats = {} # execution_id -> {'max_cpu': 0.0, 'max_mem': 0.0}
+    psutil_processes = {} # execution_id -> psutil.Process (cached)
 
     def _monitor_resources(self):
         """
@@ -170,16 +171,28 @@ class TaskManager:
                 # Iterate over a copy of keys to avoid runtime change issues
                 exec_ids = list(self.running_processes.keys())
                 
+                # Cleanup cache for finished processes
+                cached_ids = list(self.psutil_processes.keys())
+                for cid in cached_ids:
+                    if cid not in self.running_processes:
+                        del self.psutil_processes[cid]
+
                 for exec_id in exec_ids:
                     process = self.running_processes.get(exec_id)
                     if process and process.poll() is None:
                         try:
-                            # Get PID
-                            pid = process.pid
-                            p = psutil.Process(pid)
+                            # Get or Create cached psutil Process
+                            if exec_id in self.psutil_processes:
+                                p = self.psutil_processes[exec_id]
+                            else:
+                                pid = process.pid
+                                p = psutil.Process(pid)
+                                self.psutil_processes[exec_id] = p
+                                # First call always returns 0.0, so we just prime it
+                                p.cpu_percent(interval=None)
                             
                             # Get stats (cpu_percent needs interval=None to be non-blocking)
-                            # First call to cpu_percent might be 0.0, but subsequent calls are valid
+                            # Subsequent calls on the SAME object return valid delta
                             cpu = p.cpu_percent(interval=None)
                             mem_info = p.memory_info()
                             mem_mb = mem_info.rss / (1024 * 1024)
@@ -214,7 +227,8 @@ class TaskManager:
                                 
                         except (psutil.NoSuchProcess, psutil.AccessDenied):
                             # Process might have died just now
-                            pass
+                            if exec_id in self.psutil_processes:
+                                del self.psutil_processes[exec_id]
                         except Exception as e:
                             print(f"Error monitoring execution {exec_id}: {e}")
                             

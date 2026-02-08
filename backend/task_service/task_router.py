@@ -268,16 +268,26 @@ def extract_log_metrics(log_path: str):
     return metrics
 
 @router.get("/test-metrics/overview", response_model=schemas.TestMetricsOverview)
-async def get_test_metrics_overview(project_id: int, task_ids: str = None, window_seconds: int = 10, sample_limit: int = 50, db: Session = Depends(get_db)):
-    project = db.query(project_models.Project).filter(project_models.Project.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
+async def get_test_metrics_overview(project_id: int = None, task_ids: str = None, window_seconds: int = 10, sample_limit: int = 50, db: Session = Depends(get_db)):
     ids = parse_task_ids(task_ids)
-    task_query = db.query(models.Task).filter(models.Task.project_id == project_id)
+    project = None
+    tasks = []
+
     if ids:
-        task_query = task_query.filter(models.Task.id.in_(ids))
-    tasks = task_query.all()
+        tasks = db.query(models.Task).filter(models.Task.id.in_(ids)).all()
+        if not tasks:
+            raise HTTPException(status_code=404, detail="No tasks found for provided IDs")
+        # Infer project from the first task
+        # We assume all tasks belong to the same project for metrics aggregation context
+        # If mixed, we just pick the first one's project for output directory resolution
+        first_task_pid = tasks[0].project_id
+        project = db.query(project_models.Project).filter(project_models.Project.id == first_task_pid).first()
+    elif project_id:
+        project = db.query(project_models.Project).filter(project_models.Project.id == project_id).first()
+        tasks = db.query(models.Task).filter(models.Task.project_id == project_id).all()
+    
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found or could not be inferred from tasks")
 
     output_dir = resolve_output_dir(project)
     now_ts = datetime.datetime.now().timestamp()
@@ -461,56 +471,123 @@ async def get_test_metrics_overview(project_id: int, task_ids: str = None, windo
         "evidence": {
             "output_samples": output_samples,
             "log_files": log_files
-        },
-        "latency": latency_stats
+        }
     }
 
 @router.get("/test-metrics/export")
-async def export_test_metrics(project_id: int, task_ids: str = None, window_seconds: int = 10, sample_limit: int = 50, format: str = "json", db: Session = Depends(get_db)):
+async def export_test_metrics(project_id: int = None, task_ids: str = None, window_seconds: int = 10, sample_limit: int = 10000, format: str = "json", db: Session = Depends(get_db)):
     metrics = await get_test_metrics_overview(project_id, task_ids, window_seconds, sample_limit, db)
     payload = jsonable_encoder(metrics)
     fmt = (format or "json").lower()
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"test_metrics_project_{project_id}_{timestamp}.{fmt}"
 
+    # Calculate throughput series from output samples
+    # Bucket by 1-second intervals
+    throughput_series = {}
+    for sample in payload.get("evidence", {}).get("output_samples", []):
+        mtime_str = sample.get("mtime")
+        if mtime_str:
+            # Parse datetime string back to timestamp bucket (or just use string if ISO)
+            # ISO format: YYYY-MM-DDTHH:MM:SS.ssssss
+            try:
+                dt = datetime.datetime.fromisoformat(mtime_str)
+                key = dt.strftime("%Y-%m-%d %H:%M:%S")
+                if key not in throughput_series:
+                    throughput_series[key] = {"files": 0, "bytes": 0}
+                throughput_series[key]["files"] += 1
+                throughput_series[key]["bytes"] += sample.get("size", 0)
+            except:
+                pass
+    
+    sorted_throughput = [{"time": k, "files": v["files"], "bytes": v["bytes"]} for k, v in sorted(throughput_series.items())]
+
     if fmt == "json":
-        content = json.dumps(payload, ensure_ascii=False, indent=2)
+        # Create a more structured report for JSON
+        report = {
+            "meta": {
+                "project_id": payload.get("project_id"),
+                "project_name": payload.get("project_name"),
+                "export_time": timestamp,
+                "window_seconds": payload.get("window_seconds")
+            },
+            "summary": {
+                "total_files": payload.get("output", {}).get("total_files"),
+                "total_bytes": payload.get("output", {}).get("total_bytes"),
+                "throughput_files_per_sec": payload.get("output", {}).get("recent_files", 0) / (window_seconds or 1),
+                "throughput_mb_per_sec": (payload.get("output", {}).get("recent_bytes", 0) / 1024 / 1024) / (window_seconds or 1),
+            },
+            "performance": {
+                "cpu_peak_percent": max([e.get("max_cpu_percent") or 0 for e in payload.get("latest_executions", [])] or [0]),
+                "memory_peak_mb": max([e.get("max_memory_mb") or 0 for e in payload.get("latest_executions", [])] or [0]),
+                "avg_duration_sec": sum([e.get("duration") or 0 for e in payload.get("latest_executions", [])]) / len(payload.get("latest_executions", [])) if payload.get("latest_executions") else 0
+            },
+            "executions": payload.get("latest_executions", []),
+            "time_series": payload.get("timeseries", {}),
+            "throughput_series": sorted_throughput,
+            "output_samples": payload.get("evidence", {}).get("output_samples", [])
+        }
+        
+        content = json.dumps(report, ensure_ascii=False, indent=2)
         return StreamingResponse(io.BytesIO(content.encode("utf-8")), media_type="application/json", headers={
             "Content-Disposition": f"attachment; filename={filename}"
         })
     if fmt == "csv":
         buffer = io.StringIO()
         writer = csv.writer(buffer)
-        writer.writerow(["section", "field", "value"])
-        writer.writerow(["summary", "project_id", payload.get("project_id")])
-        writer.writerow(["summary", "project_name", payload.get("project_name")])
-        writer.writerow(["summary", "output_dir", payload.get("output_dir")])
-        writer.writerow(["summary", "task_count", payload.get("task_count")])
-        writer.writerow(["summary", "window_seconds", payload.get("window_seconds")])
-        writer.writerow(["latency", "first_output_latency_seconds", payload.get("latency", {}).get("first_output_latency_seconds")])
-        writer.writerow(["latency", "avg_output_latency_seconds", payload.get("latency", {}).get("avg_output_latency_seconds")])
-        writer.writerow(["latency", "last_output_latency_seconds", payload.get("latency", {}).get("last_output_latency_seconds")])
-        writer.writerow(["latency", "sample_count", payload.get("latency", {}).get("sample_count")])
+        
+        # 1. Summary Section
+        writer.writerow(["=== Test Report Summary ==="])
+        writer.writerow(["Project ID", payload.get("project_id")])
+        writer.writerow(["Project Name", payload.get("project_name")])
+        writer.writerow(["Export Time", timestamp])
         writer.writerow([])
-        writer.writerow(["output_samples"])
-        writer.writerow(["name", "path", "size", "mtime"])
-        for item in payload.get("evidence", {}).get("output_samples", []):
-            writer.writerow([item.get("name"), item.get("path"), item.get("size"), item.get("mtime")])
+        
+        # 2. Performance Metrics
+        writer.writerow(["=== Performance Metrics ==="])
+        writer.writerow(["Metric", "Value", "Unit"])
+        writer.writerow(["Total Files", payload.get("output", {}).get("total_files"), "count"])
+        writer.writerow(["Total Bytes", payload.get("output", {}).get("total_bytes"), "bytes"])
+        writer.writerow(["Throughput (Files)", f"{payload.get('output', {}).get('recent_files', 0) / (window_seconds or 1):.2f}", "files/s"])
+        writer.writerow(["Throughput (Data)", f"{(payload.get('output', {}).get('recent_bytes', 0) / 1024 / 1024) / (window_seconds or 1):.2f}", "MB/s"])
+        
+        cpu_peak = max([e.get("max_cpu_percent") or 0 for e in payload.get("latest_executions", [])] or [0])
+        mem_peak = max([e.get("max_memory_mb") or 0 for e in payload.get("latest_executions", [])] or [0])
+        writer.writerow(["Peak CPU", f"{cpu_peak:.2f}", "%"])
+        writer.writerow(["Peak Memory", f"{mem_peak:.2f}", "MB"])
         writer.writerow([])
-        writer.writerow(["latest_executions"])
-        writer.writerow(["task_id", "task_name", "status", "start_time", "end_time", "duration", "max_cpu_percent", "max_memory_mb", "log_file"])
+        
+        # 3. Throughput Series (New)
+        writer.writerow(["=== Throughput Series (Calculated from Output) ==="])
+        writer.writerow(["Time", "Files", "Bytes"])
+        for item in sorted_throughput:
+            writer.writerow([item["time"], item["files"], item["bytes"]])
+        writer.writerow([])
+
+        # 4. Execution Details
+        writer.writerow(["=== Execution Details ==="])
+        writer.writerow(["Task ID", "Task Name", "Status", "Start Time", "Duration (s)", "CPU (%)", "Mem (MB)", "Parse Time (s)", "Index Time (s)", "API Time (s)"])
         for item in payload.get("latest_executions", []):
             writer.writerow([
                 item.get("task_id"),
                 item.get("task_name"),
                 item.get("status"),
                 item.get("start_time"),
-                item.get("end_time"),
                 item.get("duration"),
                 item.get("max_cpu_percent"),
                 item.get("max_memory_mb"),
-                item.get("log_file")
+                item.get("parse_time") or "N/A",
+                item.get("index_time") or "N/A",
+                item.get("api_time") or "N/A"
             ])
+        writer.writerow([])
+        
+        # 4. Output Samples
+        writer.writerow(["=== Output Samples (Top 50) ==="])
+        writer.writerow(["Name", "Size (bytes)", "Time"])
+        for item in payload.get("evidence", {}).get("output_samples", []):
+            writer.writerow([item.get("name"), item.get("size"), item.get("mtime")])
+            
         content = buffer.getvalue()
         return StreamingResponse(io.BytesIO(content.encode("utf-8")), media_type="text/csv", headers={
             "Content-Disposition": f"attachment; filename={filename}"

@@ -281,17 +281,16 @@
     <section v-if="activeTab === 'tests'" class="section test-section">
       <div class="card test-control-card">
         <div class="test-control-row">
-          <div class="control-group">
-            <label>选择项目</label>
-            <ProjectSelector v-model="testProjectId" />
-          </div>
-          <div class="control-group">
-            <label>选择任务</label>
-            <select v-model="selectedTaskIds" multiple class="form-select task-multi-select">
+          <div class="control-group" style="flex: 2;">
+            <label>选择任务 (可多选)</label>
+            <select v-model="selectedTaskIds" multiple class="form-select task-multi-select" style="height: 100px;">
               <option v-for="task in testTasks" :key="task.id" :value="task.id">
                 {{ task.name }}
               </option>
             </select>
+            <div class="text-xs text-gray mt-1" v-if="testTasks.length === 0">
+              加载中...
+            </div>
           </div>
           <div class="control-group small">
             <label>时间窗</label>
@@ -307,13 +306,13 @@
             <button class="btn btn-primary" :disabled="selectedTaskIds.length === 0 || isRunningTests" @click="runSelectedTasks">
               一键执行
             </button>
-            <button class="btn btn-secondary" :disabled="isLoadingMetrics" @click="refreshTestMetrics">
+            <button class="btn btn-secondary" :disabled="isLoadingMetrics || selectedTaskIds.length === 0" @click="refreshTestMetrics">
               刷新指标
             </button>
-            <button class="btn btn-secondary" :disabled="!testProjectId" @click="exportTestMetrics('json')">
+            <button class="btn btn-secondary" :disabled="selectedTaskIds.length === 0" @click="exportTestMetrics('json')">
               导出JSON
             </button>
-            <button class="btn btn-secondary" :disabled="!testProjectId" @click="exportTestMetrics('csv')">
+            <button class="btn btn-secondary" :disabled="selectedTaskIds.length === 0" @click="exportTestMetrics('csv')">
               导出CSV
             </button>
           </div>
@@ -356,26 +355,6 @@
             </div>
           </div>
           <div class="card overview-card">
-            <div class="card-icon task-icon">
-              <i class="icon-task">⏱️</i>
-            </div>
-            <div class="card-content">
-              <div class="card-title">首次产出延迟</div>
-              <div class="card-value blue">{{ formatSeconds(latencyFirst) }}</div>
-              <div class="card-sub">窗口 {{ timeWindow }}s</div>
-            </div>
-          </div>
-          <div class="card overview-card">
-            <div class="card-icon task-icon">
-              <i class="icon-task">⏱️</i>
-            </div>
-            <div class="card-content">
-              <div class="card-title">平均产出延迟</div>
-              <div class="card-value blue">{{ formatSeconds(latencyAvg) }}</div>
-              <div class="card-sub">{{ latencySampleCount }} 样本</div>
-            </div>
-          </div>
-          <div class="card overview-card">
             <div class="card-icon cpu-icon">
               <i class="icon-cpu"></i>
             </div>
@@ -393,16 +372,6 @@
               <div class="card-title">内存峰值</div>
               <div class="card-value purple">{{ peakMemoryMb.toFixed(1) }} MB</div>
               <div class="card-sub">近次执行峰值</div>
-            </div>
-          </div>
-          <div class="card overview-card">
-            <div class="card-icon task-icon">
-              <i class="icon-task">✅</i>
-            </div>
-            <div class="card-content">
-              <div class="card-title">系统可用性</div>
-              <div class="card-value green">{{ availabilityRate.toFixed(1) }}%</div>
-              <div class="card-sub">窗口 {{ timeWindow }}s</div>
             </div>
           </div>
         </template>
@@ -695,12 +664,6 @@ interface TestMetricsOverview {
     output_samples: Array<{ name: string; path: string; size: number; mtime: string }>
     log_files: Array<{ task_id: number; task_name: string; log_file?: string }>
   }
-  latency: {
-    first_output_latency_seconds?: number
-    avg_output_latency_seconds?: number
-    last_output_latency_seconds?: number
-    sample_count: number
-  }
 }
 
 const activeTab = ref<'overview' | 'performance' | 'tests'>('overview')
@@ -719,7 +682,7 @@ const dashboardStats = ref<DashboardStats>({
 const timer = ref<number | null>(null)
 const chartRef = ref<HTMLElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
-const testProjectId = ref<number | null>(null)
+// Removed testProjectId
 const testTasks = ref<TestTask[]>([])
 const selectedTaskIds = ref<number[]>([])
 const timeWindow = ref<number>(10)
@@ -781,17 +744,6 @@ const formatSeconds = (s?: number | null) => {
   if (s === null || s === undefined) return 'N/A'
   return `${s.toFixed(2)}s`
 }
-
-const latencyFirst = computed(() => testMetrics.value?.latency?.first_output_latency_seconds ?? null)
-const latencyAvg = computed(() => testMetrics.value?.latency?.avg_output_latency_seconds ?? null)
-const latencySampleCount = computed(() => testMetrics.value?.latency?.sample_count ?? 0)
-
-const availabilityRate = computed(() => {
-  const finished = testMetrics.value?.executions_window.finished ?? 0
-  const success = testMetrics.value?.executions_window.success ?? 0
-  if (finished <= 0) return 0
-  return (success / finished) * 100
-})
 
 const latestExecCount = computed(() => (testMetrics.value?.latest_executions || []).length)
 const avgDurationSec = computed(() => {
@@ -864,16 +816,12 @@ watch(selectedProjectId, () => {
 })
 
 const fetchTestTasks = async () => {
-  if (!testProjectId.value) {
-    testTasks.value = []
-    selectedTaskIds.value = []
-    return
-  }
   try {
-    const res = await fetch(`${API_BASE}/tasks?project_id=${testProjectId.value}`)
+    // Fetch all tasks (limit to 1000)
+    const res = await fetch(`${API_BASE}/tasks?limit=1000`)
     if (res.ok) {
       testTasks.value = await res.json()
-      selectedTaskIds.value = testTasks.value.map(t => t.id)
+      // If no tasks selected, maybe select none by default
     }
   } catch (e) {
     console.error(e)
@@ -881,11 +829,15 @@ const fetchTestTasks = async () => {
 }
 
 const fetchTestMetrics = async () => {
-  if (!testProjectId.value) return
+  if (selectedTaskIds.value.length === 0) {
+      testMetrics.value = null
+      return
+  }
   isLoadingMetrics.value = true
   try {
     const ids = selectedTaskIds.value.join(',')
-    const url = `${API_BASE}/tasks/test-metrics/overview?project_id=${testProjectId.value}&task_ids=${encodeURIComponent(ids)}&window_seconds=${timeWindow.value}`
+    // No project_id needed, only task_ids
+    const url = `${API_BASE}/tasks/test-metrics/overview?task_ids=${encodeURIComponent(ids)}&window_seconds=${timeWindow.value}`
     const res = await fetch(url)
     if (res.ok) {
       const metrics = (await res.json()) as TestMetricsOverview
@@ -902,9 +854,13 @@ const fetchTestMetrics = async () => {
       await nextTick()
       initDynamicChart()
       initFullChart()
+    } else {
+        // If error (e.g. project not found or task not found), clear metrics
+        testMetrics.value = null
     }
   } catch (e) {
     console.error(e)
+    testMetrics.value = null
   } finally {
     isLoadingMetrics.value = false
   }
@@ -917,10 +873,10 @@ const refreshTestMetrics = async () => {
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 const exportTestMetrics = async (format: 'json' | 'csv') => {
-  if (!testProjectId.value) return
+  if (selectedTaskIds.value.length === 0) return
   try {
     const params = new URLSearchParams()
-    params.append('project_id', String(testProjectId.value))
+    // No project_id needed
     if (selectedTaskIds.value.length) {
       params.append('task_ids', selectedTaskIds.value.join(','))
     }
@@ -991,7 +947,7 @@ const startMetricsTimer = () => {
   if (metricsTimer.value) clearInterval(metricsTimer.value)
   metricsTimer.value = setInterval(() => {
     if (document.hidden) return
-    if (activeTab.value === 'tests' && testProjectId.value) {
+    if (activeTab.value === 'tests' && selectedTaskIds.value.length > 0) {
       fetchTestMetrics()
     }
   }, Math.max(timeWindow.value * 1000, 1000)) as unknown as number
@@ -999,25 +955,28 @@ const startMetricsTimer = () => {
 
 watch(activeTab, () => {
   if (activeTab.value === 'tests') {
-    startMetricsTimer()
+    fetchTestTasks() // Fetch all tasks when tab active
+    // If we have selected tasks, start timer
+    if (selectedTaskIds.value.length > 0) {
+        startMetricsTimer()
+    }
   } else if (metricsTimer.value) {
     clearInterval(metricsTimer.value)
     metricsTimer.value = null
   }
 })
 
-watch(testProjectId, async () => {
-  dynamicHistory.value = []
-  await fetchTestTasks()
-  await fetchTestMetrics()
-  if (activeTab.value === 'tests') {
-    startMetricsTimer()
-  }
-})
+// Removed watch(testProjectId)
 
 watch(selectedTaskIds, async () => {
   dynamicHistory.value = []
-  await fetchTestMetrics()
+  if (selectedTaskIds.value.length > 0) {
+      await fetchTestMetrics()
+      startMetricsTimer()
+  } else {
+      testMetrics.value = null
+      if (metricsTimer.value) clearInterval(metricsTimer.value)
+  }
 })
 
 watch(timeWindow, () => {
