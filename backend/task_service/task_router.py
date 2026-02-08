@@ -4,6 +4,7 @@ from sqlalchemy import func, cast, Date
 from typing import List
 from core.database import get_db
 from task_service import models, schemas
+from project_service import models as project_models
 from task_service.task_manager import task_manager, run_task_execution
 from audit_service.service import create_audit_log
 from apscheduler.triggers.cron import CronTrigger
@@ -165,8 +166,11 @@ async def create_task(task: schemas.TaskCreate, request: Request, db: Session = 
     return db_task
 
 @router.get("", response_model=List[schemas.Task])
-async def list_tasks(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    tasks = db.query(models.Task).offset(skip).limit(limit).all()
+async def list_tasks(skip: int = 0, limit: int = 100, project_id: int = None, db: Session = Depends(get_db)):
+    query = db.query(models.Task)
+    if project_id:
+        query = query.filter(models.Task.project_id == project_id)
+    tasks = query.offset(skip).limit(limit).all()
     # Update runtime status
     for t in tasks:
         t.next_run = task_manager.get_next_run_time(t.id)
@@ -181,6 +185,157 @@ async def list_tasks(skip: int = 0, limit: int = 100, db: Session = Depends(get_
             t.latest_execution_time = latest_exec.start_time
             
     return tasks
+
+def resolve_output_dir(project: project_models.Project):
+    if project.output_dir:
+        return project.output_dir
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    root_dir = os.path.dirname(backend_dir)
+    return os.path.join(root_dir, "Data")
+
+def parse_task_ids(task_ids: str):
+    if not task_ids:
+        return []
+    parts = [p.strip() for p in task_ids.split(",")]
+    return [int(p) for p in parts if p.isdigit()]
+
+@router.get("/test-metrics/overview", response_model=schemas.TestMetricsOverview)
+async def get_test_metrics_overview(project_id: int, task_ids: str = None, window_seconds: int = 10, sample_limit: int = 50, db: Session = Depends(get_db)):
+    project = db.query(project_models.Project).filter(project_models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    ids = parse_task_ids(task_ids)
+    task_query = db.query(models.Task).filter(models.Task.project_id == project_id)
+    if ids:
+        task_query = task_query.filter(models.Task.id.in_(ids))
+    tasks = task_query.all()
+
+    output_dir = resolve_output_dir(project)
+    now_ts = datetime.datetime.now().timestamp()
+    max_scan = 20000
+    scanned = 0
+    truncated = False
+    total_files = 0
+    total_bytes = 0
+    recent_files = 0
+    recent_bytes = 0
+    type_map = {}
+    samples = []
+
+    if output_dir and os.path.exists(output_dir):
+        for root, _, files in os.walk(output_dir):
+            for filename in files:
+                if scanned >= max_scan:
+                    truncated = True
+                    break
+                scanned += 1
+                full_path = os.path.join(root, filename)
+                try:
+                    stat = os.stat(full_path)
+                except Exception:
+                    continue
+                total_files += 1
+                total_bytes += stat.st_size
+                ext = os.path.splitext(filename)[1].lower() or "no_ext"
+                type_map[ext] = type_map.get(ext, 0) + 1
+                if now_ts - stat.st_mtime <= window_seconds:
+                    recent_files += 1
+                    recent_bytes += stat.st_size
+                samples.append({
+                    "name": filename,
+                    "path": full_path,
+                    "size": stat.st_size,
+                    "mtime": datetime.datetime.fromtimestamp(stat.st_mtime)
+                })
+            if truncated:
+                break
+
+    samples.sort(key=lambda x: x["mtime"], reverse=True)
+    output_samples = samples[:sample_limit]
+    types = [{"ext": k, "count": v} for k, v in sorted(type_map.items(), key=lambda x: x[1], reverse=True)]
+
+    task_ids_list = [t.id for t in tasks]
+    exec_query = db.query(models.TaskExecution).join(models.Task).filter(models.Task.project_id == project_id)
+    if task_ids_list:
+        exec_query = exec_query.filter(models.TaskExecution.task_id.in_(task_ids_list))
+
+    start_window = datetime.datetime.now() - datetime.timedelta(seconds=window_seconds)
+    started = exec_query.filter(models.TaskExecution.start_time >= start_window).count()
+    finished = exec_query.filter(models.TaskExecution.end_time != None, models.TaskExecution.end_time >= start_window).count()
+    success = exec_query.filter(models.TaskExecution.status == "success", models.TaskExecution.start_time >= start_window).count()
+    failed = exec_query.filter(models.TaskExecution.status == "failed", models.TaskExecution.start_time >= start_window).count()
+    running = exec_query.filter(models.TaskExecution.status == "running").count()
+
+    latest_executions = []
+    log_files = []
+    for t in tasks:
+        latest = db.query(models.TaskExecution).filter(models.TaskExecution.task_id == t.id).order_by(models.TaskExecution.start_time.desc()).first()
+        if latest:
+            item = {
+                "task_id": t.id,
+                "task_name": t.name,
+                "execution_id": latest.id,
+                "status": latest.status,
+                "start_time": latest.start_time,
+                "end_time": latest.end_time,
+                "duration": latest.duration,
+                "max_cpu_percent": latest.max_cpu_percent,
+                "max_memory_mb": latest.max_memory_mb,
+                "log_file": latest.log_file
+            }
+        else:
+            item = {
+                "task_id": t.id,
+                "task_name": t.name
+            }
+        latest_executions.append(item)
+        log_files.append(item)
+
+    series_limit = 30
+    series_execs = exec_query.order_by(models.TaskExecution.start_time.desc()).limit(series_limit).all()
+    duration_series = []
+    cpu_series = []
+    mem_series = []
+    for e in reversed(series_execs):
+        label = e.start_time.strftime("%m-%d %H:%M:%S") if e.start_time else str(e.id)
+        duration_series.append({"label": label, "value": float(e.duration or 0)})
+        cpu_series.append({"label": label, "value": float(e.max_cpu_percent or 0)})
+        mem_series.append({"label": label, "value": float(e.max_memory_mb or 0)})
+
+    return {
+        "project_id": project.id,
+        "project_name": project.name,
+        "output_dir": output_dir,
+        "task_count": len(tasks),
+        "window_seconds": window_seconds,
+        "output": {
+            "total_files": total_files,
+            "total_bytes": total_bytes,
+            "recent_files": recent_files,
+            "recent_bytes": recent_bytes,
+            "types": types,
+            "scanned_files": scanned,
+            "truncated": truncated
+        },
+        "executions_window": {
+            "started": started,
+            "finished": finished,
+            "success": success,
+            "failed": failed,
+            "running": running
+        },
+        "latest_executions": latest_executions,
+        "timeseries": {
+            "duration": duration_series,
+            "max_cpu": cpu_series,
+            "max_memory": mem_series
+        },
+        "evidence": {
+            "output_samples": output_samples,
+            "log_files": log_files
+        }
+    }
 
 @router.get("/{task_id}", response_model=schemas.Task)
 async def get_task(task_id: int, db: Session = Depends(get_db)):

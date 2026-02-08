@@ -16,6 +16,12 @@
       >
         性能配置
       </button>
+      <button 
+        :class="['tab-btn', { active: activeTab === 'tests' }]" 
+        @click="activeTab = 'tests'"
+      >
+        测试与性能
+      </button>
     </div>
 
     <!-- System Overview -->
@@ -272,6 +278,156 @@
         </div>
       </div>
     </section>
+    <section v-if="activeTab === 'tests'" class="section test-section">
+      <div class="card test-control-card">
+        <div class="test-control-row">
+          <div class="control-group">
+            <label>选择项目</label>
+            <ProjectSelector v-model="testProjectId" />
+          </div>
+          <div class="control-group">
+            <label>选择任务</label>
+            <select v-model="selectedTaskIds" multiple class="form-select task-multi-select">
+              <option v-for="task in testTasks" :key="task.id" :value="task.id">
+                {{ task.name }}
+              </option>
+            </select>
+          </div>
+          <div class="control-group small">
+            <label>时间窗</label>
+            <select v-model="timeWindow" class="form-select">
+              <option :value="1">1s</option>
+              <option :value="10">10s</option>
+              <option :value="60">1min</option>
+            </select>
+          </div>
+        </div>
+        <div class="test-action-row">
+          <div class="action-buttons">
+            <button class="btn btn-primary" @click="runSelectedTasks" :disabled="selectedTaskIds.length === 0 || isRunningTests">
+              一键执行
+            </button>
+            <button class="btn btn-secondary" @click="refreshTestMetrics" :disabled="isLoadingMetrics">
+              刷新指标
+            </button>
+          </div>
+          <div class="output-hint">
+            输出目录: {{ testMetrics?.output_dir || '-' }}
+          </div>
+        </div>
+      </div>
+
+      <div class="overview-grid test-overview-grid">
+        <div class="card overview-card">
+          <div class="card-icon task-icon">
+            <i class="icon-task">📦</i>
+          </div>
+          <div class="card-content">
+            <div class="card-title">产出总量</div>
+            <div class="card-value blue">{{ testMetrics?.output.total_files ?? 0 }}</div>
+            <div class="card-sub">{{ formatBytes(testMetrics?.output.total_bytes ?? 0) }}</div>
+          </div>
+        </div>
+        <div class="card overview-card">
+          <div class="card-icon cpu-icon">
+            <i class="icon-cpu">⚡</i>
+          </div>
+          <div class="card-content">
+            <div class="card-title">窗口新增</div>
+            <div class="card-value green">{{ testMetrics?.output.recent_files ?? 0 }}</div>
+            <div class="card-sub">{{ formatBytes(testMetrics?.output.recent_bytes ?? 0) }}</div>
+          </div>
+        </div>
+        <div class="card overview-card">
+          <div class="card-icon mem-icon">
+            <i class="icon-mem">🚦</i>
+          </div>
+          <div class="card-content">
+            <div class="card-title">窗口执行</div>
+            <div class="card-value purple">{{ testMetrics?.executions_window.started ?? 0 }}</div>
+            <div class="card-sub">{{ testMetrics?.executions_window.running ?? 0 }} 运行中</div>
+          </div>
+        </div>
+        <div class="card overview-card">
+          <div class="card-icon disk-icon">
+            <i class="icon-disk">✅</i>
+          </div>
+          <div class="card-content">
+            <div class="card-title">窗口成功</div>
+            <div class="card-value orange">{{ testMetrics?.executions_window.success ?? 0 }}</div>
+            <div class="card-sub">{{ testMetrics?.executions_window.failed ?? 0 }} 失败</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="charts-grid">
+        <div class="card chart-card">
+          <h3 class="chart-title">动态指标</h3>
+          <div ref="dynamicChartRef" class="chart-container"></div>
+        </div>
+        <div class="card chart-card">
+          <h3 class="chart-title">全程指标</h3>
+          <div ref="fullChartRef" class="chart-container"></div>
+        </div>
+      </div>
+
+      <div class="card test-evidence-card">
+        <div class="evidence-header">
+          <h3>覆盖度证据</h3>
+          <span class="evidence-sub">对照日志与产出文件</span>
+        </div>
+        <div class="evidence-grid">
+          <div class="evidence-panel">
+            <div class="panel-title">产出文件</div>
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>文件名</th>
+                    <th>大小</th>
+                    <th>时间</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="!testMetrics?.evidence.output_samples.length">
+                    <td colspan="3" class="text-center text-gray">暂无产出</td>
+                  </tr>
+                  <tr v-for="item in testMetrics?.evidence.output_samples" :key="item.path">
+                    <td class="font-mono truncate">{{ item.name }}</td>
+                    <td>{{ formatBytes(item.size) }}</td>
+                    <td>{{ formatTime(item.mtime) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="evidence-panel">
+            <div class="panel-title">任务日志</div>
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>任务</th>
+                    <th>状态</th>
+                    <th>日志文件</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="!testMetrics?.latest_executions.length">
+                    <td colspan="3" class="text-center text-gray">暂无日志</td>
+                  </tr>
+                  <tr v-for="item in testMetrics?.latest_executions" :key="item.task_id">
+                    <td>{{ item.task_name }}</td>
+                    <td>{{ item.status || '-' }}</td>
+                    <td class="font-mono truncate">{{ item.log_file || '-' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -342,7 +498,57 @@ interface DashboardStats {
   }>
 }
 
-const activeTab = ref<'overview' | 'performance'>('overview')
+interface TestTask {
+  id: number
+  name: string
+}
+
+interface TestMetricsOverview {
+  project_id: number
+  project_name: string
+  output_dir: string
+  task_count: number
+  window_seconds: number
+  output: {
+    total_files: number
+    total_bytes: number
+    recent_files: number
+    recent_bytes: number
+    types: Array<{ ext: string; count: number }>
+    scanned_files: number
+    truncated: boolean
+  }
+  executions_window: {
+    started: number
+    finished: number
+    success: number
+    failed: number
+    running: number
+  }
+  latest_executions: Array<{
+    task_id: number
+    task_name: string
+    execution_id?: number
+    status?: string
+    start_time?: string
+    end_time?: string
+    duration?: number
+    max_cpu_percent?: number
+    max_memory_mb?: number
+    log_file?: string
+  }>
+  timeseries: {
+    duration: Array<{ label: string; value: number }>
+    max_cpu: Array<{ label: string; value: number }>
+    max_memory: Array<{ label: string; value: number }>
+  }
+  evidence: {
+    output_samples: Array<{ name: string; path: string; size: number; mtime: string }>
+    log_files: Array<{ task_id: number; task_name: string; log_file?: string }>
+  }
+}
+
+const activeTab = ref<'overview' | 'performance' | 'tests'>('overview')
 const selectedProjectId = ref<number | null>(null)
 const systemStats = ref<SystemStats>({} as SystemStats)
 const dashboardStats = ref<DashboardStats>({
@@ -358,21 +564,22 @@ const dashboardStats = ref<DashboardStats>({
 const timer = ref<number | null>(null)
 const chartRef = ref<HTMLElement | null>(null)
 let chartInstance: echarts.ECharts | null = null
+const testProjectId = ref<number | null>(null)
+const testTasks = ref<TestTask[]>([])
+const selectedTaskIds = ref<number[]>([])
+const timeWindow = ref<number>(10)
+const testMetrics = ref<TestMetricsOverview | null>(null)
+const isLoadingMetrics = ref(false)
+const isRunningTests = ref(false)
+const metricsTimer = ref<number | null>(null)
+const dynamicChartRef = ref<HTMLElement | null>(null)
+const fullChartRef = ref<HTMLElement | null>(null)
+let dynamicChartInstance: echarts.ECharts | null = null
+let fullChartInstance: echarts.ECharts | null = null
+const dynamicHistory = ref<Array<{ label: string; files: number; bytes: number }>>([])
 
 const API_BASE = 'http://localhost:8000/api'
 
-// Computed for Task Stats
-const success7d = computed(() => {
-  if (!dashboardStats.value.daily_stats) return 0
-  return dashboardStats.value.daily_stats.reduce((acc, cur) => acc + cur.success, 0)
-})
-
-const failed7d = computed(() => {
-  if (!dashboardStats.value.daily_stats) return 0
-  return dashboardStats.value.daily_stats.reduce((acc, cur) => acc + cur.failed, 0)
-})
-
-// Computed for Cards
 const getMainDiskPercent = computed(() => {
     if (!systemStats.value.disk?.partitions?.length) return 0
     // Return max used partition or first one
@@ -414,6 +621,99 @@ const fetchDashboardStats = async () => {
 
 watch(selectedProjectId, () => {
     fetchDashboardStats()
+})
+
+const fetchTestTasks = async () => {
+  if (!testProjectId.value) {
+    testTasks.value = []
+    selectedTaskIds.value = []
+    return
+  }
+  try {
+    const res = await fetch(`${API_BASE}/tasks?project_id=${testProjectId.value}`)
+    if (res.ok) {
+      testTasks.value = await res.json()
+      selectedTaskIds.value = testTasks.value.map(t => t.id)
+    }
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const fetchTestMetrics = async () => {
+  if (!testProjectId.value) return
+  isLoadingMetrics.value = true
+  try {
+    const ids = selectedTaskIds.value.join(',')
+    const url = `${API_BASE}/tasks/test-metrics/overview?project_id=${testProjectId.value}&task_ids=${encodeURIComponent(ids)}&window_seconds=${timeWindow.value}`
+    const res = await fetch(url)
+    if (res.ok) {
+      const metrics = (await res.json()) as TestMetricsOverview
+      testMetrics.value = metrics
+      const label = new Date().toLocaleTimeString()
+      dynamicHistory.value.push({
+        label,
+        files: metrics.output?.recent_files ?? 0,
+        bytes: metrics.output?.recent_bytes ?? 0
+      })
+      if (dynamicHistory.value.length > 60) {
+        dynamicHistory.value.shift()
+      }
+      await nextTick()
+      initDynamicChart()
+      initFullChart()
+    }
+  } catch (e) {
+    console.error(e)
+  } finally {
+    isLoadingMetrics.value = false
+  }
+}
+
+const refreshTestMetrics = async () => {
+  await fetchTestMetrics()
+}
+
+const runSelectedTasks = async () => {
+  if (selectedTaskIds.value.length === 0) return
+  isRunningTests.value = true
+  try {
+    for (const id of selectedTaskIds.value) {
+      await fetch(`${API_BASE}/tasks/${id}/run`, { method: 'POST' })
+    }
+    await fetchTestMetrics()
+  } catch (e) {
+    console.error(e)
+  } finally {
+    isRunningTests.value = false
+  }
+}
+
+const startMetricsTimer = () => {
+  if (metricsTimer.value) clearInterval(metricsTimer.value)
+  metricsTimer.value = setInterval(() => {
+    if (document.hidden) return
+    if (activeTab.value === 'tests' && testProjectId.value) {
+      fetchTestMetrics()
+    }
+  }, Math.max(timeWindow.value * 1000, 1000)) as unknown as number
+}
+
+watch(testProjectId, async () => {
+  dynamicHistory.value = []
+  await fetchTestTasks()
+  await fetchTestMetrics()
+})
+
+watch(selectedTaskIds, async () => {
+  dynamicHistory.value = []
+  await fetchTestMetrics()
+})
+
+watch(timeWindow, () => {
+  dynamicHistory.value = []
+  startMetricsTimer()
+  fetchTestMetrics()
 })
 
 const getUsageColor = (percent: number) => {
@@ -494,6 +794,74 @@ const initChart = () => {
     chartInstance.setOption(option)
 }
 
+const initDynamicChart = () => {
+  if (!dynamicChartRef.value) return
+  if (dynamicChartInstance) {
+    dynamicChartInstance.dispose()
+  }
+  dynamicChartInstance = echarts.init(dynamicChartRef.value)
+  const labels = dynamicHistory.value.map(p => p.label)
+  const fileSeries = dynamicHistory.value.map(p => p.files)
+  const byteSeries = dynamicHistory.value.map(p => Number((p.bytes / 1024 / 1024).toFixed(3)))
+  const option = {
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['新增文件', '新增体积(MB)'], bottom: 0 },
+    grid: { left: '3%', right: '4%', bottom: '10%', containLabel: true },
+    xAxis: { type: 'category', data: labels, axisLabel: { color: '#666' } },
+    yAxis: [
+      { type: 'value', name: '文件数', splitLine: { lineStyle: { type: 'dashed' } } },
+      { type: 'value', name: 'MB', splitLine: { show: false } }
+    ],
+    series: [
+      { name: '新增文件', type: 'line', data: fileSeries, smooth: true, itemStyle: { color: '#1890ff' } },
+      { name: '新增体积(MB)', type: 'line', yAxisIndex: 1, data: byteSeries, smooth: true, itemStyle: { color: '#52c41a' } }
+    ]
+  }
+  dynamicChartInstance.setOption(option)
+}
+
+const initFullChart = () => {
+  if (!fullChartRef.value || !testMetrics.value) return
+  if (fullChartInstance) {
+    fullChartInstance.dispose()
+  }
+  fullChartInstance = echarts.init(fullChartRef.value)
+  const labels = testMetrics.value.timeseries.duration.map(p => p.label)
+  const durationSeries = testMetrics.value.timeseries.duration.map(p => p.value)
+  const cpuSeries = testMetrics.value.timeseries.max_cpu.map(p => p.value)
+  const memSeries = testMetrics.value.timeseries.max_memory.map(p => p.value)
+  const option = {
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['耗时(秒)', 'CPU峰值(%)', '内存峰值(MB)'], bottom: 0 },
+    grid: { left: '3%', right: '4%', bottom: '10%', containLabel: true },
+    xAxis: { type: 'category', data: labels, axisLabel: { color: '#666' } },
+    yAxis: { type: 'value', splitLine: { lineStyle: { type: 'dashed' } } },
+    series: [
+      { name: '耗时(秒)', type: 'bar', data: durationSeries, itemStyle: { color: '#1890ff' } },
+      { name: 'CPU峰值(%)', type: 'line', data: cpuSeries, smooth: true, itemStyle: { color: '#faad14' } },
+      { name: '内存峰值(MB)', type: 'line', data: memSeries, smooth: true, itemStyle: { color: '#722ed1' } }
+    ]
+  }
+  fullChartInstance.setOption(option)
+}
+
+const formatBytes = (bytes: number) => {
+  if (!bytes) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let idx = 0
+  while (value >= 1024 && idx < units.length - 1) {
+    value /= 1024
+    idx += 1
+  }
+  return `${value.toFixed(2)} ${units[idx]}`
+}
+
+const formatTime = (iso: string) => {
+  if (!iso) return '-'
+  return new Date(iso).toLocaleString()
+}
+
 // Watch active tab to re-init chart when switching back to overview
 watch(activeTab, async (newVal) => {
     if (newVal === 'overview') {
@@ -501,16 +869,25 @@ watch(activeTab, async (newVal) => {
         await nextTick()
         initChart()
     }
+    if (newVal === 'tests') {
+        await nextTick()
+        initDynamicChart()
+        initFullChart()
+        startMetricsTimer()
+    }
 })
 
 // Resize handler
 const handleResize = () => {
     chartInstance?.resize()
+    dynamicChartInstance?.resize()
+    fullChartInstance?.resize()
 }
 
 onMounted(() => {
   fetchSystemStats()
   fetchDashboardStats()
+  startMetricsTimer()
   
   window.addEventListener('resize', handleResize)
   
@@ -527,8 +904,11 @@ onMounted(() => {
 
 onUnmounted(() => {
     if (timer.value) clearInterval(timer.value)
+    if (metricsTimer.value) clearInterval(metricsTimer.value)
     window.removeEventListener('resize', handleResize)
     chartInstance?.dispose()
+    dynamicChartInstance?.dispose()
+    fullChartInstance?.dispose()
 })
 </script>
 
@@ -849,6 +1229,121 @@ onUnmounted(() => {
 
 .two-col { grid-template-columns: 1fr 1fr; }
 .mt-3 { margin-top: 12px; }
+
+.test-section {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.test-control-card {
+    padding: 20px;
+}
+
+.test-control-row {
+    display: grid;
+    grid-template-columns: 1.2fr 2fr 0.6fr;
+    gap: 20px;
+    align-items: end;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 13px;
+    color: #555;
+}
+
+.control-group label {
+    font-weight: 600;
+    color: #444;
+}
+
+.task-multi-select {
+    min-height: 120px;
+}
+
+.test-action-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 16px;
+    gap: 16px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 12px;
+}
+
+.output-hint {
+    font-size: 12px;
+    color: #777;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 520px;
+}
+
+.test-overview-grid {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.test-evidence-card {
+    padding: 20px;
+}
+
+.evidence-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.evidence-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.evidence-sub {
+    font-size: 12px;
+    color: #999;
+}
+
+.evidence-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.evidence-panel {
+    background: #fafafa;
+    border: 1px solid #f0f0f0;
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.panel-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #444;
+    margin-bottom: 12px;
+}
+
+.table-container {
+    max-height: 260px;
+    overflow: auto;
+}
+
+.truncate {
+    max-width: 240px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+}
 
 @media (max-width: 768px) {
     .overview-grid, .bottom-grid, .perf-row-stats, .charts-grid {

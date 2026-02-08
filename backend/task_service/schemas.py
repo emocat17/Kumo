@@ -65,6 +65,69 @@ class TaskExecution(TaskExecutionBase):
     class Config:
         from_attributes = True
 
+class OutputTypeStat(BaseModel):
+    ext: str
+    count: int
+
+class OutputSample(BaseModel):
+    name: str
+    path: str
+    size: int
+    mtime: datetime
+
+class OutputStats(BaseModel):
+    total_files: int
+    total_bytes: int
+    recent_files: int
+    recent_bytes: int
+    types: List[OutputTypeStat]
+    scanned_files: int
+    truncated: bool
+
+class ExecutionWindowStats(BaseModel):
+    started: int
+    finished: int
+    success: int
+    failed: int
+    running: int
+
+class LatestExecutionStat(BaseModel):
+    task_id: int
+    task_name: str
+    execution_id: Optional[int] = None
+    status: Optional[str] = None
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    duration: Optional[float] = None
+    max_cpu_percent: Optional[float] = None
+    max_memory_mb: Optional[float] = None
+    log_file: Optional[str] = None
+
+class TimeSeriesPoint(BaseModel):
+    label: str
+    value: float
+
+class TimeSeriesGroup(BaseModel):
+    duration: List[TimeSeriesPoint]
+    max_cpu: List[TimeSeriesPoint]
+    max_memory: List[TimeSeriesPoint]
+
+class TestMetricsEvidence(BaseModel):
+    output_samples: List[OutputSample]
+    log_files: List[LatestExecutionStat]
+
+class TestMetricsOverview(BaseModel):
+    project_id: int
+    project_name: str
+    output_dir: str
+    task_count: int
+    window_seconds: int
+    output: OutputStats
+    executions_window: ExecutionWindowStats
+    latest_executions: List[LatestExecutionStat]
+    timeseries: TimeSeriesGroup
+    evidence: TestMetricsEvidence
+
 class DailyStats(BaseModel):
     date: str
     success: int
