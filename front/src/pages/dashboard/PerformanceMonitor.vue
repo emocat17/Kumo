@@ -156,7 +156,7 @@
               </div>
           </div>
           <div class="active-pids mt-3">
-              <i class="icon-pid">📊</i>
+              <span class="icon-pid">⚙️</span>
               <span>活跃进程: </span>
               <span class="pid-val">{{ systemStats.network?.pids }}</span>
           </div>

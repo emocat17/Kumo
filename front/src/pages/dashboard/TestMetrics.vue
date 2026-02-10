@@ -50,7 +50,7 @@
       <template v-if="fullCategory === 'collection'">
         <div class="card overview-card">
           <div class="card-icon task-icon">
-            <i class="icon-task">📦</i>
+            <span class="icon-task">📦</span>
           </div>
           <div class="card-content">
             <div class="card-title">产出总量</div>
@@ -60,7 +60,7 @@
         </div>
         <div class="card overview-card">
           <div class="card-icon task-icon">
-            <i class="icon-task">📥</i>
+            <span class="icon-task">📥</span>
           </div>
           <div class="card-content">
             <div class="card-title">吞吐量(文件/s)</div>
@@ -70,7 +70,7 @@
         </div>
         <div class="card overview-card">
           <div class="card-icon disk-icon">
-            <i class="icon-disk">💾</i>
+            <span class="icon-disk">💾</span>
           </div>
           <div class="card-content">
             <div class="card-title">吞吐量(MB/s)</div>
@@ -80,7 +80,7 @@
         </div>
         <div class="card overview-card">
           <div class="card-icon cpu-icon">
-            <i class="icon-cpu"></i>
+            <span class="icon-cpu">🔳</span>
           </div>
           <div class="card-content">
             <div class="card-title">CPU峰值</div>
@@ -90,7 +90,7 @@
         </div>
         <div class="card overview-card">
           <div class="card-icon mem-icon">
-            <i class="icon-mem">🧠</i>
+            <span class="icon-mem">🧠</span>
           </div>
           <div class="card-content">
             <div class="card-title">内存峰值</div>
@@ -102,7 +102,7 @@
       <template v-else>
         <div class="card overview-card">
           <div class="card-icon task-icon">
-            <i class="icon-task">⏲️</i>
+            <span class="icon-task">⏲️</span>
           </div>
           <div class="card-content">
             <div class="card-title">最近执行耗时</div>
@@ -112,7 +112,7 @@
         </div>
         <div class="card overview-card">
           <div class="card-icon task-icon">
-            <i class="icon-task">📈</i>
+            <span class="icon-task">📈</span>
           </div>
           <div class="card-content">
             <div class="card-title">平均执行耗时</div>
@@ -122,7 +122,7 @@
         </div>
         <div class="card overview-card">
           <div class="card-icon task-icon">
-            <i class="icon-task">📥</i>
+            <span class="icon-task">📥</span>
           </div>
           <div class="card-content">
             <div class="card-title">吞吐量(文件/s)</div>
@@ -132,7 +132,7 @@
         </div>
         <div class="card overview-card">
           <div class="card-icon disk-icon">
-            <i class="icon-disk">💾</i>
+            <span class="icon-disk">💾</span>
           </div>
           <div class="card-content">
             <div class="card-title">吞吐量(MB/s)</div>
@@ -142,7 +142,7 @@
         </div>
         <div class="card overview-card">
           <div class="card-icon cpu-icon">
-            <i class="icon-cpu"></i>
+            <span class="icon-cpu">🔳</span>
           </div>
           <div class="card-content">
             <div class="card-title">CPU峰值(平均)</div>
@@ -152,7 +152,7 @@
         </div>
         <div class="card overview-card">
           <div class="card-icon mem-icon">
-            <i class="icon-mem">🧠</i>
+            <span class="icon-mem">🧠</span>
           </div>
           <div class="card-content">
             <div class="card-title">内存峰值(平均)</div>

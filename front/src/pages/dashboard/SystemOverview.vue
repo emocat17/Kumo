@@ -11,7 +11,7 @@
       <!-- CPU Card -->
       <div class="card overview-card">
         <div class="card-icon cpu-icon">
-          <i class="icon-cpu">🔳</i>
+          <span class="icon-cpu">🔳</span>
         </div>
         <div class="card-content">
           <div class="card-title">CPU使用率</div>
@@ -23,7 +23,7 @@
       <!-- Memory Card -->
       <div class="card overview-card">
         <div class="card-icon mem-icon">
-          <i class="icon-mem">🧠</i>
+          <span class="icon-mem">🧠</span>
         </div>
         <div class="card-content">
           <div class="card-title">内存使用率</div>
@@ -35,7 +35,7 @@
       <!-- Disk Card -->
       <div class="card overview-card">
         <div class="card-icon disk-icon">
-          <i class="icon-disk">💾</i>
+          <span class="icon-disk">💾</span>
         </div>
         <div class="card-content">
           <div class="card-title">磁盘使用率</div>
@@ -47,7 +47,7 @@
       <!-- Task Card -->
       <div class="card overview-card">
         <div class="card-icon task-icon">
-          <i class="icon-task">📊</i>
+          <span class="icon-task">📊</span>
         </div>
         <div class="card-content">
           <div class="card-title">任务概览</div>
