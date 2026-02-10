@@ -1,5 +1,5 @@
 # Kumo 开发规范
-
+# 当重要的相关配置发生变化的时候,合适的调整本文件:`.trae\rules\rule.md`
 ## 项目定位
 - Kumo 是一个 Python 脚本管理平台，用于调度与运行 Python 脚本项目（如简单脚本、Playwright、Selenium 等）
 - 平台支持创建隔离的 Python 环境（Conda），并以任务为核心进行执行与日志记录

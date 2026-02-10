@@ -19,7 +19,12 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port,
       watch: {
-        usePolling: true
+        usePolling: true,
+        ignored: ['**/node_modules/**', '**/.git/**', '**/*.log', '**/*.swp', '**/*~']
+      },
+      hmr: {
+        host: 'localhost',
+        clientPort: port
       },
       open: false,
       proxy: apiBase

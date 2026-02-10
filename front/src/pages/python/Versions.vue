@@ -10,49 +10,7 @@
         </div>
         
         <div class="card-body">
-          <div class="tabs">
-            <button 
-              :class="['tab-btn', { active: activeTab === 'path' }]" 
-              @click="activeTab = 'path'"
-            >
-              已有解释器
-            </button>
-            <button 
-              :class="['tab-btn', { active: activeTab === 'conda' }]" 
-              @click="activeTab = 'conda'"
-            >
-              环境创建
-            </button>
-          </div>
-
-          <!-- Tab 1: Add by Path -->
-          <form v-if="activeTab === 'path'" class="add-form" @submit.prevent="handleAddVersion">
-            <div class="form-group">
-              <label for="path">Python 解释器路径</label>
-              <div class="input-with-button">
-                <input 
-                  id="path" 
-                  v-model="newVersion.path" 
-                  type="text" 
-                  class="form-input"
-                  required
-                />
-                <button type="button" class="btn btn-secondary browse-btn" @click="isPathSelectorOpen = true">
-                  浏览
-                </button>
-              </div>
-              <small class="form-hint">请输入 python.exe 所在的文件夹路径或完整路径。</small>
-            </div>
-
-            <div class="form-actions">
-              <button type="submit" class="btn btn-primary" :disabled="isInstalling">
-                {{ isInstalling ? '正在处理...' : '添加 Python 解释器' }}
-              </button>
-            </div>
-          </form>
-
-          <!-- Tab 2: Create Conda Env -->
-          <form v-if="activeTab === 'conda'" class="add-form" @submit.prevent="handleCreateConda">
+          <form class="add-form" @submit.prevent="handleCreateConda">
             <div class="form-group">
               <label for="conda-name">环境名称</label>
               <input 
@@ -170,18 +128,12 @@
       </div>
     </BaseModal>
 
-    <FileSelectorModal 
-      :is-open="isPathSelectorOpen" 
-      @close="isPathSelectorOpen = false" 
-      @select="onPathSelected" 
-    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
-import FileSelectorModal from '@/components/common/FileSelectorModal.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { Trash2, FileText } from 'lucide-vue-next'
 
@@ -197,9 +149,7 @@ interface PythonVersion {
   used_by_tasks?: string[]
 }
 
-const activeTab = ref<'path' | 'conda'>('path')
 const versions = ref<PythonVersion[]>([])
-const newVersion = ref({ path: '' })
 const condaForm = ref({ name: '', version: '' })
 
 const statusMap: Record<string, string> = {
@@ -209,10 +159,8 @@ const statusMap: Record<string, string> = {
   deleting: '删除中'
 }
 
-const isInstalling = ref(false)
 const isCreatingConda = ref(false)
 const condaMessage = ref('')
-const isPathSelectorOpen = ref(false)
 
 const isInfoModalOpen = ref(false)
 const selectedVersion = ref<PythonVersion | null>(null)
@@ -257,37 +205,6 @@ const stopPolling = () => {
 const showVersionInfo = (ver: PythonVersion) => {
   selectedVersion.value = ver
   isInfoModalOpen.value = true
-}
-
-const handleAddVersion = async () => {
-  if (!newVersion.value.path) return
-  
-  isInstalling.value = true
-  
-  try {
-    const response = await fetch('/api/python/versions/add-by-path', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ path: newVersion.value.path })
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.detail || 'Failed to add python version')
-    }
-
-    // Refresh list
-    await fetchVersions()
-    newVersion.value.path = ''
-  } catch (error) {
-    console.error(error)
-    const msg = error instanceof Error ? error.message : String(error)
-    alert(`添加失败: ${msg}`)
-  } finally {
-    isInstalling.value = false
-  }
 }
 
 const handleCreateConda = async () => {
@@ -364,10 +281,6 @@ const deleteVersion = async (ver: PythonVersion) => {
   }
 }
 
-const onPathSelected = (path: string) => {
-  newVersion.value.path = path
-}
-
 onMounted(() => {
   fetchVersions()
 })
@@ -391,44 +304,6 @@ onUnmounted(() => {
   }
 }
 
-.tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 20px;
-  background-color: #f3f4f6;
-  padding: 4px;
-  border-radius: 8px;
-}
-
-.tab-btn {
-  flex: 1;
-  padding: 8px 16px;
-  border: none;
-  background: none;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.tab-btn:hover {
-  background-color: #e5e7eb;
-  color: #374151;
-}
-
-.tab-btn.active {
-  background-color: white;
-  color: #3b82f6;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-
-.input-with-button {
-  display: flex;
-  gap: 8px;
-}
-
 .form-actions {
   margin-top: 24px;
 }
@@ -440,10 +315,6 @@ onUnmounted(() => {
   color: #166534;
   border-radius: 6px;
   font-size: 0.875rem;
-}
-
-.browse-btn {
-  white-space: nowrap;
 }
 
 .ver-name {
