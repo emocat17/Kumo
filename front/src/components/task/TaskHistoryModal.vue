@@ -99,7 +99,7 @@ const executions = ref<TaskExecution[]>([])
 const isEditing = ref(false)
 const selectedIds = ref<Set<number>>(new Set())
 
-const API_BASE = 'http://localhost:8000/api'
+const API_BASE = '/api'
 
 onMounted(() => {
   fetchHistory()

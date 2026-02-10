@@ -86,7 +86,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { DatabaseIcon } from 'lucide-vue-next'
 
-const API_BASE = 'http://localhost:8000/api'
+const API_BASE = '/api'
 
 interface BackupFile {
   filename: string

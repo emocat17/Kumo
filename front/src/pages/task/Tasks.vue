@@ -420,7 +420,7 @@ const statusText: Record<string, string> = {
   finished: '已完成'
 }
 
-const API_BASE = 'http://localhost:8000/api'
+const API_BASE = '/api'
 
 const loadData = async () => {
   isRefreshing.value = true
@@ -746,10 +746,6 @@ const formatNextRun = (iso: string) => {
 </script>
 
 <style scoped>
-/* .tasks-page removed, using .page-container from common.css */
-
-/* .filter-bar and .search-wrapper removed, using common.css */
-
 .task-list {
   display: flex;
   flex-direction: column;

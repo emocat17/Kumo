@@ -105,8 +105,11 @@ const searchResults = ref<SearchResult[]>([])
 const isSearching = ref(false)
 const showSearch = ref(false)
 
-const API_BASE = 'http://localhost:8000/api'
-const WS_BASE = 'ws://localhost:8000/api'
+const API_BASE = '/api'
+const WS_BASE = (() => {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  return `${protocol}//${window.location.host}/api`
+})()
 
 onMounted(async () => {
   await fetchExecutions()

@@ -93,7 +93,7 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive, computed } from 'vue'
 
-const API_BASE = 'http://localhost:8000/api'
+const API_BASE = '/api'
 
 interface PyPISource {
     name: string

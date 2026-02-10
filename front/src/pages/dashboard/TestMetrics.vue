@@ -9,8 +9,11 @@
               {{ task.name }}
             </option>
           </select>
-          <div v-if="testTasks.length === 0" class="text-xs text-gray mt-1">
+          <div v-if="isLoadingTasks" class="text-xs text-gray mt-1">
             加载中...
+          </div>
+          <div v-else-if="testTasks.length === 0" class="text-xs text-gray mt-1">
+            暂无任务
           </div>
         </div>
         <div class="control-group small">
@@ -339,7 +342,7 @@ const dynamicHistory = ref<Array<{ label: string; files: number; bytes: number }
 const fullCategory = ref<'collection' | 'processing'>('collection')
 const fullMetric = ref<'throughput_files' | 'throughput_mb' | 'max_cpu' | 'max_memory' | 'duration' | 'parse_time' | 'index_time' | 'api_time'>('throughput_files')
 
-const API_BASE = 'http://localhost:8000/api'
+const API_BASE = '/api'
 
 // Computed
 const peakCpuPercent = computed(() => {
@@ -429,7 +432,10 @@ const formatTime = (iso: string) => {
   return new Date(iso).toLocaleString()
 }
 
+const isLoadingTasks = ref(false)
+
 const fetchTestTasks = async () => {
+  isLoadingTasks.value = true
   try {
     const res = await fetch(`${API_BASE}/tasks?limit=1000`)
     if (res.ok) {
@@ -437,6 +443,8 @@ const fetchTestTasks = async () => {
     }
   } catch (e) {
     console.error(e)
+  } finally {
+    isLoadingTasks.value = false
   }
 }
 
@@ -706,6 +714,8 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+@import '@/styles/dashboard.css';
+
 /* Reuse styles from Dashboard.vue */
 .test-section {
     display: flex;
@@ -713,14 +723,7 @@ onUnmounted(() => {
     gap: 28px;
 }
 
-.card {
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-  border: 1px solid #f0f0f0;
-}
-
+/* Note: .card is imported from dashboard.css, but we can override padding if needed */
 .test-control-card {
     padding: 20px;
 }
@@ -778,71 +781,7 @@ onUnmounted(() => {
     gap: 20px;
 }
 
-.overview-card {
-    display: flex;
-    align-items: flex-start;
-    gap: 20px;
-}
-
-.card-icon {
-    width: 64px;
-    height: 64px;
-    border-radius: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 32px;
-    flex-shrink: 0;
-}
-.cpu-icon { background-color: #e6f7ff; color: #1890ff; }
-.mem-icon { background-color: #f6ffed; color: #52c41a; }
-.disk-icon { background-color: #f9f0ff; color: #722ed1; }
-.task-icon { background-color: #fff7e6; color: #fa8c16; }
-
-.card-content {
-    display: flex;
-    flex-direction: column;
-}
-.card-title {
-    font-size: 14px;
-    color: #888;
-    font-weight: 600;
-    margin-bottom: 8px;
-}
-.card-value {
-    font-size: 28px;
-    font-weight: 700;
-    line-height: 1.2;
-    margin-bottom: 4px;
-}
-.card-sub {
-    font-size: 12px;
-    color: #999;
-}
-
-.charts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
-    gap: 20px;
-}
-
-.chart-card {
-    min-height: 400px;
-    display: flex;
-    flex-direction: column;
-}
-.chart-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: #333;
-    margin-bottom: 12px;
-    text-align: left;
-}
-.chart-container {
-    flex: 1;
-    width: 100%;
-    min-height: 350px;
-}
+/* .overview-card, .card-icon, etc are in dashboard.css */
 
 .chart-controls {
     display: flex;
@@ -940,12 +879,6 @@ onUnmounted(() => {
     text-overflow: ellipsis;
     display: inline-block;
 }
-
-/* Colors */
-.blue { color: #1890ff; }
-.green { color: #52c41a; }
-.purple { color: #722ed1; }
-.orange { color: #fa8c16; }
 
 @media (max-width: 768px) {
     .test-overview-grid, .charts-grid, .evidence-grid {

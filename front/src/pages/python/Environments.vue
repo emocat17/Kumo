@@ -262,7 +262,7 @@ const isFileUploaded = ref(false)
 const originalPackages = ref('') // To restore manual input if file removed
 
 // --- API ---
-const API_BASE = 'http://localhost:8000/api/python/environments'
+const API_BASE = '/api/python/environments'
 
 const fetchEnvironments = async () => {
   try {

@@ -109,7 +109,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 
-const API_BASE = 'http://localhost:8000/api'
+const API_BASE = '/api'
 
 interface EnvVar {
   id: number

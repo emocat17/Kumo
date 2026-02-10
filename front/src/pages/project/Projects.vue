@@ -216,7 +216,7 @@ const form = reactive({
   description: ''
 })
 
-const API_BASE = 'http://localhost:8000/api'
+const API_BASE = '/api'
 
 const fetchProjects = async () => {
   try {
@@ -386,15 +386,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* .projects-page removed */
-
-/* .filter-bar, .search-wrapper, .search-input, .icon-search removed */
-
-/* .project-grid removed */
-
-/* .card-header from common.css handles layout */
-
-/* .project-name removed, using .card-title */
+.project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
 .created-time {
     font-size: 12px;

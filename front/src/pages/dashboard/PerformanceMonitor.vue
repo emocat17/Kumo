@@ -220,19 +220,15 @@ const getUsageColor = (percent: number) => {
 </script>
 
 <style scoped>
+@import '@/styles/dashboard.css';
+
 .perf-section {
     display: flex;
     flex-direction: column;
     gap: 24px;
 }
 
-.card {
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-  border: 1px solid #f0f0f0;
-}
+/* .card is in dashboard.css */
 
 .perf-panel {
     display: flex;
@@ -267,6 +263,7 @@ const getUsageColor = (percent: number) => {
     font-size: 24px;
     flex-shrink: 0;
 }
+/* Colors for icons - reuse logic or keep specific if slightly different shade */
 .cpu-icon { background-color: #e6f7ff; color: #1890ff; }
 .mem-icon { background-color: #f6ffed; color: #52c41a; }
 .disk-icon { background-color: #f9f0ff; color: #722ed1; }
@@ -414,11 +411,8 @@ const getUsageColor = (percent: number) => {
 }
 .pid-val { font-weight: bold; color: #333; }
 
-/* Colors */
-.blue { color: #1890ff; }
-.green { color: #52c41a; }
-.purple { color: #722ed1; }
-.orange { color: #fa8c16; }
+/* Colors - reused from dashboard.css where possible */
+/* .blue, .green, .purple, .orange are in dashboard.css */
 
 .blue-bg { background-color: #1890ff; }
 .green-bg { background-color: #52c41a; }

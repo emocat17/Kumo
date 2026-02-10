@@ -185,7 +185,7 @@ const handleMount = (editor: any, monaco: any) => {
   // Let's handle global escape in onMounted
 }
 
-const API_BASE = 'http://localhost:8000/api/projects'
+const API_BASE = '/api/projects'
 
 const loadFiles = async () => {
   loadingFiles.value = true

@@ -29,7 +29,7 @@ const projects = ref<Project[]>([])
 
 const fetchProjects = async () => {
   try {
-    const res = await fetch('http://localhost:8000/api/projects')
+    const res = await fetch('/api/projects')
     if (res.ok) {
       projects.value = await res.json()
     }

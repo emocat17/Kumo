@@ -209,7 +209,7 @@ const searchResults = ref<SearchMatch[]>([])
 const isSearching = ref(false)
 const searchLoading = ref(false)
 
-const API_BASE = 'http://localhost:8000/api'
+const API_BASE = '/api'
 
 const groupedLogs = computed(() => {
   const groups: Record<string, LogFile[]> = {}

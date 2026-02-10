@@ -65,7 +65,7 @@ const loading = ref(false)
 const error = ref('')
 const selectedPath = ref('')
 
-const API_BASE = 'http://localhost:8000/api/system/fs'
+const API_BASE = '/api/system/fs'
 
 const loadPath = async (path: string = '') => {
   loading.value = true

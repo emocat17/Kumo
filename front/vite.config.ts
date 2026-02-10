@@ -32,7 +32,8 @@ export default defineConfig(({ mode }) => {
             '/api': {
               target: apiBase,
               changeOrigin: true,
-              secure: false
+              secure: false,
+              ws: true
             }
           }
         : undefined

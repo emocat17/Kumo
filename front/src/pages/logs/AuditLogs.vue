@@ -104,7 +104,7 @@ const filterTarget = ref('')
 const searchQuery = ref('')
 const filterOptions = ref({ operation_types: [], target_types: [] })
 
-const API_BASE = 'http://localhost:8000/api'
+const API_BASE = '/api'
 
 const fetchOptions = async () => {
   try {
