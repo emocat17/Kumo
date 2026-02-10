@@ -288,7 +288,7 @@
                 {{ task.name }}
               </option>
             </select>
-            <div class="text-xs text-gray mt-1" v-if="testTasks.length === 0">
+            <div v-if="testTasks.length === 0" class="text-xs text-gray mt-1">
               加载中...
             </div>
           </div>
@@ -764,9 +764,6 @@ const lastDurationSec = computed(() => {
     })
   return items.length ? (items[0].duration as number) : null
 })
-const parseTimeSec = computed(() => null)
-const indexTimeSec = computed(() => null)
-const apiTimeSec = computed(() => null)
 const avgCpuPercent = computed(() => {
   const vals = (testMetrics.value?.latest_executions || [])
     .map(i => (typeof i.max_cpu_percent === 'number' ? i.max_cpu_percent : null))
@@ -910,8 +907,6 @@ const runSelectedTasks = async () => {
   if (selectedTaskIds.value.length === 0) return
   isRunningTests.value = true
   try {
-    const prevStarted = testMetrics.value?.executions_window.started ?? 0
-    const prevRunning = testMetrics.value?.executions_window.running ?? 0
     for (const id of selectedTaskIds.value) {
       const res = await fetch(`${API_BASE}/tasks/${id}/run`, { method: 'POST' })
       if (!res.ok) {

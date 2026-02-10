@@ -102,28 +102,19 @@
 
     <BaseModal 
       v-model="isInfoModalOpen" 
-      title="版本详情" 
+      title="安装日志" 
     >
-      <div v-if="selectedVersion" class="info-content">
-        <div class="info-row">
-          <span class="info-label">名称:</span>
-          <span class="info-value">{{ selectedVersion.name || 'Python' }}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">版本:</span>
-          <span class="info-value">{{ selectedVersion.version || '-' }}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">来源:</span>
-          <span class="info-value">
-            <span :class="['ver-source', { conda: selectedVersion.is_conda }]">
-              {{ selectedVersion.is_conda ? 'Conda' : 'System' }}
-            </span>
+      <div v-if="selectedVersion" class="log-content">
+        <div class="log-header">
+          <span class="log-title">{{ selectedVersion.name || 'Python' }}</span>
+          <span :class="['status-badge', selectedVersion.status]">
+            {{ statusMap[selectedVersion.status] || selectedVersion.status }}
           </span>
         </div>
-        <div class="info-row">
-          <span class="info-label">路径:</span>
-          <span class="info-value info-path">{{ selectedVersion.path }}</span>
+        <div class="log-body">
+          <div v-if="logLoading" class="log-hint">加载中...</div>
+          <div v-else-if="logError" class="log-hint error">{{ logError }}</div>
+          <pre v-else class="log-pre">{{ logContent || '暂无日志' }}</pre>
         </div>
       </div>
     </BaseModal>
@@ -132,7 +123,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import { Trash2, FileText } from 'lucide-vue-next'
@@ -164,8 +155,12 @@ const condaMessage = ref('')
 
 const isInfoModalOpen = ref(false)
 const selectedVersion = ref<PythonVersion | null>(null)
+const logContent = ref('')
+const logLoading = ref(false)
+const logError = ref('')
 
 let pollInterval: number | null = null
+let logPollInterval: number | null = null
 
 const fetchVersions = async () => {
   try {
@@ -183,6 +178,16 @@ const fetchVersions = async () => {
         startPolling()
       } else if (!hasActiveOperations && pollInterval) {
         stopPolling()
+      }
+
+      if (selectedVersion.value) {
+        const latest = data.find((v: PythonVersion) => v.id === selectedVersion.value?.id)
+        if (latest) {
+          selectedVersion.value = latest
+          if (latest.status !== 'installing' && logPollInterval) {
+            stopLogPolling()
+          }
+        }
       }
     }
   } catch (error) {
@@ -202,9 +207,47 @@ const stopPolling = () => {
   }
 }
 
+const fetchLogs = async (versionId: number) => {
+  logLoading.value = true
+  logError.value = ''
+  try {
+    const response = await fetch(`/api/python/versions/${versionId}/logs`)
+    if (response.ok) {
+      const data = await response.json()
+      logContent.value = data.log || ''
+    } else {
+      const errorData = await response.json().catch(() => ({}))
+      logError.value = errorData.detail || '日志获取失败'
+    }
+  } catch (error) {
+    console.error(error)
+    logError.value = '日志获取失败'
+  } finally {
+    logLoading.value = false
+  }
+}
+
+const startLogPolling = (versionId: number) => {
+  if (logPollInterval) return
+  logPollInterval = window.setInterval(() => {
+    fetchLogs(versionId)
+  }, 2000)
+}
+
+const stopLogPolling = () => {
+  if (logPollInterval) {
+    window.clearInterval(logPollInterval)
+    logPollInterval = null
+  }
+}
+
 const showVersionInfo = (ver: PythonVersion) => {
   selectedVersion.value = ver
   isInfoModalOpen.value = true
+  logContent.value = ''
+  logError.value = ''
+  fetchLogs(ver.id)
+  startLogPolling(ver.id)
 }
 
 const handleCreateConda = async () => {
@@ -285,8 +328,15 @@ onMounted(() => {
   fetchVersions()
 })
 
+watch(isInfoModalOpen, (open) => {
+  if (!open) {
+    stopLogPolling()
+  }
+})
+
 onUnmounted(() => {
   stopPolling()
+  stopLogPolling()
 })
 </script>
 
@@ -348,38 +398,48 @@ onUnmounted(() => {
   color: #9ca3af;
 }
 
-.info-content {
+.log-content {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   padding: 8px 0;
 }
 
-.info-row {
+.log-header {
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.info-label {
-  width: 60px;
-  font-weight: 500;
-  color: #6b7280;
-  flex-shrink: 0;
-}
-
-.info-value {
+.log-title {
+  font-weight: 600;
   color: #111827;
-  word-break: break-all;
 }
 
-.info-path {
-  background-color: #f3f4f6;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-family: monospace;
+.log-body {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #0b1021;
+  padding: 12px;
+  min-height: 200px;
+}
+
+.log-pre {
+  margin: 0;
+  color: #d1d5db;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.log-hint {
+  color: #9ca3af;
   font-size: 0.875rem;
-  color: #374151;
-  word-break: break-all;
+}
+
+.log-hint.error {
+  color: #ef4444;
 }
 </style>
