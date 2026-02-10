@@ -14,7 +14,7 @@ docs/
 .vscode/
 *.swp
 *.swo
-.trae/
+
 
 # --- Frontend (Vue/Node) ---
 node_modules/
