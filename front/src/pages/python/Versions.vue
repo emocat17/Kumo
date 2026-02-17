@@ -332,17 +332,32 @@ const deleteVersion = async (ver: PythonVersion) => {
         method: 'DELETE'
       })
       
-      if (response.ok) {
-        // If immediate success (or started), we refresh list
-        // If it's a background task, status will change to 'deleting' and polling will start
-        await fetchVersions()
-      } else {
-        const err = await response.json()
-        alert(`删除失败: ${err.detail || 'Unknown error'}`)
+      if (!response.ok) {
+        let message = '删除失败'
+        try {
+          const text = await response.text()
+          if (text) {
+            try {
+              const data = JSON.parse(text)
+              message = data.detail || data.message || message
+            } catch {
+              message = text
+            }
+          }
+        } catch {
+          message = '删除失败'
+        }
+        alert(`删除失败: ${message}`)
       }
     } catch (error) {
       console.error('Failed to delete:', error)
       alert('删除失败')
+    } finally {
+      try {
+        await fetchVersions()
+      } catch (error) {
+        console.error('Failed to refresh versions:', error)
+      }
     }
   }
 }

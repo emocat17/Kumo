@@ -125,20 +125,20 @@
         </div>
 
         <div v-if="!isEditing" class="form-group">
-          <label for="file">项目文件 (ZIP) <span class="required">*</span></label>
+          <label for="file">项目文件 (ZIP/7Z/RAR) <span class="required">*</span></label>
           <div class="file-upload-wrapper">
             <input 
               id="file" 
               ref="fileInput" 
               type="file"
-              accept=".zip"
+              accept=".zip,.7z,.rar"
               class="file-input"
               required
               @change="handleFileChange"
             />
             <div class="file-display" @click="triggerFileSelect">
                 <span v-if="selectedFile">{{ selectedFile.name }}</span>
-                <span v-else class="placeholder">点击选择 .zip 文件</span>
+                <span v-else class="placeholder">点击选择 .zip/.7z/.rar 文件</span>
             </div>
           </div>
         </div>

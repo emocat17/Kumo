@@ -1,6 +1,8 @@
 import os
 import shutil
 import zipfile
+import py7zr
+import rarfile
 import platform
 import subprocess
 import time
@@ -52,6 +54,43 @@ def ensure_project_columns():
 
 ensure_project_columns()
 
+def get_archive_extension(filename: str):
+    if not filename:
+        return ""
+    _, ext = os.path.splitext(filename)
+    return ext.lower()
+
+def extract_archive(archive_path: str, ext: str, dest_dir: str):
+    if ext == ".zip":
+        if not zipfile.is_zipfile(archive_path):
+            raise Exception("Uploaded file is not a valid zip file")
+        with zipfile.ZipFile(archive_path, 'r') as zip_ref:
+            zip_ref.extractall(dest_dir)
+        return
+    if ext == ".7z":
+        if not py7zr.is_7zfile(archive_path):
+            raise Exception("Uploaded file is not a valid 7z file")
+        with py7zr.SevenZipFile(archive_path, mode='r') as archive:
+            archive.extractall(dest_dir)
+        return
+    if ext == ".rar":
+        if not rarfile.is_rarfile(archive_path):
+            raise Exception("Uploaded file is not a valid rar file")
+        with rarfile.RarFile(archive_path, 'r') as archive:
+            archive.extractall(dest_dir)
+        return
+    raise Exception("Unsupported archive format")
+
+def read_text_file(path: str):
+    for encoding in ["utf-8", "utf-8-sig", "gb18030"]:
+        try:
+            with open(path, "r", encoding=encoding) as f:
+                return f.read()
+        except UnicodeDecodeError:
+            continue
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
+        return f.read()
+
 @router.get("", response_model=List[schemas.Project])
 def list_projects(db: Session = Depends(get_db)):
     return db.query(models.Project).all()
@@ -81,23 +120,23 @@ def create_project(
     os.makedirs(project_path)
 
     # 3. Save and Unzip
-    zip_path = os.path.join(project_path, "upload.zip")
-    try:
-        with open(zip_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        if not zipfile.is_zipfile(zip_path):
-             raise Exception("Uploaded file is not a valid zip file")
+    ext = get_archive_extension(file.filename)
+    if ext not in [".zip", ".7z", ".rar"]:
+        if os.path.exists(project_path):
+            shutil.rmtree(project_path)
+        raise HTTPException(status_code=400, detail="Only .zip, .7z, .rar archives are supported")
 
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(project_path)
-        
-        os.remove(zip_path)
+    archive_path = os.path.join(project_path, f"upload{ext}")
+    try:
+        with open(archive_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        extract_archive(archive_path, ext, project_path)
+        os.remove(archive_path)
 
     except Exception as e:
         if os.path.exists(project_path):
             shutil.rmtree(project_path) # Cleanup
-        raise HTTPException(status_code=500, detail=f"Failed to process zip: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to process archive: {str(e)}")
 
     # 4. Create DB Record
     db_project = models.Project(
@@ -425,11 +464,8 @@ def get_file_content(project_id: int, path: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="File not found")
         
     try:
-        with open(full_path, "r", encoding="utf-8") as f:
-            content = f.read()
+        content = read_text_file(full_path)
         return {"content": content}
-    except UnicodeDecodeError:
-         raise HTTPException(status_code=400, detail="Binary or non-UTF-8 file cannot be opened")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading file: {str(e)}")
 

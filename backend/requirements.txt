@@ -21,3 +21,5 @@ aiohttp>=3.9.3
 psutil>=5.9.8
 gitpython>=3.1.41
 yagmail>=0.15.293
+py7zr>=0.20.8
+rarfile>=4.2
