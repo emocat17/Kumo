@@ -176,6 +176,7 @@ const initChart = () => {
     const failedData = dashboardStats.value.daily_stats.map(s => s.failed)
     
     const option = {
+        animation: false,
         tooltip: {
             trigger: 'axis',
             axisPointer: { type: 'shadow' }
@@ -208,6 +209,7 @@ const initChart = () => {
                 barWidth: '40%',
                 itemStyle: { color: '#52c41a' },
                 data: successData,
+                animation: false,
                 emphasis: { focus: 'series' },
                 barBorderRadius: [4, 4, 0, 0]
             },
@@ -218,6 +220,7 @@ const initChart = () => {
                 barWidth: '40%',
                 itemStyle: { color: '#ff4d4f' },
                 data: failedData,
+                animation: false,
                 emphasis: { focus: 'series' },
                 barBorderRadius: [0, 0, 0, 0]
             }
