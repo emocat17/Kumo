@@ -546,6 +546,7 @@ const formatDate = (dateStr?: string) => {
     display: flex;
     flex-direction: column;
     gap: 15px;
+    height: 100%;
 }
 
 .env-summary-card {
@@ -716,13 +717,34 @@ const formatDate = (dateStr?: string) => {
     background: #e5e7eb;
 }
 
+.pkg-manager {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+}
+
+.log-viewer {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+}
+
+.log-controls {
+    display: flex;
+    justify-content: flex-start;
+    gap: 8px;
+}
+
 .install-log {
-    margin-top: 15px;
+    margin-top: 12px;
     background: #1e1e1e;
     color: #f0f0f0;
     padding: 12px;
     border-radius: 6px;
-    max-height: 400px;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
     font-size: 11px;
@@ -736,7 +758,8 @@ const formatDate = (dateStr?: string) => {
 }
 
 .pkg-list-container {
-    max-height: 300px;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
 }
 
