@@ -103,6 +103,7 @@
     <BaseModal 
       v-model="isInfoModalOpen" 
       title="安装日志" 
+      width="900px"
     >
       <div v-if="selectedVersion" class="log-content">
         <div class="log-header">
@@ -207,14 +208,32 @@ const stopPolling = () => {
   }
 }
 
-const fetchLogs = async (versionId: number) => {
-  logLoading.value = true
-  logError.value = ''
+const cleanLogContent = (raw: string) => {
+  let result = ''
+  for (const ch of raw) {
+    if (ch === '\b') {
+      result = result.slice(0, -1)
+    } else {
+      result += ch
+    }
+  }
+  result = result.replace(/(?:\s*[|/\\-]){3,}\s*/g, ' ')
+  return result
+}
+
+const fetchLogs = async (versionId: number, options?: { silent?: boolean }) => {
+  if (!options?.silent) {
+    logLoading.value = true
+    logError.value = ''
+  }
   try {
     const response = await fetch(`/api/python/versions/${versionId}/logs`)
     if (response.ok) {
       const data = await response.json()
-      logContent.value = data.log || ''
+      const nextLog = cleanLogContent(data.log || '')
+      if (nextLog !== logContent.value) {
+        logContent.value = nextLog
+      }
     } else {
       const errorData = await response.json().catch(() => ({}))
       logError.value = errorData.detail || '日志获取失败'
@@ -223,15 +242,17 @@ const fetchLogs = async (versionId: number) => {
     console.error(error)
     logError.value = '日志获取失败'
   } finally {
-    logLoading.value = false
+    if (!options?.silent) {
+      logLoading.value = false
+    }
   }
 }
 
 const startLogPolling = (versionId: number) => {
   if (logPollInterval) return
   logPollInterval = window.setInterval(() => {
-    fetchLogs(versionId)
-  }, 2000)
+    fetchLogs(versionId, { silent: true })
+  }, 2500)
 }
 
 const stopLogPolling = () => {
@@ -247,7 +268,9 @@ const showVersionInfo = (ver: PythonVersion) => {
   logContent.value = ''
   logError.value = ''
   fetchLogs(ver.id)
-  startLogPolling(ver.id)
+  if (ver.status === 'installing') {
+    startLogPolling(ver.id)
+  }
 }
 
 const handleCreateConda = async () => {

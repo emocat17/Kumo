@@ -67,7 +67,7 @@
     </div>
 
     <!-- Install Packages Modal -->
-    <BaseModal v-model="showInstallModal" title="编辑环境依赖" width="700px" height="75vh">
+    <BaseModal v-model="showInstallModal" title="编辑环境依赖" width="900px" height="75vh">
         <div v-if="selectedEnv" class="install-container">
             <div class="env-summary-card">
                 <div class="summary-item">
@@ -725,7 +725,7 @@ const formatDate = (dateStr?: string) => {
     max-height: 400px;
     overflow-y: auto;
     font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-    font-size: 13px;
+    font-size: 11px;
     line-height: 1.5;
     white-space: pre-wrap;
 }

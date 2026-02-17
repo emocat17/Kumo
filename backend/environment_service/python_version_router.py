@@ -15,6 +15,7 @@ import platform
 import threading
 import sqlite3
 import psutil
+import datetime
 
 router = APIRouter()
 
@@ -29,35 +30,61 @@ class CondaCreateRequest(BaseModel):
     version: str
     name: str
 
+class LogResponse(BaseModel):
+    log: str
+
+def get_log_path(version_id: int):
+    log_dir = os.path.abspath(os.path.join(os.getcwd(), "logs", "install"))
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    return os.path.join(log_dir, f"install_v{version_id}.log")
+
+def append_log(version_id: int, message: str):
+    log_file = get_log_path(version_id)
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"[{timestamp}] {message}\n")
+    except Exception:
+        pass
+
 # Helper to run command in background
 def run_conda_create(command: str, version_id: int):
     # Create a new session for the thread
     db = SessionLocal()
     try:
-        print(f"Starting conda creation for ID {version_id} with command: {command}")
-        process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate()
+        append_log(version_id, f"Starting conda creation with command: {command}")
+        process = subprocess.Popen(
+            command,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace"
+        )
+        if process.stdout:
+            for line in process.stdout:
+                append_log(version_id, line.strip())
+        process.wait()
         
         version_record = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
         
         if not version_record:
-            print(f"Version record {version_id} not found during background task.")
+            append_log(version_id, f"Version record {version_id} not found.")
             return
 
         if process.returncode == 0:
-            print(f"Conda environment created successfully.")
+            append_log(version_id, "Conda environment created successfully.")
             version_record.status = "ready"
-            # Optionally verify version here if needed
         else:
-            error_msg = stderr.decode()
-            print(f"Failed to create conda environment: {error_msg}")
+            append_log(version_id, f"Conda environment creation failed with code {process.returncode}")
             version_record.status = "error"
-            # We could store the error message in a field if we had one
             
         db.commit()
             
     except Exception as e:
-        print(f"Error in background conda create: {e}")
+        append_log(version_id, f"Error in background conda create: {e}")
         # Try to update status to error
         try:
             version_record = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
@@ -192,6 +219,10 @@ async def create_conda_env(request: CondaCreateRequest, db: Session = Depends(ge
     db.commit()
     db.refresh(new_version)
 
+    log_file = get_log_path(new_version.id)
+    if os.path.exists(log_file):
+        os.remove(log_file)
+
     # Start background thread
     thread = threading.Thread(target=run_conda_create, args=(command, new_version.id))
     thread.start()
@@ -202,6 +233,19 @@ async def create_conda_env(request: CondaCreateRequest, db: Session = Depends(ge
         "python_path": python_exe,
         "id": new_version.id
     }
+
+@router.get("/{version_id}/logs", response_model=LogResponse)
+async def get_install_logs(version_id: int):
+    log_file = get_log_path(version_id)
+    if os.path.exists(log_file):
+        try:
+            with open(log_file, "r", encoding="utf-8") as f:
+                content = f.read()
+            return {"log": content}
+        except Exception as e:
+            return {"log": f"Error reading log: {e}"}
+    else:
+        return {"log": "No installation logs found."}
 
 @router.post("/open-terminal")
 async def open_terminal(request: OpenTerminalRequest):
