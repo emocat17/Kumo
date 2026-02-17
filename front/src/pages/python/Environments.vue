@@ -105,6 +105,7 @@
             <form v-if="activeTab === 'install'" class="install-form" @submit.prevent="installPackages">
                 <div class="form-group">
                     <label>包名 (支持多个，换行或空格分隔)</label>
+                    <label>若遇到安装失败,请检查包名是否正确/前往设置界面切换镜像源</label>
                     <div class="textarea-wrapper">
                         <textarea 
                             v-model="installForm.packages" 
@@ -398,8 +399,8 @@ const installPackages = async () => {
         
         const data = await res.json()
         if (res.ok) {
-            // Close modal and refresh envs to show "configuring" status
-            showInstallModal.value = false
+            activeTab.value = 'log'
+            fetchLogs()
             fetchEnvironments()
         } else {
             alert(`启动失败: ${data.detail || 'Unknown error'}`)
