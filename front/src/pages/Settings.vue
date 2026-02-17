@@ -22,6 +22,12 @@
       >
         数据备份与恢复
       </button>
+      <button 
+        :class="['tab-btn', { active: activeTab === 'data' }]" 
+        @click="activeTab = 'data'"
+      >
+        数据管理
+      </button>
     </div>
 
     <div class="settings-container">
@@ -40,13 +46,15 @@ import PageHeader from '@/components/common/PageHeader.vue'
 const PypiMirrorConfig = defineAsyncComponent(() => import('./settings/PypiMirrorConfig.vue'))
 const GlobalEnvVars = defineAsyncComponent(() => import('./settings/GlobalEnvVars.vue'))
 const BackupManager = defineAsyncComponent(() => import('./settings/BackupManager.vue'))
+const DataManager = defineAsyncComponent(() => import('./settings/DataManager.vue'))
 
-const activeTab = ref<'python' | 'env' | 'backup'>('python')
+const activeTab = ref<'python' | 'env' | 'backup' | 'data'>('python')
 
 const currentTabComponent = computed(() => {
     switch (activeTab.value) {
         case 'env': return GlobalEnvVars
         case 'backup': return BackupManager
+        case 'data': return DataManager
         default: return PypiMirrorConfig
     }
 })

@@ -7,9 +7,11 @@ import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List
-from core.database import get_db, SQLALCHEMY_DATABASE_URL
+from core.database import get_db, SQLALCHEMY_DATABASE_URL, Base, engine
 from environment_service import models as env_models
 from project_service import models as project_models
+from task_service import models as task_models
+from task_service.task_manager import task_manager
 from system_service import models as system_models
 from system_service import schemas as system_schemas
 from system_service.system_scheduler import SystemScheduler
@@ -38,6 +40,26 @@ def get_size(bytes, suffix="B"):
         if bytes < factor:
             return f"{bytes:.2f} {unit}{suffix}"
         bytes /= factor
+
+def remove_readonly(func, path, excinfo):
+    os.chmod(path, 0o777)
+    func(path)
+
+def clear_directory(path: str):
+    removed = []
+    if not os.path.exists(path):
+        return removed
+    for entry in os.scandir(path):
+        target = entry.path
+        try:
+            if entry.is_dir():
+                shutil.rmtree(target, onerror=remove_readonly)
+            else:
+                os.remove(target)
+            removed.append(target)
+        except Exception:
+            pass
+    return removed
 
 # --- Configuration Endpoints ---
 
@@ -189,6 +211,89 @@ async def download_backup(filename: str):
     if not os.path.exists(path):
          raise HTTPException(status_code=404, detail="Backup file not found")
     return FileResponse(path, filename=filename)
+
+@router.get("/data/overview")
+async def get_data_overview(db: Session = Depends(get_db)):
+    versions = db.query(env_models.PythonVersion).all()
+    projects = db.query(project_models.Project).all()
+    tasks = db.query(task_models.Task).all()
+
+    versions_payload = []
+    for v in versions:
+        versions_payload.append({
+            "id": v.id,
+            "name": v.name,
+            "version": v.version,
+            "path": v.path,
+            "status": v.status,
+            "is_conda": v.is_conda,
+            "path_exists": os.path.exists(v.path) if v.path else False
+        })
+
+    projects_payload = []
+    for p in projects:
+        projects_payload.append({
+            "id": p.id,
+            "name": p.name,
+            "path": p.path,
+            "work_dir": p.work_dir,
+            "output_dir": p.output_dir,
+            "path_exists": os.path.exists(p.path) if p.path else False
+        })
+
+    tasks_payload = []
+    for t in tasks:
+        tasks_payload.append({
+            "id": t.id,
+            "name": t.name,
+            "status": t.status,
+            "project_id": t.project_id,
+            "env_id": t.env_id,
+            "trigger_type": t.trigger_type,
+            "updated_at": t.updated_at
+        })
+
+    return {
+        "db_path": DB_PATH,
+        "db_exists": os.path.exists(DB_PATH),
+        "python_versions": versions_payload,
+        "python_environments": versions_payload,
+        "projects": projects_payload,
+        "tasks": tasks_payload
+    }
+
+@router.post("/data/clear")
+async def clear_all_data():
+    try:
+        if task_manager.scheduler and task_manager.scheduler.running:
+            task_manager.scheduler.remove_all_jobs()
+    except Exception:
+        pass
+
+    try:
+        for execution_id in list(task_manager.running_processes.keys()):
+            try:
+                task_manager.stop_execution(execution_id)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    removed_paths = {}
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    removed_paths["projects"] = clear_directory(os.path.join(backend_dir, "projects"))
+    removed_paths["envs"] = clear_directory(os.path.join(backend_dir, "envs"))
+    removed_paths["task_logs"] = clear_directory(os.path.join(backend_dir, "logs", "tasks"))
+    removed_paths["install_logs"] = clear_directory(os.path.join(backend_dir, "logs", "install"))
+
+    with engine.begin() as connection:
+        for table in reversed(Base.metadata.sorted_tables):
+            connection.execute(table.delete())
+
+    return {
+        "message": "cleared",
+        "removed_paths": removed_paths
+    }
 
 @router.get("/stats")
 async def get_system_stats():

@@ -48,7 +48,7 @@ Kumo 是一个专为 Python 开发者设计的任务调度管理系统，旨在�
 
 3.  **访问控制台**
     等待约 30 秒，待服务初始化完成后访问：
-    - 🖥️ **前端 Dashboard**: [http://localhost:6677](http://localhost:6677)
+    - 🖥️ **前端 Dashboard**: [http://localhost:18080](http://localhost:18080)
     - 📚 **后端 API 文档**: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 ## ⚙️ 配置说明 (Configuration)

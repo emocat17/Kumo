@@ -58,10 +58,11 @@ services:
       # 2. 依赖隔离：使用匿名卷，防止宿主机 node_modules 覆盖容器内
       - /app/node_modules
     ports:
-      - "6677:6677"
+      - "18080:18080"
     environment:
       - TZ=Asia/Shanghai
       - VITE_API_BASE_URL=http://backend:8000
+      - VITE_DEV_PORT=18080
     depends_on:
       backend:
         condition: service_healthy

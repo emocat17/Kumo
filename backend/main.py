@@ -83,7 +83,7 @@ app = FastAPI(title="Kumo Backend", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:6677", "http://localhost:5173", "*"],
+    allow_origins=["http://localhost:18080", "http://localhost:5173", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

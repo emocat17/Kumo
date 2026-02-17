@@ -14,7 +14,7 @@ RUN npm install
 
 # Stage 2: Development
 FROM base AS dev
-EXPOSE 6677
+EXPOSE 18080
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 
 # Stage 3: Builder (for Production)
