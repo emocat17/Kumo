@@ -248,6 +248,7 @@ async def get_test_metrics_overview(project_id: int = None, task_ids: str = None
     
     if not project:
         raise HTTPException(status_code=404, detail="Project not found or could not be inferred from tasks")
+    project_id = project.id
 
     output_dir = resolve_output_dir(project)
     now_ts = datetime.datetime.now().timestamp()
@@ -413,6 +414,7 @@ async def get_test_metrics_overview(project_id: int = None, task_ids: str = None
             "index_time": index_series,
             "api_time": api_series
         },
+        "latency": latency_stats,
         "evidence": {
             "output_samples": output_samples,
             "log_files": log_files

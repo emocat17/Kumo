@@ -111,6 +111,15 @@ class TimeSeriesGroup(BaseModel):
     duration: List[TimeSeriesPoint]
     max_cpu: List[TimeSeriesPoint]
     max_memory: List[TimeSeriesPoint]
+    parse_time: List[TimeSeriesPoint]
+    index_time: List[TimeSeriesPoint]
+    api_time: List[TimeSeriesPoint]
+
+class LatencyStats(BaseModel):
+    first_output_latency_seconds: Optional[float] = None
+    avg_output_latency_seconds: Optional[float] = None
+    last_output_latency_seconds: Optional[float] = None
+    sample_count: int
 
 class TestMetricsEvidence(BaseModel):
     output_samples: List[OutputSample]
@@ -126,6 +135,7 @@ class TestMetricsOverview(BaseModel):
     executions_window: ExecutionWindowStats
     latest_executions: List[LatestExecutionStat]
     timeseries: TimeSeriesGroup
+    latency: LatencyStats
     evidence: TestMetricsEvidence
 
 

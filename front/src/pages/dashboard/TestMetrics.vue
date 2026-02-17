@@ -98,6 +98,66 @@
             <div class="card-sub">近次执行峰值</div>
           </div>
         </div>
+        <div class="card overview-card">
+          <div class="card-icon task-icon">
+            <span class="icon-task">✅</span>
+          </div>
+          <div class="card-content">
+            <div class="card-title">窗口成功率</div>
+            <div class="card-value blue">{{ windowSuccessRate.toFixed(1) }}%</div>
+            <div class="card-sub">窗口 {{ timeWindow }}s</div>
+          </div>
+        </div>
+        <div class="card overview-card">
+          <div class="card-icon task-icon">
+            <span class="icon-task">⚠️</span>
+          </div>
+          <div class="card-content">
+            <div class="card-title">窗口失败数</div>
+            <div class="card-value orange">{{ testMetrics?.executions_window.failed ?? 0 }}</div>
+            <div class="card-sub">窗口 {{ timeWindow }}s</div>
+          </div>
+        </div>
+        <div class="card overview-card">
+          <div class="card-icon task-icon">
+            <span class="icon-task">🏃</span>
+          </div>
+          <div class="card-content">
+            <div class="card-title">运行中</div>
+            <div class="card-value green">{{ testMetrics?.executions_window.running ?? 0 }}</div>
+            <div class="card-sub">当前运行</div>
+          </div>
+        </div>
+        <div class="card overview-card">
+          <div class="card-icon task-icon">
+            <span class="icon-task">⏱️</span>
+          </div>
+          <div class="card-content">
+            <div class="card-title">首个落盘延迟</div>
+            <div class="card-value blue">{{ formatSeconds(testMetrics?.latency?.first_output_latency_seconds ?? null) }}</div>
+            <div class="card-sub">窗口 {{ timeWindow }}s</div>
+          </div>
+        </div>
+        <div class="card overview-card">
+          <div class="card-icon task-icon">
+            <span class="icon-task">⏱️</span>
+          </div>
+          <div class="card-content">
+            <div class="card-title">平均落盘延迟</div>
+            <div class="card-value blue">{{ formatSeconds(testMetrics?.latency?.avg_output_latency_seconds ?? null) }}</div>
+            <div class="card-sub">窗口 {{ timeWindow }}s</div>
+          </div>
+        </div>
+        <div class="card overview-card">
+          <div class="card-icon task-icon">
+            <span class="icon-task">⏱️</span>
+          </div>
+          <div class="card-content">
+            <div class="card-title">最新落盘延迟</div>
+            <div class="card-value blue">{{ formatSeconds(testMetrics?.latency?.last_output_latency_seconds ?? null) }}</div>
+            <div class="card-sub">窗口 {{ timeWindow }}s</div>
+          </div>
+        </div>
       </template>
       <template v-else>
         <div class="card overview-card">
@@ -324,6 +384,12 @@ interface TestMetricsOverview {
     output_samples: Array<{ name: string; path: string; size: number; mtime: string }>
     log_files: Array<{ task_id: number; task_name: string; log_file?: string }>
   }
+  latency: {
+    first_output_latency_seconds?: number | null
+    avg_output_latency_seconds?: number | null
+    last_output_latency_seconds?: number | null
+    sample_count: number
+  }
 }
 
 // State
@@ -412,6 +478,13 @@ const avgMemoryMb = computed(() => {
   if (!vals.length) return 0
   const sum = vals.reduce((a, b) => a + b, 0)
   return sum / vals.length
+})
+const windowSuccessRate = computed(() => {
+  const success = testMetrics.value?.executions_window.success ?? 0
+  const failed = testMetrics.value?.executions_window.failed ?? 0
+  const total = success + failed
+  if (!total) return 0
+  return (success / total) * 100
 })
 
 // Methods
@@ -527,8 +600,10 @@ const runSelectedTasks = async () => {
   if (selectedTaskIds.value.length === 0) return
   isRunningTests.value = true
   try {
-    for (const id of selectedTaskIds.value) {
-      const res = await fetch(`${API_BASE}/tasks/${id}/run`, { method: 'POST' })
+    const results = await Promise.all(
+      selectedTaskIds.value.map(id => fetch(`${API_BASE}/tasks/${id}/run`, { method: 'POST' }))
+    )
+    for (const res of results) {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.detail || '任务启动失败')
