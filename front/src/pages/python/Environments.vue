@@ -50,7 +50,7 @@
           
           <div class="actions-row">
             <button class="btn btn-primary btn-edit" @click="openInstallModal(env)">
-              {{ env.status === 'installing' ? '配置中' : '编辑' }}
+              {{ env.status === 'installing' || env.status === 'configuring' ? '配置中' : '编辑' }}
             </button>
           </div>
         </div>
@@ -331,8 +331,8 @@ const openInstallModal = (env: Environment) => {
     selectedEnv.value = env
     showInstallModal.value = true
     
-    // If installing, default to log tab
-    if (env.status === 'installing') {
+    // If installing or configuring, default to log tab
+    if (env.status === 'installing' || env.status === 'configuring') {
         activeTab.value = 'log'
     } else {
         activeTab.value = 'install'
@@ -460,10 +460,10 @@ const uninstallPackage = async (pkgName: string) => {
 onMounted(() => {
   fetchEnvironments()
   
-  // Poll for status updates if any env is installing
+  // Poll for status updates if any env is installing or configuring
   pollingInterval.value = window.setInterval(() => {
-      const hasInstalling = environments.value.some(e => e.status === 'installing')
-      if (hasInstalling) {
+      const hasActiveOps = environments.value.some(e => e.status === 'installing' || e.status === 'configuring')
+      if (hasActiveOps) {
           fetchEnvironments()
       }
       // Also poll logs if modal is open on log tab

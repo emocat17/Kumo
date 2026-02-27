@@ -84,15 +84,38 @@ def _is_progress_only_line(line: str) -> bool:
     cleaned = cleaned.strip()
     return len(cleaned) == 0
 
+# Global dictionary to store output buffers for each process
+_process_buffers = {}
+
+def _read_output_thread(version_id: int, process: subprocess.Popen):
+    """Thread function to read process output"""
+    try:
+        for line in process.stdout:
+            if line:
+                append_log(version_id, line.strip())
+    except Exception as e:
+        append_log(version_id, f"Output reading error: {e}")
+    finally:
+        try:
+            process.stdout.close()
+        except:
+            pass
+
 # Helper to run command in background (modified to accept list for security)
 def run_conda_create(command: list, version_id: int):
-    # Create a new session for the thread
+    """
+    Run conda create in a background thread with proper process management.
+    Uses communicate() instead of poll() to properly handle conda's output behavior.
+    """
     db = SessionLocal()
+    import threading
+    
     try:
         cmd_str = " ".join(command)
         append_log(version_id, f"Starting conda creation with command: {cmd_str}")
+        append_log(version_id, f"Process will run in: {os.getcwd()}")
 
-        # Use shell=False for better process control
+        # Use subprocess with PIPE
         process = subprocess.Popen(
             command,
             shell=False,
@@ -101,67 +124,52 @@ def run_conda_create(command: list, version_id: int):
             text=True,
             encoding="utf-8",
             errors="replace",
-            cwd=os.getcwd()
+            cwd=os.getcwd(),
+            bufsize=1  # Line buffered
         )
+        
+        append_log(version_id, f"Process started with PID: {process.pid}")
 
-        # Read output line by line with timeout handling
-        import select
-        import fcntl
+        # Start a thread to read output in real-time (for better UX)
+        output_thread = threading.Thread(target=_read_output_thread, args=(version_id, process))
+        output_thread.daemon = True
+        output_thread.start()
         
-        # Set stdout to non-blocking
-        fd = process.stdout.fileno()
-        fl = fcntl.fcntl(fd, fcntl.F_GETFL)
-        fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-        
-        # Read with timeout
+        append_log(version_id, "Output reader thread started")
+
+        # Use communicate() instead of poll() - this properly waits for process to finish
+        # and handles the case where conda doesn't close stdout properly
         import time
         start_time = time.time()
-        timeout_seconds = 600  # 10 minutes timeout
         
-        while True:
-            # Check if process is still running
-            if process.poll() is not None:
-                break
-                
-            # Check timeout
-            if time.time() - start_time > timeout_seconds:
-                append_log(version_id, f"Installation timeout ({timeout_seconds}s), terminating process...")
-                process.kill()
-                process.wait()
-                append_log(version_id, "Process terminated due to timeout")
-                
-                version_record = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
-                if version_record:
-                    version_record.status = "error"
-                    db.commit()
-                return
-                
-            # Try to read output
-            try:
-                line = process.stdout.readline()
-                if line:
-                    append_log(version_id, line.strip())
-                else:
-                    # No output, sleep briefly
-                    time.sleep(0.5)
-            except:
-                time.sleep(0.5)
-                continue
-        
-        # Read any remaining output
-        remaining = process.stdout.read()
-        if remaining:
-            for line in remaining.splitlines():
-                append_log(version_id, line.strip())
-        
-        process.stdout.close()
-        
-        # Ensure process completes
-        process.wait()
+        try:
+            # communicate() waits for process to terminate and collects all output
+            stdout, stderr = process.communicate(timeout=600)  # 10 minute timeout
+            return_code = process.returncode
+            
+            append_log(version_id, f"Process completed with return code: {return_code}")
+            
+            # Any remaining output should have been read by the thread, but let's make sure
+            if stdout:
+                for line in stdout.splitlines():
+                    if line.strip():
+                        append_log(version_id, line.strip())
+                        
+        except subprocess.TimeoutExpired:
+            append_log(version_id, "Installation timeout (600s), terminating process...")
+            process.kill()
+            process.wait()
+            return_code = -1
+            
+            version_record = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
+            if version_record:
+                version_record.status = "error"
+                db.commit()
+            append_log(version_id, "Process terminated due to timeout")
+            return
 
-        # Now check return code
-        return_code = process.returncode
-        append_log(version_id, f"Process completed with return code: {return_code}")
+        # Wait for output thread to finish (with timeout)
+        output_thread.join(timeout=5)
 
         version_record = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
 
@@ -190,6 +198,7 @@ def run_conda_create(command: list, version_id: int):
             version_record.status = "error"
 
         db.commit()
+        append_log(version_id, f"Status updated to: {version_record.status}")
             
     except Exception as e:
         append_log(version_id, f"Error in background conda create: {e}")
@@ -350,6 +359,22 @@ async def create_conda_env(request: CondaCreateRequest, db: Session = Depends(ge
     # Always use --prefix to ensure environment is created in the mapped volume
     # This ensures persistence across container restarts
     # Use -q (quiet) to reduce output and speed up by not rendering progress bars
+    
+    # First, ensure conda channels are configured correctly (fix potential URL format issues)
+    try:
+        import subprocess as sp
+        # Set correct channel URLs (with proper https:// prefix)
+        sp.run(["conda", "config", "--add", "channels", "https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge"], 
+               capture_output=True, timeout=30)
+        sp.run(["conda", "config", "--add", "channels", "https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free"], 
+               capture_output=True, timeout=30)
+        sp.run(["conda", "config", "--add", "channels", "https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main"], 
+               capture_output=True, timeout=30)
+        sp.run(["conda", "config", "--set", "show_channel_urls", "yes"], 
+               capture_output=True, timeout=30)
+    except Exception as e:
+        append_log(0, f"Warning: Failed to configure conda channels: {e}")
+    
     command = [
         "conda", "create", "--prefix", env_path, 
         f"python={safe_version}", "-y", "-q"
@@ -538,17 +563,33 @@ async def list_versions(db: Session = Depends(get_db)):
 
 # Helper to delete in background
 def background_delete_version(version_id: int):
+    """
+    后台删除环境线程，支持超时检测
+    超时时间默认 5 分钟（300秒）
+    """
     db = SessionLocal()
+    timeout_seconds = 300  # 5 minutes timeout
+    
     try:
         version = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
         if not version:
             return
 
+        start_time = time.time()
         path_to_delete = version.path
         is_conda_env = version.is_conda
         env_name = version.name
 
+        def check_timeout():
+            """检查是否超时"""
+            elapsed = time.time() - start_time
+            if elapsed > timeout_seconds:
+                append_log(version_id, f"Delete operation timed out after {elapsed:.1f} seconds")
+                return True
+            return False
+
         append_log(version_id, f"Starting deletion for: {path_to_delete}")
+        append_log(version_id, f"Timeout set to {timeout_seconds} seconds")
 
         if is_conda_env and path_to_delete:
             try:
@@ -648,6 +689,15 @@ def background_delete_version(version_id: int):
             except Exception as e:
                 append_log(version_id, f"Error in background deletion: {e}")
 
+        # Check timeout before final cleanup
+        if check_timeout():
+            append_log(version_id, "Operation timed out, marking as error")
+            version = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
+            if version:
+                version.status = "error"
+                db.commit()
+            return
+
         # Finally delete the record
         version = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
         if version:
@@ -730,6 +780,96 @@ async def delete_version(version_id: int, req: Request, db: Session = Depends(ge
         db.delete(version)
         db.commit()
         return {"ok": True}
+
+
+@router.post("/{version_id}/reset-status")
+async def reset_version_status(version_id: int, req: Request, db: Session = Depends(get_db)):
+    """
+    重置环境状态，用于修复卡在 'deleting' 等异常状态的环境
+    """
+    version = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+    
+    old_status = version.status
+    new_status = "error"  # 默认重置为错误状态
+    
+    version.status = new_status
+    db.commit()
+    
+    # Audit Log
+    create_audit_log(
+        db=db,
+        operation_type="UPDATE",
+        target_type="ENVIRONMENT",
+        target_id=str(version.id),
+        target_name=version.name,
+        details=f"Reset status from '{old_status}' to '{new_status}'",
+        operator_ip=req.client.host
+    )
+    
+    return {"ok": True, "message": f"Status reset from '{old_status}' to '{new_status}'"}
+
+
+@router.post("/{version_id}/force-delete")
+async def force_delete_version(version_id: int, req: Request, db: Session = Depends(get_db)):
+    """
+    强制删除环境，忽略任务使用检查并清理相关文件
+    """
+    version = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+    
+    # 检查是否有任务使用此环境，并解除关联
+    tasks = db.query(Task).filter(Task.env_id == version_id).all()
+    for task in tasks:
+        task.env_id = None
+        append_log(version_id, f"Unlinked task: {task.name}")
+    
+    env_name = version.name
+    env_path = version.path
+    
+    # 删除数据库记录
+    db.delete(version)
+    db.commit()
+    
+    # 尝试删除物理目录（如果存在）
+    if env_path:
+        try:
+            env_dir = os.path.dirname(env_path)
+            if platform.system() != "Windows" and os.path.basename(env_dir) == "bin":
+                env_dir = os.path.dirname(env_dir)
+            
+            if os.path.exists(env_dir):
+                append_log(version_id, f"Force deleting directory: {env_dir}")
+                result = subprocess.run(
+                    ['rm', '-rf', env_dir],
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
+                if result.returncode == 0:
+                    append_log(version_id, "Directory force deleted successfully")
+                else:
+                    append_log(version_id, f"Force delete warning: {result.stderr}")
+            else:
+                append_log(version_id, "Directory does not exist, skipping")
+        except Exception as e:
+            append_log(version_id, f"Force delete error: {e}")
+    
+    # Audit Log
+    create_audit_log(
+        db=db,
+        operation_type="FORCE_DELETE",
+        target_type="ENVIRONMENT",
+        target_id=str(version_id),
+        target_name=env_name,
+        details=f"Force deleted environment '{env_name}'",
+        operator_ip=req.client.host
+    )
+    
+    return {"ok": True, "message": f"Environment '{env_name}' force deleted"}
+
 
 @router.post("/cleanup-cache")
 async def cleanup_conda_cache(req: Request, db: Session = Depends(get_db)):
@@ -888,4 +1028,54 @@ async def reset_stuck_environment(version_id: int, req: Request, db: Session = D
         "ok": True, 
         "message": f"Environment reset. You can now try to recreate it.",
         "status": version.status
+    }
+
+@router.post("/cleanup-orphaned")
+async def cleanup_orphaned_records(req: Request, db: Session = Depends(get_db)):
+    """清理失效的数据库记录（数据库中存在但文件系统目录不存在的环境）"""
+    base_env_path = os.path.abspath(os.path.join(os.getcwd(), "envs"))
+    
+    all_versions = db.query(models.PythonVersion).all()
+    
+    cleaned = []
+    errors = []
+    
+    for version in all_versions:
+        # Check if the directory exists
+        env_dir = os.path.dirname(version.path)  # Get the directory, not the python executable
+        
+        if not os.path.exists(env_dir):
+            # Directory doesn't exist - this is an orphaned record
+            try:
+                # Delete the DB record
+                version_name = version.name
+                version_id = version.id
+                db.delete(version)
+                db.commit()
+                cleaned.append({
+                    "id": version_id,
+                    "name": version_name,
+                    "path": env_dir,
+                    "status": version.status
+                })
+                append_log(version_id, f"Cleaned orphaned DB record: {version_name} (path: {env_dir} not found)")
+            except Exception as e:
+                errors.append(f"{version.name}: {str(e)}")
+                db.rollback()
+    
+    create_audit_log(
+        db=db,
+        operation_type="CLEANUP",
+        target_type="ENVIRONMENT",
+        target_id="orphaned",
+        target_name="orphaned_records",
+        details=f"Cleaned {len(cleaned)} orphaned DB records: {', '.join([c['name'] for c in cleaned])}",
+        operator_ip=req.client.host
+    )
+    
+    return {
+        "ok": True,
+        "message": f"Found {len(cleaned)} orphaned records and cleaned them",
+        "cleaned": cleaned,
+        "errors": errors
     }

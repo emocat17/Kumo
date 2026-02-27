@@ -6,9 +6,9 @@
     >
       <template #actions>
         <div class="header-actions">
-          <button class="btn btn-outline" @click="cleanupResidual" title="清理残留环境目录">
+          <button class="btn btn-outline" @click="cleanupEnvironment" title="清理残留目录和失效数据库记录">
             <Trash2 :size="16" />
-            清理残留
+            清理环境
           </button>
           <button class="btn btn-outline" @click="cleanupCache" title="清理 Conda 和 Pip 缓存，解决安装卡住问题">
             <RefreshCw :size="16" />
@@ -80,7 +80,6 @@
                 <tr>
                   <th>名称</th>
                   <th>版本号</th>
-                  <th>类型</th>
                   <th>路径</th>
                   <th>状态</th>
                   <th>操作</th>
@@ -88,17 +87,13 @@
               </thead>
               <tbody>
                 <tr v-if="versions.length === 0">
-                  <td colspan="6" class="empty-cell">暂无 Python 版本，请在左侧添加。</td>
+                  <td colspan="5" class="empty-cell">暂无 Python 版本，请在左侧添加。</td>
                 </tr>
                 <tr v-for="ver in versions" :key="ver.id">
                   <td>
                      <div class="ver-name">{{ ver.name || 'Python' }}</div>
                   </td>
                   <td>{{ ver.version || '-' }}</td>
-                  <td>
-                    <span v-if="ver.is_conda" class="ver-source conda">Conda</span>
-                    <span v-else class="ver-source">System</span>
-                  </td>
                   <td class="ver-path" :title="ver.path">{{ truncatePath(ver.path) }}</td>
                   <td>
                     <span :class="['status-badge', ver.status]">
@@ -110,7 +105,27 @@
                       <button class="btn btn-secondary btn-sm" title="查看详情" @click="showVersionInfo(ver)">
                          <FileText :size="16" />
                       </button>
+                      <!-- 异常状态按钮：重置状态 (包括 installing, configuring, error, deleting) -->
                       <button
+                        v-if="ver.status === 'installing' || ver.status === 'configuring' || ver.status === 'error' || ver.status === 'deleting'"
+                        class="btn btn-warning btn-sm"
+                        title="重置状态"
+                        @click="resetVersionStatus(ver)"
+                      >
+                         <RotateCcw :size="16" />
+                      </button>
+                      <!-- 异常状态按钮：强制删除 (包括 installing, configuring, error, deleting) -->
+                      <button
+                        v-if="ver.status === 'installing' || ver.status === 'configuring' || ver.status === 'error' || ver.status === 'deleting'"
+                        class="btn btn-danger btn-sm"
+                        title="强制删除"
+                        @click="forceDeleteVersion(ver)"
+                      >
+                         <Trash2 :size="16" />
+                      </button>
+                      <!-- 正常删除按钮 -->
+                      <button
+                        v-else
                         class="btn btn-danger btn-sm"
                         title="删除"
                         :disabled="ver.status === 'deleting'"
@@ -167,7 +182,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
-import { Trash2, FileText, RefreshCw } from 'lucide-vue-next'
+import { Trash2, FileText, RefreshCw, RotateCcw } from 'lucide-vue-next'
 
 interface PythonVersion {
   id: number
@@ -187,6 +202,7 @@ const condaForm = ref({ name: '', version: '' })
 const statusMap: Record<string, string> = {
   ready: '就绪',
   installing: '安装中',
+  configuring: '配置中',
   error: '错误',
   deleting: '删除中'
 }
@@ -223,9 +239,9 @@ const fetchVersions = async () => {
       const data = await response.json()
       versions.value = data
       
-      // Check if any version is installing or deleting, if so, keep polling
+      // Check if any version is installing, configuring or deleting, if so, keep polling
       const hasActiveOperations = data.some((v: PythonVersion) => 
-        v.status === 'installing' || v.status === 'deleting'
+        v.status === 'installing' || v.status === 'configuring' || v.status === 'deleting'
       )
       
       if (hasActiveOperations && !pollInterval) {
@@ -238,7 +254,7 @@ const fetchVersions = async () => {
         const latest = data.find((v: PythonVersion) => v.id === selectedVersion.value?.id)
         if (latest) {
           selectedVersion.value = latest
-          if (latest.status !== 'installing' && logPollInterval) {
+          if (latest.status !== 'installing' && latest.status !== 'configuring' && logPollInterval) {
             stopLogPolling()
           }
         }
@@ -336,8 +352,8 @@ const showVersionInfo = (ver: PythonVersion) => {
   logContent.value = ''
   logError.value = ''
   fetchLogs(ver.id)
-  // Poll logs during installing or deleting
-  if (ver.status === 'installing' || ver.status === 'deleting') {
+  // Poll logs during installing, configuring or deleting
+  if (ver.status === 'installing' || ver.status === 'configuring' || ver.status === 'deleting') {
     startLogPolling(ver.id)
   }
 }
@@ -430,6 +446,60 @@ const deleteVersion = async (ver: PythonVersion) => {
   }
 }
 
+// 重置环境状态
+const resetVersionStatus = async (ver: PythonVersion) => {
+  if (!confirm(`确定要重置 "${ver.name}" 的状态吗？`)) {
+    return
+  }
+  
+  try {
+    const response = await fetch(`/api/python/versions/${ver.id}/reset-status`, {
+      method: 'POST'
+    })
+    
+    if (!response.ok) {
+      showError('重置状态失败', '操作失败')
+      return
+    }
+    
+    const data = await response.json()
+    console.log('Reset status result:', data)
+    
+    // 刷新列表
+    await fetchVersions()
+  } catch (error) {
+    console.error('Failed to reset status:', error)
+    showError('重置状态失败', '操作失败')
+  }
+}
+
+// 强制删除环境
+const forceDeleteVersion = async (ver: PythonVersion) => {
+  if (!confirm(`确定要强制删除 "${ver.name}" 吗？\n\n这将：\n1. 解除所有任务与该环境的关联\n2. 强制删除环境文件\n3. 从数据库中移除记录\n\n此操作不可恢复！`)) {
+    return
+  }
+  
+  try {
+    const response = await fetch(`/api/python/versions/${ver.id}/force-delete`, {
+      method: 'POST'
+    })
+    
+    if (!response.ok) {
+      showError('强制删除失败', '操作失败')
+      return
+    }
+    
+    const data = await response.json()
+    console.log('Force delete result:', data)
+    
+    // 刷新列表
+    await fetchVersions()
+  } catch (error) {
+    console.error('Failed to force delete:', error)
+    showError('强制删除失败', '操作失败')
+  }
+}
+
 const cleanupCache = async () => {
   if (!confirm('这将清理 Conda 和 Pip 的缓存包，可能解决安装卡住的问题。是否继续？')) {
     return
@@ -484,6 +554,53 @@ const cleanupResidual = async () => {
   } catch (error) {
     console.error('Failed to cleanup residual:', error)
     showError('清理残留请求失败', '清理失败')
+  }
+}
+
+const cleanupEnvironment = async () => {
+  if (!confirm('这将同时清理：\n1. 文件系统中残留但数据库不存在的目录\n2. 数据库中存在但文件目录不存在的失效记录\n\n是否继续？')) {
+    return
+  }
+  
+  try {
+    // 1. 清理残留目录（DB 不存在但文件系统存在）
+    const residualResponse = await fetch('/api/python/versions/cleanup-residual', {
+      method: 'POST'
+    })
+    
+    // 2. 清理失效记录（DB 存在但文件系统不存在）
+    const orphanedResponse = await fetch('/api/python/versions/cleanup-orphaned', {
+      method: 'POST'
+    })
+    
+    let message = `清理完成！\n\n`
+    
+    if (residualResponse.ok) {
+      const residualData = await residualResponse.json()
+      if (residualData.cleaned && residualData.cleaned.length > 0) {
+        message += `已清理残留目录: ${residualData.cleaned.join(', ')}\n`
+      } else {
+        message += `未发现残留目录\n`
+      }
+    }
+    
+    if (orphanedResponse.ok) {
+      const orphanedData = await orphanedResponse.json()
+      if (orphanedData.cleaned && orphanedData.cleaned.length > 0) {
+        message += `已清理失效记录: ${orphanedData.cleaned.map((c: any) => c.name).join(', ')}`
+      } else {
+        message += `未发现失效记录`
+      }
+    } else {
+      const errorData = await orphanedResponse.json().catch(() => ({}))
+      message += `\n清理失效记录失败: ${errorData.detail || errorData.message || '未知错误'}`
+    }
+    
+    showError(message, '清理完成')
+    await fetchVersions()
+  } catch (error) {
+    console.error('Failed to cleanup environment:', error)
+    showError('清理环境请求失败', '清理失败')
   }
 }
 

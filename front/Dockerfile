@@ -9,8 +9,9 @@ RUN apk add --no-cache git
 # Copy dependency definitions
 COPY package.json package-lock.json* ./
 
-# Install dependencies
-RUN npm install
+# Use Taobao npm mirror for faster and more stable installs in China
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm install
 
 # Stage 2: Development
 FROM base AS dev
@@ -20,7 +21,8 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 # Stage 3: Builder (for Production)
 FROM base AS builder
 COPY . .
-RUN npm run build
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm run build
 
 # Stage 4: Production (Nginx)
 FROM nginx:alpine AS prod

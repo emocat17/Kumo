@@ -74,7 +74,7 @@
       </main>
 
       <footer class="app-footer">
-        Kumo . 2025. All rights reserved.
+        Kumo . 2026. All rights reserved.
       </footer>
     </div>
   </div>

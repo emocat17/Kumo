@@ -31,7 +31,7 @@ services:
       # Use Tsinghua mirror for faster pip downloads
       - PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/docs || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

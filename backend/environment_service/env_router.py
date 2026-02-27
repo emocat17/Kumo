@@ -185,7 +185,7 @@ def run_install_background(version_id: int, cmd: list):
             version.updated_at = datetime.datetime.now()
         else:
             append_log(version_id, f"Installation failed with return code {process.returncode}")
-            version.status = "error" 
+            version.status = "error"
             version.updated_at = datetime.datetime.now()
             
         db.commit()
@@ -300,10 +300,9 @@ async def install_packages(version_id: int, request: PackageInstallRequest, req:
             
         cmd_list += pkgs_list
     
-    # Update status to "installing" (which maps to "配置中" in frontend)
-    # Update updated_at explicitly to match log time logic
-    # Use datetime.datetime.now() to ensure consistency with Python log time, instead of DB server time
-    version.status = "installing"
+    # Update status to "configuring" (to distinguish from version installation "installing")
+    # This prevents confusion between installing version vs installing packages
+    version.status = "configuring"
     version.updated_at = datetime.datetime.now()
     
     # Audit Log

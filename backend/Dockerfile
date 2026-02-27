@@ -12,8 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 
-# Create wheels
-RUN pip wheel --no-cache-dir --wheel-dir /app/wheels -r requirements.txt
+# Use Tsinghua mirror for pip wheel - critical for stability
+RUN pip wheel --no-cache-dir --wheel-dir /app/wheels -r requirements.txt \
+    --index-url https://pypi.tuna.tsinghua.edu.cn/simple
 
 
 # Stage 2: Final
@@ -21,22 +22,18 @@ FROM continuumio/miniconda3:latest
 
 WORKDIR /app
 
-# Update conda to latest and configure for faster performance
-RUN conda update -n base -c defaults conda -y && \
-    conda install -y conda-forge::conda-libmamba-solver -c conda-forge && \
-    conda config --set solver libmamba && \
-    # Add Tsinghua mirrors for faster downloads in China
-    conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main && \
+# Configure conda with Tsinghua mirrors (faster and more stable in China)
+# Skip conda update to avoid network issues, use pre-installed version
+RUN conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main && \
     conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free && \
     conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge && \
     conda config --set show_channel_urls yes && \
+    # Try to install libmamba solver (faster), but don't fail if it doesn't work
+    conda install -y conda-forge::conda-libmamba-solver -c conda-forge || true && \
+    conda config --set solver libmamba || true && \
     conda clean -afy
 
-# Install runtime dependencies & Browser environment
-# 1. Basic Tools: git, curl, tzdata
-# 2. Selenium/DrissionPage: chromium, chromium-driver
-# 3. Fonts: fonts-noto-cjk (Chinese)
-# 4. Playwright Dependencies: libnss3, libnspr4, libgbm1, libasound2, etc. (Commonly needed)
+# Install runtime dependencies & Browser environment in ONE command (reduce layers)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
@@ -59,9 +56,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set Chrome environment variables for Selenium/DrissionPage
 ENV CHROME_BIN=/usr/bin/chromium
 ENV CHROMEDRIVER_PATH=/usr/bin/chromedriver
+# Use Tsinghua mirror for pip installs
+ENV PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 
-# Pre-install Playwright and its browsers (Chromium only to save space, user can install others if needed)
-# This ensures system dependencies are fully ready and the browser binary is cached
+# Pre-install Playwright and its browsers (Chromium only to save space)
 RUN pip install --no-cache-dir playwright \
     && playwright install chromium \
     && playwright install-deps chromium \
