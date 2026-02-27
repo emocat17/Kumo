@@ -53,17 +53,35 @@ def append_log(version_id: int, message: str):
     """Appends message to the log file"""
     # Clean ANSI sequences from message
     message = clean_ansi(message)
+    
     # Skip empty or whitespace-only lines
     if not message or not message.strip():
         return
     
     log_file = get_log_path(version_id)
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
     try:
         with open(log_file, "a", encoding="utf-8") as f:
-            f.write(f"[{timestamp}] {message}\n")
+            # Split by actual newlines
+            lines = message.split('\n')
+            for line in lines:
+                line = line.strip()
+                # Skip empty lines and progress-only lines
+                if line and not _is_progress_only_line(line):
+                    f.write(f"[{timestamp}] {line}\n")
     except Exception as e:
         print(f"Error writing log: {e}")
+
+def _is_progress_only_line(line: str) -> bool:
+    """Check if a line is only progress bar characters"""
+    # Remove common characters that appear in progress bars
+    cleaned = line.replace('|', '').replace('/', '').replace('-', '').replace('\\', '').replace(' ', '')
+    # Also remove timestamp-like patterns [YYYY-MM-DD HH:MM:SS]
+    import re
+    cleaned = re.sub(r'\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]', '', cleaned)
+    cleaned = cleaned.strip()
+    return len(cleaned) == 0
 
 def run_install_background(version_id: int, cmd: list):
     db = SessionLocal()
@@ -265,10 +283,11 @@ async def install_packages(version_id: int, request: PackageInstallRequest, req:
         if os.path.basename(env_dir).lower() in ['bin', 'scripts']:
              env_dir = os.path.dirname(env_dir)
              
-        # Prefer using prefix for safety, but if it's named env we could use -n. 
+        # Prefer using prefix for safety, but if it's named env we could use -n.
         # Using -p is safer for explicit path.
         # We must use list to avoid shell injection
-        cmd_list = ["conda", "install", "-p", env_dir, "-y"] + pkgs_list
+        # Add -q for quiet mode to reduce output
+        cmd_list = ["conda", "install", "-p", env_dir, "-y", "-q"] + pkgs_list
     else:
         # Use pip install
         # version.path is the python executable

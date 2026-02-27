@@ -54,17 +54,35 @@ def get_log_path(version_id: int):
 def append_log(version_id: int, message: str):
     # Clean ANSI sequences from message
     message = clean_ansi(message)
+    
     # Skip empty or whitespace-only lines
     if not message or not message.strip():
         return
     
     log_file = get_log_path(version_id)
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
     try:
         with open(log_file, "a", encoding="utf-8") as f:
-            f.write(f"[{timestamp}] {message}\n")
+            # Split by actual newlines, not by embedded timestamps
+            lines = message.split('\n')
+            for line in lines:
+                line = line.strip()
+                # Skip empty lines and progress-only lines
+                if line and not _is_progress_only_line(line):
+                    f.write(f"[{timestamp}] {line}\n")
     except Exception:
         pass
+
+def _is_progress_only_line(line: str) -> bool:
+    """Check if a line is only progress bar characters"""
+    # Remove common characters that appear in progress bars
+    cleaned = line.replace('|', '').replace('/', '').replace('-', '').replace('\\', '').replace(' ', '')
+    # Also remove timestamp-like patterns [YYYY-MM-DD HH:MM:SS]
+    import re
+    cleaned = re.sub(r'\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]', '', cleaned)
+    cleaned = cleaned.strip()
+    return len(cleaned) == 0
 
 # Helper to run command in background (modified to accept list for security)
 def run_conda_create(command: list, version_id: int):
@@ -331,7 +349,11 @@ async def create_conda_env(request: CondaCreateRequest, db: Session = Depends(ge
 
     # Always use --prefix to ensure environment is created in the mapped volume
     # This ensures persistence across container restarts
-    command = ["conda", "create", "--prefix", env_path, f"python={safe_version}", "-y"]
+    # Use -q (quiet) to reduce output and speed up by not rendering progress bars
+    command = [
+        "conda", "create", "--prefix", env_path, 
+        f"python={safe_version}", "-y", "-q"
+    ]
 
     if platform.system() == "Windows":
         python_exe = os.path.join(env_path, "python.exe")

@@ -21,6 +21,17 @@ FROM continuumio/miniconda3:latest
 
 WORKDIR /app
 
+# Update conda to latest and configure for faster performance
+RUN conda update -n base -c defaults conda -y && \
+    conda install -y conda-forge::conda-libmamba-solver -c conda-forge && \
+    conda config --set solver libmamba && \
+    # Add Tsinghua mirrors for faster downloads in China
+    conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main && \
+    conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free && \
+    conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge && \
+    conda config --set show_channel_urls yes && \
+    conda clean -afy
+
 # Install runtime dependencies & Browser environment
 # 1. Basic Tools: git, curl, tzdata
 # 2. Selenium/DrissionPage: chromium, chromium-driver

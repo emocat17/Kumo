@@ -28,6 +28,8 @@ services:
       - PYTHONUNBUFFERED=1
       - WATCHFILES_FORCE_POLLING=true
       - MAX_CONCURRENT_TASKS=50
+      # Use Tsinghua mirror for faster pip downloads
+      - PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/docs || exit 1"]
       interval: 30s
