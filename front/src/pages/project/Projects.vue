@@ -10,7 +10,7 @@
 
     <div class="filter-bar">
       <div class="search-wrapper">
-        <i class="icon-search">🔍</i>
+        <SearchIcon :size="16" class="icon-search" />
         <input 
           v-model="searchQuery" 
           type="text" 
@@ -176,7 +176,7 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import ProjectEditorModal from '@/components/project/ProjectEditorModal.vue'
 import FileSelectorModal from '@/components/common/FileSelectorModal.vue'
-import { Folder, Edit, Trash2 } from 'lucide-vue-next'
+import { Folder, Edit, Trash2, SearchIcon } from 'lucide-vue-next'
 
 interface Project {
   id: number

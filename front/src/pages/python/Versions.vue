@@ -6,11 +6,11 @@
     >
       <template #actions>
         <div class="header-actions">
-          <button class="btn btn-outline" @click="cleanupEnvironment" title="清理残留目录和失效数据库记录">
+          <button class="btn btn-outline" title="清理残留目录和失效数据库记录" @click="cleanupEnvironment">
             <Trash2 :size="16" />
             清理环境
           </button>
-          <button class="btn btn-outline" @click="cleanupCache" title="清理 Conda 和 Pip 缓存，解决安装卡住问题">
+          <button class="btn btn-outline" title="清理 Conda 和 Pip 缓存，解决安装卡住问题" @click="cleanupCache">
             <RefreshCw :size="16" />
             清理缓存
           </button>
@@ -194,6 +194,11 @@ interface PythonVersion {
   is_in_use?: boolean
   is_conda: boolean
   used_by_tasks?: string[]
+}
+
+interface CleanedRecord {
+  name: string
+  path?: string
 }
 
 const versions = ref<PythonVersion[]>([])
@@ -524,39 +529,6 @@ const cleanupCache = async () => {
   }
 }
 
-const cleanupResidual = async () => {
-  if (!confirm('这将扫描并清理数据库中不存在但文件系统残留的环境目录。是否继续？')) {
-    return
-  }
-  
-  try {
-    const response = await fetch('/api/python/versions/cleanup-residual', {
-      method: 'POST'
-    })
-    
-    if (response.ok) {
-      const data = await response.json()
-      let message = `扫描完成！\n\n`
-      if (data.cleaned && data.cleaned.length > 0) {
-        message += `已清理残留目录: ${data.cleaned.join(', ')}`
-      } else {
-        message += `未发现残留目录`
-      }
-      if (data.errors && data.errors.length > 0) {
-        message += `\n\n清理错误: ${data.errors.join(', ')}`
-      }
-      showError(message, '清理完成')
-      await fetchVersions()
-    } else {
-      const errorData = await response.json().catch(() => ({}))
-      showError(`清理失败: ${errorData.detail || errorData.message || '未知错误'}`, '清理失败')
-    }
-  } catch (error) {
-    console.error('Failed to cleanup residual:', error)
-    showError('清理残留请求失败', '清理失败')
-  }
-}
-
 const cleanupEnvironment = async () => {
   if (!confirm('这将同时清理：\n1. 文件系统中残留但数据库不存在的目录\n2. 数据库中存在但文件目录不存在的失效记录\n\n是否继续？')) {
     return
@@ -587,7 +559,7 @@ const cleanupEnvironment = async () => {
     if (orphanedResponse.ok) {
       const orphanedData = await orphanedResponse.json()
       if (orphanedData.cleaned && orphanedData.cleaned.length > 0) {
-        message += `已清理失效记录: ${orphanedData.cleaned.map((c: any) => c.name).join(', ')}`
+        message += `已清理失效记录: ${orphanedData.cleaned.map((c: CleanedRecord) => c.name).join(', ')}`
       } else {
         message += `未发现失效记录`
       }

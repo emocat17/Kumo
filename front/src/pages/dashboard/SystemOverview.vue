@@ -11,7 +11,7 @@
       <!-- CPU Card -->
       <div class="card overview-card">
         <div class="card-icon cpu-icon">
-          <span class="icon-cpu">🔳</span>
+          <CpuIcon :size="24" />
         </div>
         <div class="card-content">
           <div class="card-title">CPU使用率</div>
@@ -23,7 +23,7 @@
       <!-- Memory Card -->
       <div class="card overview-card">
         <div class="card-icon mem-icon">
-          <span class="icon-mem">🧠</span>
+          <MemoryStickIcon :size="24" />
         </div>
         <div class="card-content">
           <div class="card-title">内存使用率</div>
@@ -35,7 +35,7 @@
       <!-- Disk Card -->
       <div class="card overview-card">
         <div class="card-icon disk-icon">
-          <span class="icon-disk">💾</span>
+          <HardDriveIcon :size="24" />
         </div>
         <div class="card-content">
           <div class="card-title">磁盘使用率</div>
@@ -47,7 +47,7 @@
       <!-- Task Card -->
       <div class="card overview-card">
         <div class="card-icon task-icon">
-          <span class="icon-task">📊</span>
+          <ListTodoIcon :size="24" />
         </div>
         <div class="card-content">
           <div class="card-title">任务概览</div>
@@ -92,6 +92,7 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import ProjectSelector from '@/components/common/ProjectSelector.vue'
 import * as echarts from 'echarts'
+import { CpuIcon, MemoryStickIcon, HardDriveIcon, ListTodoIcon } from 'lucide-vue-next'
 
 // Types (Ideally these should be imported from a shared types file)
 interface SystemStats {
@@ -121,7 +122,7 @@ const props = defineProps<{
     success_rate_7d?: number
     daily_stats: Array<{ date: string; success: number; failed: number }>
     failure_stats?: Array<{ task_id: number; task_name: string; failure_count: number }>
-    recent_executions?: Array<any>
+    recent_executions?: Array<{ id: number; task_name: string; status: string; start_time: string }>
   }
 }>()
 

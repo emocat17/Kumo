@@ -168,27 +168,6 @@ const fetchSystemStats = async () => {
     }
 }
 
-const fetchDashboardStats = async () => {
-    try {
-        const res = await fetch(`${API_BASE}/tasks/dashboard/stats`)
-        if (res.ok) {
-            const data = await res.json()
-            dashboardStats.value = {
-                total_tasks: data.total_tasks ?? 0,
-                active_tasks: data.active_tasks ?? 0,
-                running_executions: data.running_executions ?? 0,
-                total_executions: data.total_executions ?? 0,
-                success_rate_7d: data.success_rate_7d ?? 0,
-                daily_stats: data.daily_stats ?? [],
-                failure_stats: data.failure_stats ?? [],
-                recent_executions: data.recent_executions ?? []
-            }
-        }
-    } catch (e) {
-        console.error(e)
-    }
-}
-
 // Lifecycle
 onMounted(() => {
     fetchSystemStats()

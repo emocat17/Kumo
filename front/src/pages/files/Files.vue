@@ -154,7 +154,7 @@ const fetchDirectory = async (path: string) => {
     const data = await res.json()
     items.value = data.items || []
     currentPath.value = path
-  } catch (e: any) {
+  } catch (e: Error) {
     error.value = e.message || '加载目录失败'
     items.value = []
   } finally {

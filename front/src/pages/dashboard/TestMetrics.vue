@@ -53,7 +53,7 @@
               清空测试数据
             </button>
           </div>
-          <div class="test-status" v-if="isTesting">
+          <div v-if="isTesting" class="test-status">
             <span class="status-badge running">测试中</span>
             <span class="status-text">已运行 {{ testDuration }} 秒</span>
           </div>
@@ -285,9 +285,9 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import {
   PlayIcon, RefreshCwIcon, DownloadIcon, FileIcon, DatabaseIcon,
-  CheckCircleIcon, CpuIcon, MemoryStickIcon, ActivityIcon,
+  CheckCircleIcon, CpuIcon, MemoryStickIcon,
   TrendingUpIcon, BarChart3Icon, FolderIcon, ListIcon,
-  FlaskConicalIcon, Trash2Icon, ClockIcon, AlertCircleIcon, ZapIcon
+  FlaskConicalIcon, Trash2Icon, AlertCircleIcon, ZapIcon
 } from 'lucide-vue-next'
 import TaskLogModal from '@/components/task/TaskLogModal.vue'
 
@@ -441,14 +441,6 @@ const avgMem = computed(() => {
     .filter(v => typeof v === 'number') as number[]
   if (!values.length) return 0
   return values.reduce((a, b) => a + b, 0) / values.length
-})
-
-const runningCount = computed(() => testData.value?.executions_window?.running ?? 0)
-
-const runningStatusClass = computed(() => {
-  if (isTesting.value && runningCount.value > 0) return 'text-success'
-  if (runningCount.value > 0) return 'text-warning'
-  return 'text-muted'
 })
 
 // 系统稳定性评分：基于成功率计算
@@ -706,7 +698,14 @@ const updateCharts = () => {
 }
 
 // Log modal
-const viewLog = (exec: any) => {
+interface ExecutionLog {
+  task_id: number
+  task_name: string
+  execution_id?: number
+  status?: string
+}
+
+const viewLog = (exec: ExecutionLog) => {
   logTaskId.value = exec.task_id
   logTaskName.value = exec.task_name
   logExecutionId.value = exec.execution_id

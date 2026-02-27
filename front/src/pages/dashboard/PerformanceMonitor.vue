@@ -3,7 +3,9 @@
     <!-- CPU Performance -->
     <div class="card perf-panel">
       <div class="panel-header">
-        <div class="perf-icon cpu-icon">🔳</div>
+        <div class="perf-icon cpu-icon">
+          <CpuIcon :size="24" />
+        </div>
         <div class="panel-title-group">
           <h4>CPU性能</h4>
           <span class="subtitle">{{ systemStats.cpu?.cores }} 核心 / {{ systemStats.cpu?.threads }} 线程</span>
@@ -46,7 +48,9 @@
     <!-- Memory Performance -->
     <div class="card perf-panel">
       <div class="panel-header">
-        <div class="perf-icon mem-icon">🧠</div>
+        <div class="perf-icon mem-icon">
+          <MemoryStickIcon :size="24" />
+        </div>
         <div class="panel-title-group">
           <h4>内存性能</h4>
           <span class="subtitle">{{ systemStats.memory?.total }} 总内存</span>
@@ -96,7 +100,9 @@
       <!-- Disk Performance -->
       <div class="card perf-panel">
           <div class="panel-header">
-          <div class="perf-icon disk-icon">💾</div>
+          <div class="perf-icon disk-icon">
+            <HardDriveIcon :size="24" />
+          </div>
           <div class="panel-title-group">
               <h4>磁盘性能</h4>
               <span class="subtitle">{{ systemStats.disk?.partitions?.length }} 分区</span>
@@ -129,7 +135,9 @@
       <!-- Network Performance -->
       <div class="card perf-panel">
           <div class="panel-header">
-          <div class="perf-icon net-icon">📡</div>
+          <div class="perf-icon net-icon">
+            <NetworkIcon :size="24" />
+          </div>
           <div class="panel-title-group">
               <h4>网络性能</h4>
               <span class="subtitle">总流量</span>
@@ -156,7 +164,7 @@
               </div>
           </div>
           <div class="active-pids mt-3">
-              <span class="icon-pid">⚙️</span>
+              <ActivityIcon :size="16" class="icon-pid" />
               <span>活跃进程: </span>
               <span class="pid-val">{{ systemStats.network?.pids }}</span>
           </div>
@@ -166,6 +174,8 @@
 </template>
 
 <script setup lang="ts">
+import { CpuIcon, MemoryStickIcon, HardDriveIcon, NetworkIcon, ActivityIcon } from 'lucide-vue-next'
+
 interface SystemStats {
   cpu: { 
       percent: number
