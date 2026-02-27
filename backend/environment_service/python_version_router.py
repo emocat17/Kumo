@@ -3,6 +3,7 @@ import subprocess
 import shutil
 import stat
 import time
+import re
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from typing import List, Optional
@@ -33,6 +34,17 @@ class CondaCreateRequest(BaseModel):
 class LogResponse(BaseModel):
     log: str
 
+def clean_ansi(text: str) -> str:
+    """Remove ANSI escape sequences and special characters from text"""
+    # Remove standard ANSI escape sequences (colors, cursor movement, etc.)
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    text = ansi_escape.sub('', text)
+    # Remove backspace characters (退格键)
+    text = re.sub(r'[\x08\x7F]+', '', text)
+    # Remove carriage return characters that cause duplicate lines
+    text = text.replace('\r', '')
+    return text
+
 def get_log_path(version_id: int):
     log_dir = os.path.abspath(os.path.join(os.getcwd(), "logs", "install"))
     if not os.path.exists(log_dir):
@@ -40,6 +52,12 @@ def get_log_path(version_id: int):
     return os.path.join(log_dir, f"install_v{version_id}.log")
 
 def append_log(version_id: int, message: str):
+    # Clean ANSI sequences from message
+    message = clean_ansi(message)
+    # Skip empty or whitespace-only lines
+    if not message or not message.strip():
+        return
+    
     log_file = get_log_path(version_id)
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
@@ -56,8 +74,7 @@ def run_conda_create(command: list, version_id: int):
         cmd_str = " ".join(command)
         append_log(version_id, f"Starting conda creation with command: {cmd_str}")
 
-        # Use communicate() to properly wait for process to complete
-        # and read all output from both stdout and stderr
+        # Use shell=False for better process control
         process = subprocess.Popen(
             command,
             shell=False,
@@ -65,20 +82,68 @@ def run_conda_create(command: list, version_id: int):
             stderr=subprocess.STDOUT,
             text=True,
             encoding="utf-8",
-            errors="replace"
+            errors="replace",
+            cwd=os.getcwd()
         )
 
-        # Read all output using communicate() - this ensures we get all output
-        # and the process fully completes before we proceed
-        stdout, _ = process.communicate()
-
-        # Write output to log file
-        if stdout:
-            for line in stdout.splitlines():
+        # Read output line by line with timeout handling
+        import select
+        import fcntl
+        
+        # Set stdout to non-blocking
+        fd = process.stdout.fileno()
+        fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+        fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+        
+        # Read with timeout
+        import time
+        start_time = time.time()
+        timeout_seconds = 600  # 10 minutes timeout
+        
+        while True:
+            # Check if process is still running
+            if process.poll() is not None:
+                break
+                
+            # Check timeout
+            if time.time() - start_time > timeout_seconds:
+                append_log(version_id, f"Installation timeout ({timeout_seconds}s), terminating process...")
+                process.kill()
+                process.wait()
+                append_log(version_id, "Process terminated due to timeout")
+                
+                version_record = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
+                if version_record:
+                    version_record.status = "error"
+                    db.commit()
+                return
+                
+            # Try to read output
+            try:
+                line = process.stdout.readline()
+                if line:
+                    append_log(version_id, line.strip())
+                else:
+                    # No output, sleep briefly
+                    time.sleep(0.5)
+            except:
+                time.sleep(0.5)
+                continue
+        
+        # Read any remaining output
+        remaining = process.stdout.read()
+        if remaining:
+            for line in remaining.splitlines():
                 append_log(version_id, line.strip())
+        
+        process.stdout.close()
+        
+        # Ensure process completes
+        process.wait()
 
         # Now check return code
         return_code = process.returncode
+        append_log(version_id, f"Process completed with return code: {return_code}")
 
         version_record = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
 
@@ -89,6 +154,19 @@ def run_conda_create(command: list, version_id: int):
         if return_code == 0:
             append_log(version_id, "Conda environment created successfully.")
             version_record.status = "ready"
+            
+            # Verify python executable exists
+            if os.path.exists(version_record.path):
+                append_log(version_id, f"Python executable verified: {version_record.path}")
+            else:
+                append_log(version_id, f"Warning: Python executable not found at: {version_record.path}")
+                # Try to find it
+                env_dir = os.path.dirname(version_record.path)
+                if os.path.exists(env_dir):
+                    for f in os.listdir(env_dir):
+                        if f.startswith('python') and not f.startswith('python3'):
+                            append_log(version_id, f"Found alternative python: {f}")
+                            
         else:
             append_log(version_id, f"Conda environment creation failed with code {return_code}")
             version_record.status = "error"
@@ -97,6 +175,8 @@ def run_conda_create(command: list, version_id: int):
             
     except Exception as e:
         append_log(version_id, f"Error in background conda create: {e}")
+        import traceback
+        append_log(version_id, f"Traceback: {traceback.format_exc()}")
         # Try to update status to error
         try:
             version_record = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
@@ -211,9 +291,43 @@ async def create_conda_env(request: CondaCreateRequest, db: Session = Depends(ge
 
     env_path = os.path.join(base_env_path, safe_name)
 
-    # Check if exists (simple check, conda will also check)
+    # Check if exists - if exists but failed before, try to clean up
     if os.path.exists(env_path):
-        raise HTTPException(status_code=400, detail=f"Environment path already exists: {env_path}")
+        # Check if environment is in DB with error/installing status - if so, allow cleanup and retry
+        existing = db.query(models.PythonVersion).filter(models.PythonVersion.name == safe_name).first()
+        if existing and existing.status in ["installing", "error"]:
+            append_log(existing.id if existing else 0, f"Found residual directory from previous failed installation. Cleaning up...")
+            # Mark for deletion in background, then proceed
+            # For now, let's try to delete it directly
+            try:
+                import shutil as sh
+                import subprocess as sp
+                result = sp.run(['rm', '-rf', env_path], capture_output=True, text=True, timeout=30)
+                if result.returncode == 0:
+                    append_log(existing.id if existing else 0, f"Successfully cleaned up residual directory: {env_path}")
+                else:
+                    append_log(existing.id if existing else 0, f"Failed to clean residual directory: {result.stderr}")
+                    # Try harder with conda clean
+                    sp.run(['conda', 'clean', '-afy'], capture_output=True, text=True, timeout=60)
+                    # Try rm again
+                    result2 = sp.run(['rm', '-rf', env_path], capture_output=True, text=True, timeout=30)
+                    if result2.returncode != 0:
+                        raise HTTPException(status_code=400, detail=f"Cannot clean residual directory: {env_path}. Please delete manually.")
+            except Exception as clean_err:
+                append_log(existing.id if existing else 0, f"Error during cleanup: {clean_err}")
+                raise HTTPException(status_code=400, detail=f"Failed to clean residual directory: {clean_err}")
+        elif existing and existing.status == "ready":
+            raise HTTPException(status_code=400, detail=f"Environment path already exists: {env_path}")
+        else:
+            # No DB record but directory exists - likely leftover, try to clean
+            try:
+                import shutil as sh
+                import subprocess as sp
+                result = sp.run(['rm', '-rf', env_path], capture_output=True, text=True, timeout=30)
+                if result.returncode != 0:
+                    raise HTTPException(status_code=400, detail=f"Cannot clean unknown directory: {env_path}. Please delete manually.")
+            except Exception as clean_err:
+                raise HTTPException(status_code=400, detail=f"Failed to clean unknown directory: {clean_err}")
 
     # Always use --prefix to ensure environment is created in the mapped volume
     # This ensures persistence across container restarts
@@ -451,42 +565,61 @@ def background_delete_version(version_id: int):
                     # Just verify the environment exists before deletion
                     append_log(version_id, "Skipping conda remove, proceeding with directory deletion...")
 
-                    # 1. Try to rename folder first (Windows trick to handle locked files)
+                    # Use system command for faster and more reliable deletion in containers
+                    # This is more reliable than shutil.rmtree for locked files
+                    env_deleted = False
                     try:
-                        timestamp = int(time.time())
-                        trash_dir = f"{env_dir}_trash_{timestamp}"
-                        append_log(version_id, f"Attempting to rename: {env_dir}")
-                        os.rename(env_dir, trash_dir)
-                        env_dir = trash_dir
-                        append_log(version_id, "Rename successful")
+                        # Try using rm -rf first (works best in Linux containers)
+                        import subprocess as sp
+                        result = sp.run(
+                            ['rm', '-rf', env_dir],
+                            capture_output=True,
+                            text=True,
+                            timeout=60  # 60 second timeout
+                        )
+                        if result.returncode == 0:
+                            append_log(version_id, "Directory deleted successfully via rm -rf")
+                            env_deleted = True
+                        else:
+                            append_log(version_id, f"rm -rf failed: {result.stderr}")
+                    except sp.TimeoutExpired:
+                        append_log(version_id, "Delete command timed out after 60 seconds")
                     except Exception as e:
-                        append_log(version_id, f"Rename failed (continuing with original path): {e}")
-                        # Continue with original path
+                        append_log(version_id, f"Error using system delete: {e}")
 
-                    # 2. Delete directory with reduced retry count
-                    max_retries = 3  # Reduced from 10
-                    for i in range(max_retries):
-                        if not os.path.exists(env_dir):
-                            append_log(version_id, "Directory already deleted")
-                            break
+                    # Fallback to Python shutil if system command failed
+                    if not env_deleted and os.path.exists(env_dir):
+                        append_log(version_id, "Trying shutil.rmtree as fallback...")
+                        max_retries = 2
+                        for i in range(max_retries):
+                            if not os.path.exists(env_dir):
+                                append_log(version_id, "Directory already deleted")
+                                env_deleted = True
+                                break
 
-                        append_log(version_id, f"Cleanup attempt {i+1}/{max_retries}...")
+                            append_log(version_id, f"Cleanup attempt {i+1}/{max_retries}...")
 
-                        try:
-                            shutil.rmtree(env_dir, onerror=remove_readonly)
-                        except Exception as e:
-                            append_log(version_id, f"shutil.rmtree error: {e}")
+                            try:
+                                # Try with error handler
+                                def handle_remove_readonly(func, path, exc):
+                                    import stat
+                                    os.chmod(path, stat.S_IWRITE)
+                                    func(path)
+                                
+                                shutil.rmtree(env_dir, onerror=handle_remove_readonly)
+                            except Exception as e:
+                                append_log(version_id, f"shutil.rmtree error: {e}")
 
-                        if not os.path.exists(env_dir):
-                            append_log(version_id, "Directory deleted successfully")
-                            break
+                            if not os.path.exists(env_dir):
+                                append_log(version_id, "Directory deleted successfully")
+                                env_deleted = True
+                                break
 
-                        # Short wait for file locks to release
-                        time.sleep(2)
+                            time.sleep(1)
 
-                    # 3. Final check
+                    # Final check
                     if os.path.exists(env_dir):
-                        append_log(version_id, f"Warning: Failed to delete {env_dir} after {max_retries} attempts")
+                        append_log(version_id, f"Warning: Failed to delete {env_dir}, continuing anyway")
                     else:
                         append_log(version_id, "Cleanup completed")
 
@@ -575,3 +708,162 @@ async def delete_version(version_id: int, req: Request, db: Session = Depends(ge
         db.delete(version)
         db.commit()
         return {"ok": True}
+
+@router.post("/cleanup-cache")
+async def cleanup_conda_cache(req: Request, db: Session = Depends(get_db)):
+    """清理 Conda 缓存，解决卡住问题"""
+    append_log(0, "Starting conda cache cleanup...")
+    
+    try:
+        # Run conda clean
+        result = subprocess.run(
+            ["conda", "clean", "-afy"],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        
+        # Also clean pip cache
+        pip_result = subprocess.run(
+            ["pip", "cache", "purge"],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        
+        # Clean any stale lock files in envs directory
+        envs_dir = os.path.abspath(os.path.join(os.getcwd(), "envs"))
+        if os.path.exists(envs_dir):
+            cleaned_count = 0
+            for item in os.listdir(envs_dir):
+                item_path = os.path.join(envs_dir, item)
+                if os.path.isdir(item_path):
+                    pkgs_dir = os.path.join(item_path, "pkgs")
+                    if os.path.exists(pkgs_dir):
+                        try:
+                            import shutil
+                            shutil.rmtree(pkgs_dir)
+                            cleaned_count += 1
+                        except:
+                            pass
+            append_log(0, f"Cleaned {cleaned_count} package caches")
+        
+        append_log(0, f"Conda cache cleanup completed. Return code: {result.returncode}")
+        
+        create_audit_log(
+            db=db,
+            operation_type="CLEANUP",
+            target_type="ENVIRONMENT",
+            target_id="cache",
+            target_name="conda_cache",
+            details="Cleaned conda and pip cache",
+            operator_ip=req.client.host
+        )
+        
+        return {
+            "ok": True, 
+            "message": "Cache cleaned successfully",
+            "conda_output": result.stdout[:1000] if result.stdout else "",
+            "pip_output": pip_result.stdout if pip_result.stdout else ""
+        }
+    except subprocess.TimeoutExpired:
+        append_log(0, "Cache cleanup timed out")
+        return {"ok": False, "message": "Cache cleanup timed out"}
+    except Exception as e:
+        append_log(0, f"Cache cleanup error: {e}")
+        return {"ok": False, "message": f"Error: {str(e)}"}
+
+@router.post("/cleanup-residual")
+async def cleanup_residual_environments(req: Request, db: Session = Depends(get_db)):
+    """清理所有残留的环境目录（数据库中不存在但文件系统存在的）"""
+    envs_dir = os.path.abspath(os.path.join(os.getcwd(), "envs"))
+    
+    if not os.path.exists(envs_dir):
+        return {"ok": True, "message": "Envs directory does not exist", "cleaned": []}
+    
+    registered_envs = db.query(models.PythonVersion).all()
+    registered_names = {e.name for e in registered_envs}
+    
+    cleaned = []
+    errors = []
+    
+    for item in os.listdir(envs_dir):
+        item_path = os.path.join(envs_dir, item)
+        
+        if not os.path.isdir(item_path):
+            continue
+            
+        if item.startswith('.') or item in ['__pycache__', 'conda-meta']:
+            continue
+            
+        if item not in registered_names:
+            try:
+                import subprocess as sp
+                result = sp.run(['rm', '-rf', item_path], capture_output=True, text=True, timeout=60)
+                if result.returncode == 0:
+                    cleaned.append(item)
+                    append_log(0, f"Cleaned residual directory: {item}")
+                else:
+                    errors.append(f"{item}: {result.stderr}")
+            except Exception as e:
+                errors.append(f"{item}: {str(e)}")
+    
+    create_audit_log(
+        db=db,
+        operation_type="CLEANUP",
+        target_type="ENVIRONMENT",
+        target_id="residual",
+        target_name="residual_envs",
+        details=f"Cleaned {len(cleaned)} residual environments: {', '.join(cleaned)}",
+        operator_ip=req.client.host
+    )
+    
+    return {
+        "ok": True, 
+        "message": f"Found {len(cleaned)} residual directories",
+        "cleaned": cleaned,
+        "errors": errors
+    }
+
+@router.post("/reset-stuck-env/{version_id}")
+async def reset_stuck_environment(version_id: int, req: Request, db: Session = Depends(get_db)):
+    """重置卡住的环境状态，允许重新创建"""
+    version = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
+    if not version:
+        raise HTTPException(status_code=404, detail="Environment not found")
+    
+    if version.status not in ["installing", "error"]:
+        raise HTTPException(status_code=400, detail=f"Cannot reset environment with status: {version.status}")
+    
+    env_path = os.path.dirname(version.path)
+    if os.path.exists(env_path):
+        try:
+            import subprocess as sp
+            result = sp.run(['rm', '-rf', env_path], capture_output=True, text=True, timeout=60)
+            if result.returncode != 0:
+                append_log(version_id, f"Warning: Could not clean env directory: {result.stderr}")
+        except Exception as e:
+            append_log(version_id, f"Warning: Error cleaning env directory: {e}")
+    
+    old_status = version.status
+    version.status = "error"
+    version.updated_at = datetime.datetime.now()
+    db.commit()
+    
+    append_log(version_id, f"Reset environment status from '{old_status}' to 'error'")
+    
+    create_audit_log(
+        db=db,
+        operation_type="RESET",
+        target_type="ENVIRONMENT",
+        target_id=str(version.id),
+        target_name=version.name,
+        details=f"Reset stuck environment (was: {old_status})",
+        operator_ip=req.client.host
+    )
+    
+    return {
+        "ok": True, 
+        "message": f"Environment reset. You can now try to recreate it.",
+        "status": version.status
+    }

@@ -1,6 +1,22 @@
 <template>
   <div class="page-container">
-    <PageHeader title="Python 版本" description="管理服务器上可用的 Python 版本。" />
+    <PageHeader 
+      title="Python 版本" 
+      description="管理服务器上可用的 Python 版本。"
+    >
+      <template #actions>
+        <div class="header-actions">
+          <button class="btn btn-outline" @click="cleanupResidual" title="清理残留环境目录">
+            <Trash2 :size="16" />
+            清理残留
+          </button>
+          <button class="btn btn-outline" @click="cleanupCache" title="清理 Conda 和 Pip 缓存，解决安装卡住问题">
+            <RefreshCw :size="16" />
+            清理缓存
+          </button>
+        </div>
+      </template>
+    </PageHeader>
 
     <div class="content-grid">
       <!-- Add Version Tabs -->
@@ -95,14 +111,6 @@
                          <FileText :size="16" />
                       </button>
                       <button
-                        class="btn btn-secondary btn-sm"
-                        title="打开终端"
-                        :disabled="ver.status !== 'ready'"
-                        @click="openTerminal(ver)"
-                      >
-                         <Terminal :size="16" />
-                      </button>
-                      <button
                         class="btn btn-danger btn-sm"
                         title="删除"
                         :disabled="ver.status === 'deleting'"
@@ -140,6 +148,18 @@
       </div>
     </BaseModal>
 
+    <!-- Error Modal -->
+    <BaseModal
+      v-if="isErrorModalOpen"
+      v-model="isErrorModalOpen"
+      :title="errorTitle"
+      width="480px"
+    >
+      <div class="error-modal-body">
+        <p class="error-modal-message">{{ errorMessage }}</p>
+      </div>
+    </BaseModal>
+
   </div>
 </template>
 
@@ -147,7 +167,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
-import { Trash2, FileText, Terminal } from 'lucide-vue-next'
+import { Trash2, FileText, RefreshCw } from 'lucide-vue-next'
 
 interface PythonVersion {
   id: number
@@ -181,6 +201,17 @@ const selectedVersion = ref<PythonVersion | null>(null)
 const logContent = ref('')
 const logLoading = ref(false)
 const logError = ref('')
+
+// Error modal state
+const isErrorModalOpen = ref(false)
+const errorTitle = ref('操作失败')
+const errorMessage = ref('')
+
+const showError = (message: string, title = '操作失败') => {
+  errorTitle.value = title
+  errorMessage.value = message
+  isErrorModalOpen.value = true
+}
 
 let pollInterval: number | null = null
 let logPollInterval: number | null = null
@@ -231,6 +262,7 @@ const stopPolling = () => {
 }
 
 const cleanLogContent = (raw: string) => {
+  // Remove backspace characters and handle them
   let result = ''
   for (const ch of raw) {
     if (ch === '\b') {
@@ -239,8 +271,16 @@ const cleanLogContent = (raw: string) => {
       result += ch
     }
   }
-  result = result.replace(/(?:\s*[|/\\-]){3,}\s*/g, ' ')
-  return result
+  // Remove progress bar characters (|, /, -, \) that appear in sequences
+  result = result.replace(/(?:\s*[|/\\-]\s*){2,}/g, '')
+  // Remove multiple consecutive spaces
+  result = result.replace(/ {2,}/g, ' ')
+  // Remove lines that only contain progress bar characters
+  result = result.split('\n').filter(line => {
+    const trimmed = line.trim()
+    return trimmed.length > 0 && !/^[|/\\\- ]+$/.test(trimmed)
+  }).join('\n')
+  return result.trim()
 }
 
 const fetchLogs = async (versionId: number, options?: { silent?: boolean }) => {
@@ -302,27 +342,6 @@ const showVersionInfo = (ver: PythonVersion) => {
   }
 }
 
-const openTerminal = async (ver: PythonVersion) => {
-  if (ver.status !== 'ready') {
-    alert('只有就绪状态的环境才能打开终端')
-    return
-  }
-  try {
-    const response = await fetch('/api/python/versions/open-terminal', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: ver.path })
-    })
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}))
-      alert(`打开终端失败: ${data.detail || 'Unknown error'}`)
-    }
-  } catch (error) {
-    console.error('Failed to open terminal:', error)
-    alert('打开终端失败')
-  }
-}
-
 const handleCreateConda = async () => {
   if (!condaForm.value.name || !condaForm.value.version) return
   
@@ -373,7 +392,7 @@ const handleCreateConda = async () => {
 
 const deleteVersion = async (ver: PythonVersion) => {
   if (ver.is_in_use && ver.used_by_tasks?.length) {
-      alert(`该环境正在被以下任务使用，无法删除：\n${ver.used_by_tasks.join('\n')}`)
+      showError(`该环境正在被以下任务使用，无法删除：\n${ver.used_by_tasks.join('\n')}`, '无法删除环境')
       return
   }
   if (confirm(`确定要移除 ${ver.name} 吗？`)) {
@@ -397,7 +416,7 @@ const deleteVersion = async (ver: PythonVersion) => {
         } catch {
           message = '删除失败'
         }
-        alert(`删除失败: ${message}`)
+        showError(`删除失败: ${message}`, '删除环境失败')
       } else {
         // Start polling to wait for deletion to complete
         startPolling()
@@ -406,8 +425,65 @@ const deleteVersion = async (ver: PythonVersion) => {
       }
     } catch (error) {
       console.error('Failed to delete:', error)
-      alert('删除失败')
+      showError('删除失败', '删除环境失败')
     }
+  }
+}
+
+const cleanupCache = async () => {
+  if (!confirm('这将清理 Conda 和 Pip 的缓存包，可能解决安装卡住的问题。是否继续？')) {
+    return
+  }
+  
+  try {
+    const response = await fetch('/api/python/versions/cleanup-cache', {
+      method: 'POST'
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      showError(`缓存清理完成！\n\n${data.message || '成功清理缓存'}`, '清理完成')
+      await fetchVersions()
+    } else {
+      const errorData = await response.json().catch(() => ({}))
+      showError(`清理失败: ${errorData.detail || errorData.message || '未知错误'}`, '清理失败')
+    }
+  } catch (error) {
+    console.error('Failed to cleanup cache:', error)
+    showError('清理缓存请求失败', '清理失败')
+  }
+}
+
+const cleanupResidual = async () => {
+  if (!confirm('这将扫描并清理数据库中不存在但文件系统残留的环境目录。是否继续？')) {
+    return
+  }
+  
+  try {
+    const response = await fetch('/api/python/versions/cleanup-residual', {
+      method: 'POST'
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      let message = `扫描完成！\n\n`
+      if (data.cleaned && data.cleaned.length > 0) {
+        message += `已清理残留目录: ${data.cleaned.join(', ')}`
+      } else {
+        message += `未发现残留目录`
+      }
+      if (data.errors && data.errors.length > 0) {
+        message += `\n\n清理错误: ${data.errors.join(', ')}`
+      }
+      showError(message, '清理完成')
+      await fetchVersions()
+    } else {
+      const errorData = await response.json().catch(() => ({}))
+      showError(`清理失败: ${errorData.detail || errorData.message || '未知错误'}`, '清理失败')
+    }
+  } catch (error) {
+    console.error('Failed to cleanup residual:', error)
+    showError('清理残留请求失败', '清理失败')
   }
 }
 
@@ -428,6 +504,31 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: white;
+  color: #4b5563;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-outline:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+  color: #1f2937;
+}
+
 .content-grid {
   display: grid;
   grid-template-columns: 1fr 2fr;
@@ -538,5 +639,15 @@ onUnmounted(() => {
 
 .log-hint.error {
   color: #ef4444;
+}
+
+.error-modal-body {
+  padding: 8px 0;
+}
+
+.error-modal-message {
+  white-space: pre-wrap;
+  font-size: 14px;
+  color: #4b5563;
 }
 </style>

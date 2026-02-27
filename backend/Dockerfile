@@ -65,6 +65,9 @@ RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.t
     && rm -rf /wheels \
     && conda clean -afy
 
+# Pre-create envs directory to avoid permission issues
+RUN mkdir -p /app/envs /app/logs/tasks /app/logs/install /app/data/backups
+
 # Expose port
 EXPOSE 8000
 

@@ -4,6 +4,7 @@ import platform
 import threading
 import time
 import datetime
+import re
 from sqlalchemy.sql import func
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
@@ -30,6 +31,17 @@ class LogResponse(BaseModel):
 
 # --- Helpers ---
 
+def clean_ansi(text: str) -> str:
+    """Remove ANSI escape sequences and special characters from text"""
+    # Remove standard ANSI escape sequences (colors, cursor movement, etc.)
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    text = ansi_escape.sub('', text)
+    # Remove backspace characters (退格键)
+    text = re.sub(r'[\x08\x7F]+', '', text)
+    # Remove carriage return characters that cause duplicate lines
+    text = text.replace('\r', '')
+    return text
+
 def get_log_path(version_id: int):
     """Returns path to the install log file for this version"""
     log_dir = os.path.abspath(os.path.join(os.getcwd(), "logs", "install"))
@@ -39,6 +51,12 @@ def get_log_path(version_id: int):
 
 def append_log(version_id: int, message: str):
     """Appends message to the log file"""
+    # Clean ANSI sequences from message
+    message = clean_ansi(message)
+    # Skip empty or whitespace-only lines
+    if not message or not message.strip():
+        return
+    
     log_file = get_log_path(version_id)
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
@@ -76,26 +94,71 @@ def run_install_background(version_id: int, cmd: list):
         except Exception as e:
             append_log(version_id, f"Warning: Failed to inject proxy settings: {e}")
 
-        # Use shell=False for list to avoid redirection issues
+        # Use shell=False for better process control
+        cmd_list = cmd if isinstance(cmd, list) else cmd.split()
         process = subprocess.Popen(
-            cmd, 
+            cmd_list, 
             shell=False,
             env=env_vars,
             stdout=subprocess.PIPE, 
             stderr=subprocess.STDOUT, 
             text=True,
             encoding='utf-8', 
-            errors='replace'
+            errors='replace',
+            cwd=os.getcwd()
         )
         
-        # Use communicate() to properly wait for process to complete
-        # and read all output from stdout
-        stdout, _ = process.communicate()
-
-        # Write output to log file
-        if stdout:
-            for line in stdout.splitlines():
+        # Read output line by line with timeout handling
+        import time
+        import select
+        import fcntl
+        
+        # Set stdout to non-blocking
+        fd = process.stdout.fileno()
+        fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+        fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+        
+        start_time = time.time()
+        timeout_seconds = 600  # 10 minutes timeout for package install
+        
+        while True:
+            if process.poll() is not None:
+                break
+                
+            if time.time() - start_time > timeout_seconds:
+                append_log(version_id, f"Installation timeout ({timeout_seconds}s), terminating process...")
+                process.kill()
+                process.wait()
+                append_log(version_id, "Process terminated due to timeout")
+                
+                version = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
+                if version:
+                    version.status = "error"
+                    db.commit()
+                return
+                
+            try:
+                line = process.stdout.readline()
+                if line:
+                    append_log(version_id, line.strip())
+                else:
+                    time.sleep(0.5)
+            except:
+                time.sleep(0.5)
+                continue
+        
+        # Read remaining output
+        remaining = process.stdout.read()
+        if remaining:
+            for line in remaining.splitlines():
                 append_log(version_id, line.strip())
+        
+        process.stdout.close()
+        
+        # Ensure process completes
+        process.wait()
+
+        append_log(version_id, f"Installation process completed with return code: {process.returncode}")
 
         if process.returncode == 0:
             append_log(version_id, "Installation completed successfully.")
@@ -111,6 +174,8 @@ def run_install_background(version_id: int, cmd: list):
         
     except Exception as e:
         append_log(version_id, f"Fatal error during installation: {str(e)}")
+        import traceback
+        append_log(version_id, f"Traceback: {traceback.format_exc()}")
         try:
              version = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
              if version:

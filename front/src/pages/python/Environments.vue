@@ -1,6 +1,6 @@
 <template>
   <div class="page-container">
-    <PageHeader title="Python 环境" description="管理 Python 环境及其依赖包。">
+    <PageHeader title="依赖管理" description="管理 Python 环境依赖包。">
       <!-- <template #actions>
         <button class="btn btn-primary" @click="showCreateModal = true">
           <i class="icon-plus">+</i> 新建环境
@@ -63,7 +63,7 @@
     <div v-else class="empty-state">
       <div class="empty-icon">🐍</div>
       <h3>未找到 Python 环境</h3>
-      <p>请先在“Python 版本”页面添加环境。</p>
+      <p>请先在"版本管理"页面添加环境。</p>
     </div>
 
     <!-- Install Packages Modal -->
@@ -209,6 +209,18 @@
         </div>
     </BaseModal>
 
+    <!-- Error Modal -->
+    <BaseModal
+      v-if="isErrorModalOpen"
+      v-model="isErrorModalOpen"
+      :title="errorTitle"
+      width="480px"
+    >
+      <div class="error-modal-body">
+        <p class="error-modal-message">{{ errorMessage }}</p>
+      </div>
+    </BaseModal>
+
   </div>
 </template>
 
@@ -261,6 +273,17 @@ const installForm = reactive({
 const fileInput = ref<HTMLInputElement | null>(null)
 const isFileUploaded = ref(false)
 const originalPackages = ref('') // To restore manual input if file removed
+
+// Error modal state
+const isErrorModalOpen = ref(false)
+const errorTitle = ref('操作失败')
+const errorMessage = ref('')
+
+const showError = (message: string, title = '操作失败') => {
+  errorTitle.value = title
+  errorMessage.value = message
+  isErrorModalOpen.value = true
+}
 
 // --- API ---
 const API_BASE = '/api/python/environments'
@@ -333,7 +356,7 @@ const handleFileUpload = (event: Event) => {
     if (!file) return
     
     if (!file.name.endsWith('.txt')) {
-        alert('请选择 .txt 文件 (如 requirements.txt)')
+        showError('请选择 .txt 文件 (如 requirements.txt)', '文件类型错误')
         target.value = '' // Reset input
         return
     }
@@ -344,7 +367,7 @@ const handleFileUpload = (event: Event) => {
             const content = e.target?.result as string
             // Basic validation: check if empty
             if (!content.trim()) {
-                alert('文件内容为空')
+                showError('文件内容为空', '读取文件失败')
                 return
             }
             
@@ -357,7 +380,7 @@ const handleFileUpload = (event: Event) => {
             isFileUploaded.value = true
         } catch (err) {
             console.error(err)
-            alert('读取文件失败')
+            showError('读取文件失败', '文件读取错误')
         } finally {
             target.value = '' // Reset input so same file can be selected again if needed
         }
@@ -403,11 +426,11 @@ const installPackages = async () => {
             fetchLogs()
             fetchEnvironments()
         } else {
-            alert(`启动失败: ${data.detail || 'Unknown error'}`)
+            showError(`安装失败: ${data.detail || 'Unknown error'}`, '安装失败')
         }
     } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
-        alert(`Error: ${msg}`)
+        showError(`安装失败: ${msg}`, '安装失败')
     } finally {
         installing.value = false
     }
@@ -425,11 +448,11 @@ const uninstallPackage = async (pkgName: string) => {
             fetchPackages(selectedEnv.value.id)
         } else {
             const err = await res.json()
-            alert(`Uninstall failed: ${err.detail}`)
+            showError(`卸载失败: ${err.detail}`, '卸载失败')
         }
     } catch (e) {
         console.error(e)
-        alert('Uninstall failed')
+        showError('卸载失败', '卸载失败')
     }
 }
 
@@ -779,5 +802,15 @@ const formatDate = (dateStr?: string) => {
 .pkg-table th {
     color: #6b7280;
     font-weight: 500;
+}
+
+.error-modal-body {
+  padding: 8px 0;
+}
+
+.error-modal-message {
+  white-space: pre-wrap;
+  font-size: 14px;
+  color: #4b5563;
 }
 </style>
