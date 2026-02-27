@@ -88,7 +88,11 @@ async def get_dashboard_stats(
         current += datetime.timedelta(days=1)
         
     for r in daily_results:
-        date_str = r.date
+        # Handle both string and date object from SQLite
+        if hasattr(r.date, 'strftime'):
+            date_str = r.date.strftime("%Y-%m-%d")
+        else:
+            date_str = str(r.date)
         status = r.status
         count = r.count
         if date_str in stats_map:

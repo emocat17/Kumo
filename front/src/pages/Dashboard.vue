@@ -27,9 +27,10 @@
     <!-- Content Area -->
     <div class="tab-content">
       <keep-alive>
-        <component 
-          :is="currentTabComponent" 
-          :system-stats="systemStats" 
+        <component
+          :is="currentTabComponent"
+          :system-stats="systemStats"
+          :dashboard-stats="dashboardStats"
         />
       </keep-alive>
     </div>
@@ -95,9 +96,19 @@ const systemStats = ref<SystemStats>({
     disk: { partitions: [], read_count: 0, write_count: 0, read_bytes: '0B', write_bytes: '0B' },
     network: { bytes_sent: '0B', bytes_recv: '0B', packets_recv: 0, packets_sent: 0, pids: 0 }
 })
+const dashboardStats = ref({
+    total_tasks: 0,
+    active_tasks: 0,
+    running_executions: 0,
+    total_executions: 0,
+    success_rate_7d: 0,
+    daily_stats: [],
+    failure_stats: [],
+    recent_executions: []
+})
 let timer: number | null = null
 
-const API_BASE = 'http://localhost:8000/api'
+const API_BASE = '/api'
 
 // Computed
 const currentTabComponent = computed(() => {
@@ -113,7 +124,65 @@ const fetchSystemStats = async () => {
     try {
         const res = await fetch(`${API_BASE}/system/stats`)
         if (res.ok) {
-            systemStats.value = await res.json()
+            const data = await res.json()
+            // Ensure all required fields exist with defaults
+            systemStats.value = {
+                cpu: {
+                    percent: data.cpu?.percent ?? 0,
+                    count: data.cpu?.count ?? 0,
+                    cores: data.cpu?.cores ?? 0,
+                    threads: data.cpu?.threads ?? 0,
+                    freq_current: data.cpu?.freq_current ?? 0,
+                    freq_max: data.cpu?.freq_max ?? 0,
+                    load_avg: data.cpu?.load_avg ?? [],
+                    per_cpu: data.cpu?.per_cpu ?? []
+                },
+                memory: {
+                    percent: data.memory?.percent ?? 0,
+                    total: data.memory?.total ?? '0B',
+                    used: data.memory?.used ?? '0B',
+                    available: data.memory?.available ?? '0B',
+                    cached: data.memory?.cached ?? '0B',
+                    swap_used: data.memory?.swap_used ?? '0B',
+                    swap_total: data.memory?.swap_total ?? '0B',
+                    swap_percent: data.memory?.swap_percent ?? 0
+                },
+                disk: {
+                    partitions: data.disk?.partitions ?? [],
+                    read_count: data.disk?.read_count ?? 0,
+                    write_count: data.disk?.write_count ?? 0,
+                    read_bytes: data.disk?.read_bytes ?? '0B',
+                    write_bytes: data.disk?.write_bytes ?? '0B'
+                },
+                network: {
+                    bytes_sent: data.network?.bytes_sent ?? '0B',
+                    bytes_recv: data.network?.bytes_recv ?? '0B',
+                    packets_recv: data.network?.packets_recv ?? 0,
+                    packets_sent: data.network?.packets_sent ?? 0,
+                    pids: data.network?.pids ?? 0
+                }
+            }
+        }
+    } catch (e) {
+        console.error(e)
+    }
+}
+
+const fetchDashboardStats = async () => {
+    try {
+        const res = await fetch(`${API_BASE}/tasks/dashboard/stats`)
+        if (res.ok) {
+            const data = await res.json()
+            dashboardStats.value = {
+                total_tasks: data.total_tasks ?? 0,
+                active_tasks: data.active_tasks ?? 0,
+                running_executions: data.running_executions ?? 0,
+                total_executions: data.total_executions ?? 0,
+                success_rate_7d: data.success_rate_7d ?? 0,
+                daily_stats: data.daily_stats ?? [],
+                failure_stats: data.failure_stats ?? [],
+                recent_executions: data.recent_executions ?? []
+            }
         }
     } catch (e) {
         console.error(e)
