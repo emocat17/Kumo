@@ -495,22 +495,62 @@ async def save_file_content(
 class DirListRequest(BaseModel):
     path: str = "/"
 
+# Define allowed base directories for browsing
+ALLOWED_BROWSE_DIRS = [
+    PROJECTS_DIR,  # Project uploads directory
+    os.path.abspath(os.path.join(os.getcwd(), "..", "Data")),  # Data directory
+    os.path.abspath(os.path.join(os.getcwd(), "envs")),  # Environments directory
+    os.path.abspath(os.path.join(os.getcwd(), "logs")),  # Logs directory
+]
+
+def is_path_allowed(target_path: str) -> bool:
+    """Check if the target path is within allowed directories."""
+    abs_target = os.path.abspath(target_path)
+    for allowed_dir in ALLOWED_BROWSE_DIRS:
+        abs_allowed = os.path.abspath(allowed_dir)
+        if abs_target.startswith(abs_allowed + os.sep) or abs_target == abs_allowed:
+            return True
+    return False
+
 @router.post("/browse-dirs")
 def browse_server_directories(request: DirListRequest):
     # Only allow browsing, no modification
     target_path = request.path
+
+    # Validate path is not empty
     if not target_path or target_path == "":
-        if platform.system() == "Windows":
-             target_path = "C:\\" # Or maybe just list drives? But let's start simple
-        else:
-             target_path = "/"
-             
-    if not os.path.exists(target_path):
+        # Default to projects directory
+        target_path = PROJECTS_DIR
+
+    # Security check: ensure path is within allowed directories
+    if not is_path_allowed(target_path):
+        raise HTTPException(status_code=403, detail="Access denied: Path is not in allowed directories")
+
+    # Additional check: resolve any path traversal attempts
+    abs_target = os.path.abspath(target_path)
+    if not is_path_allowed(abs_target):
+        raise HTTPException(status_code=403, detail="Access denied: Path traversal attempt detected")
+
+    if not os.path.exists(abs_target):
         raise HTTPException(status_code=404, detail="Path not found")
-        
+
+    # Don't allow going above allowed directories
+    for allowed_dir in ALLOWED_BROWSE_DIRS:
+        abs_allowed = os.path.abspath(allowed_dir)
+        parent = abs_target
+        while parent:
+            parent = os.path.dirname(parent)
+            if parent == abs_allowed:
+                break
+            if not parent or parent == os.path.dirname(parent):  # Reached root
+                # Check if we're still in an allowed path
+                if not is_path_allowed(abs_target):
+                    raise HTTPException(status_code=403, detail="Access denied: Cannot browse outside allowed directories")
+                break
+
     items = []
     try:
-        for entry in os.scandir(target_path):
+        for entry in os.scandir(abs_target):
             if entry.is_dir():
                 try:
                     items.append({
@@ -522,15 +562,15 @@ def browse_server_directories(request: DirListRequest):
                     pass
     except Exception as e:
          raise HTTPException(status_code=500, detail=f"Error reading directory: {str(e)}")
-         
+
     items.sort(key=lambda x: x["name"].lower())
-    
-    # Add parent dir
-    parent = os.path.dirname(target_path)
-    if parent and parent != target_path:
+
+    # Add parent dir only if it's within allowed directories
+    parent = os.path.dirname(abs_target)
+    if parent and is_path_allowed(parent):
          items.insert(0, {"name": "..", "path": parent, "type": "dir"})
-         
+
     return {
-        "current_path": os.path.abspath(target_path),
+        "current_path": abs_target,
         "items": items
     }

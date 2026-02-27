@@ -262,19 +262,24 @@ async def uninstall_package(version_id: int, package_name: str, req: Request, db
     if not version:
         raise HTTPException(status_code=404, detail="Python version not found")
 
-    # Try pip uninstall first
-    cmd = f"\"{version.path}\" -m pip uninstall {package_name} -y"
-    process = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    
+    # Sanitize package_name to prevent command injection
+    # Only allow alphanumeric, dash, underscore, and dot (for version specs)
+    safe_package_name = "".join(c for c in package_name if c.isalnum() or c in '-_.')
+
+    # Try pip uninstall first (use list form to prevent injection)
+    cmd_list = [version.path, "-m", "pip", "uninstall", safe_package_name, "-y"]
+    process = subprocess.run(cmd_list, shell=False, capture_output=True, text=True)
+
     if process.returncode != 0:
          # If failed, and it's conda, try conda remove
          if version.is_conda:
              env_dir = os.path.dirname(version.path)
              if os.path.basename(env_dir).lower() in ['bin', 'scripts']:
                  env_dir = os.path.dirname(env_dir)
-             
-             cmd_conda = f"conda remove -p \"{env_dir}\" {package_name} -y"
-             proc_conda = subprocess.run(cmd_conda, shell=True, capture_output=True, text=True)
+
+             # Use list form for conda command
+             cmd_conda_list = ["conda", "remove", "-p", env_dir, safe_package_name, "-y"]
+             proc_conda = subprocess.run(cmd_conda_list, shell=False, capture_output=True, text=True)
              if proc_conda.returncode != 0:
                  raise HTTPException(status_code=500, detail=f"Uninstall failed: {proc_conda.stderr}")
          else:

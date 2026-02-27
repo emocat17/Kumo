@@ -48,15 +48,16 @@ def append_log(version_id: int, message: str):
     except Exception:
         pass
 
-# Helper to run command in background
-def run_conda_create(command: str, version_id: int):
+# Helper to run command in background (modified to accept list for security)
+def run_conda_create(command: list, version_id: int):
     # Create a new session for the thread
     db = SessionLocal()
     try:
-        append_log(version_id, f"Starting conda creation with command: {command}")
+        cmd_str = " ".join(command)
+        append_log(version_id, f"Starting conda creation with command: {cmd_str}")
         process = subprocess.Popen(
             command,
-            shell=True,
+            shell=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -180,7 +181,7 @@ def get_default_conda_env_dir():
 async def create_conda_env(request: CondaCreateRequest, db: Session = Depends(get_db)):
     # Get default conda envs directory
     base_env_path = get_default_conda_env_dir()
-    
+
     if not base_env_path:
         # Fallback to local if we can't find global (unlikely if conda is installed)
         base_env_path = os.path.abspath(os.path.join(os.getcwd(), "envs"))
@@ -189,19 +190,30 @@ async def create_conda_env(request: CondaCreateRequest, db: Session = Depends(ge
         use_named_env = False
     else:
         use_named_env = True
-        
-    env_path = os.path.join(base_env_path, request.name)
-    
+
+    # Sanitize environment name to prevent command injection
+    # Only allow alphanumeric, dash, underscore
+    safe_name = "".join(c for c in request.name if c.isalnum() or c in '-_')
+    if not safe_name or safe_name != request.name:
+        raise HTTPException(status_code=400, detail="Invalid environment name. Use only letters, numbers, dash and underscore.")
+
+    # Validate version format (basic check)
+    safe_version = "".join(c for c in request.version if c.isdigit() or c in '.-')
+    if not safe_version:
+        raise HTTPException(status_code=400, detail="Invalid Python version format")
+
+    env_path = os.path.join(base_env_path, safe_name)
+
     # Check if exists (simple check, conda will also check)
     if os.path.exists(env_path):
         raise HTTPException(status_code=400, detail=f"Environment path already exists: {env_path}")
 
-    # Use named creation if possible, otherwise prefix
+    # Use list form for command (security: prevent shell injection)
     if use_named_env:
-        command = f"conda create -n \"{request.name}\" python={request.version} -y"
+        command = ["conda", "create", "-n", safe_name, f"python={safe_version}", "-y"]
     else:
-        command = f"conda create --prefix \"{env_path}\" python={request.version} -y"
-    
+        command = ["conda", "create", "--prefix", env_path, f"python={safe_version}", "-y"]
+
     if platform.system() == "Windows":
         python_exe = os.path.join(env_path, "python.exe")
     else:
@@ -209,8 +221,8 @@ async def create_conda_env(request: CondaCreateRequest, db: Session = Depends(ge
 
     # Create DB record immediately with "installing" status
     new_version = models.PythonVersion(
-        name=request.name,
-        version=request.version, # Temporary version, will be accurate after install if we updated it
+        name=safe_name,
+        version=safe_version,
         path=python_exe,
         status="installing",
         is_conda=True
@@ -433,15 +445,17 @@ def background_delete_version(version_id: int):
                     except Exception as e:
                         print(f"Error killing processes: {e}")
 
-                    # 1. Try conda remove
+                    # 1. Try conda remove (use list form for security)
                     # Use -n if it's a named env, otherwise -p
                     if is_named_env and env_name:
-                         command = f"conda remove -n \"{env_name}\" --all -y"
+                         # Sanitize env_name
+                         safe_env_name = "".join(c for c in env_name if c.isalnum() or c in '-_')
+                         command_list = ["conda", "remove", "-n", safe_env_name, "--all", "-y"]
                     else:
-                         command = f"conda remove --prefix \"{env_dir}\" --all -y"
-                         
-                    print(f"Executing: {command}")
-                    process = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                         command_list = ["conda", "remove", "--prefix", env_dir, "--all", "-y"]
+
+                    print(f"Executing: {' '.join(command_list)}")
+                    process = subprocess.run(command_list, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                     
                     if process.returncode != 0:
                         print(f"Conda remove warning: {process.stderr}")

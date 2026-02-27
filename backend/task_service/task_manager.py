@@ -162,12 +162,64 @@ class TaskManager:
     execution_stats = {} # execution_id -> {'max_cpu': 0.0, 'max_mem': 0.0}
     psutil_processes = {} # execution_id -> psutil.Process (cached)
 
+    # Maximum cache size to prevent memory leaks
+    MAX_CACHE_SIZE = 1000
+    _cleanup_counter = 0  # Counter for periodic cleanup
+
+    def _cleanup_caches(self):
+        """Clean up stale entries from caches to prevent memory leaks."""
+        # Clean up execution_stats for executions that are no longer running
+        try:
+            from core.database import SessionLocal
+            db = SessionLocal()
+            try:
+                # Get all running execution IDs
+                running_ids = set(self.running_processes.keys())
+
+                # Remove stats for finished executions
+                stale_stats = []
+                for exec_id in list(self.execution_stats.keys()):
+                    if exec_id not in running_ids:
+                        stale_stats.append(exec_id)
+
+                for exec_id in stale_stats:
+                    del self.execution_stats[exec_id]
+
+                # Also clean up psutil_processes cache
+                stale_psutil = []
+                for exec_id in list(self.psutil_processes.keys()):
+                    if exec_id not in running_ids:
+                        stale_psutil.append(exec_id)
+
+                for exec_id in stale_psutil:
+                    del self.psutil_processes[exec_id]
+
+                # Hard limit: if caches are too large, remove oldest entries
+                if len(self.execution_stats) > self.MAX_CACHE_SIZE:
+                    # Remove oldest entries (first 50%)
+                    keys_to_remove = list(self.execution_stats.keys())[:len(self.execution_stats) // 2]
+                    for k in keys_to_remove:
+                        del self.execution_stats[k]
+                        if k in self.psutil_processes:
+                            del self.psutil_processes[k]
+
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"Cache cleanup error: {e}")
+
     def _monitor_resources(self):
         """
         Background thread to monitor resource usage of running tasks.
         """
         while True:
             try:
+                # Periodic cache cleanup every 60 iterations (approx. 60 seconds)
+                self._cleanup_counter += 1
+                if self._cleanup_counter >= 60:
+                    self._cleanup_caches()
+                    self._cleanup_counter = 0
+
                 # Iterate over a copy of keys to avoid runtime change issues
                 exec_ids = list(self.running_processes.keys())
                 
