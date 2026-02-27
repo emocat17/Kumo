@@ -162,6 +162,8 @@ def create_project(
         operator_ip=request.client.host
     )
 
+    return db_project
+
 @router.get("/{project_id}/detect", response_model=dict)
 def detect_project_framework(project_id: int, db: Session = Depends(get_db)):
     project = db.query(models.Project).filter(models.Project.id == project_id).first()

@@ -112,7 +112,7 @@ def run_conda_create(command: list, version_id: int):
             errors="replace",
             cwd=os.getcwd()
         )
-        
+
         append_log(version_id, f"Process started with PID: {process.pid}")
 
         import time
@@ -128,9 +128,9 @@ def run_conda_create(command: list, version_id: int):
                 for line in stdout.splitlines():
                     if line.strip():
                         append_log(version_id, line.strip())
-            
+        
             append_log(version_id, f"Process completed with return code: {return_code}")
-                        
+        
         except subprocess.TimeoutExpired:
             append_log(version_id, "Installation timeout (600s), terminating process...")
             process.kill()
