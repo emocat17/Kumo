@@ -21,8 +21,14 @@
       </div>
     </div>
 
+    <!-- Loading State -->
+    <div v-if="loadingEnvs" class="loading-state">
+      <div class="loading-spinner-lg"></div>
+      <span class="loading-text-lg">正在加载环境...</span>
+    </div>
+
     <!-- Environments Grid -->
-    <div v-if="filteredEnvironments.length > 0" class="grid-container">
+    <div v-else-if="filteredEnvironments.length > 0" class="grid-container">
       <div v-for="env in filteredEnvironments" :key="env.id" class="card env-card">
         <div class="card-header">
           <h3 class="card-title env-name" :title="env.path">{{ env.name || 'Default' }}</h3>
@@ -195,7 +201,8 @@
                     </div>
                 </div>
                 <div v-else class="loading-pkgs">
-                    加载中...
+                    <div class="loading-spinner"></div>
+                    <span class="loading-text">正在加载已安装依赖...</span>
                 </div>
             </div>
 
@@ -253,6 +260,7 @@ interface PackageInfo {
 
 // --- State ---
 const environments = ref<Environment[]>([])
+const loadingEnvs = ref(true)  // 初始加载状态
 const showInstallModal = ref(false)
 const selectedEnv = ref<Environment | null>(null)
 const packages = ref<PackageInfo[]>([])
@@ -292,6 +300,7 @@ const showError = (message: string, title = '操作失败') => {
 const API_BASE = '/api/python/environments'
 
 const fetchEnvironments = async () => {
+  loadingEnvs.value = true
   try {
     const res = await fetch(API_BASE)
     if (res.ok) {
@@ -299,6 +308,8 @@ const fetchEnvironments = async () => {
     }
   } catch (e: unknown) {
     console.error(e)
+  } finally {
+    loadingEnvs.value = false
   }
 }
 
@@ -818,6 +829,34 @@ const formatDate = (dateStr?: string) => {
 .pkg-table th {
     color: #6b7280;
     font-weight: 500;
+}
+
+.loading-pkgs {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(37, 99, 235, 0.2);
+    border-top-color: #2563eb;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    margin-bottom: 10px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-text {
+    letter-spacing: 0.5px;
 }
 
 .error-modal-body {

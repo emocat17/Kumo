@@ -270,6 +270,34 @@
   margin-bottom: 16px;
 }
 
+/* Loading State */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  color: #6b7280;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #eef0f2;
+}
+
+.loading-spinner-lg {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(37, 99, 235, 0.2);
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-bottom: 16px;
+}
+
+.loading-text-lg {
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
 /* Cards Grid */
 .grid-container {
   display: grid;
@@ -373,4 +401,8 @@
 
 .data-table tr:hover td {
   background-color: #f9fafb;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

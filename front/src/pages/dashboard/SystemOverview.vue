@@ -104,8 +104,11 @@ interface DashboardStats {
   total_tasks: number
   active_tasks: number
   running_executions: number
+  total_executions?: number
+  success_rate_7d?: number
   daily_stats: Array<{ date: string; success: number; failed: number }>
   failure_stats?: Array<{ task_id: number; task_name: string; failure_count: number }>
+  recent_executions?: Array<{ id: number; task_name: string; status: string; start_time: string }>
 }
 
 const props = defineProps<{

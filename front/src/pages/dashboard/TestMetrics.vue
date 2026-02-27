@@ -493,12 +493,12 @@ const formatBytes = (bytes: number) => {
   return `${value.toFixed(2)} ${units[idx]}`
 }
 
-const formatTime = (iso: string) => {
+const formatTime = (iso: string | undefined) => {
   if (!iso) return '-'
   return new Date(iso).toLocaleString()
 }
 
-const formatDuration = (seconds: number) => {
+const formatDuration = (seconds: number | undefined) => {
   if (!seconds) return '-'
   if (seconds < 60) return `${seconds.toFixed(1)}s`
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${(seconds % 60).toFixed(0)}s`
@@ -548,11 +548,13 @@ const refreshMetrics = async () => {
       testData.value = await res.json()
 
       // Update history
-      throughputHistory.value.push({
-        time: new Date().toLocaleTimeString(),
-        files: testData.value.output?.recent_files ?? 0,
-        mb: (testData.value.output?.recent_bytes ?? 0) / 1024 / 1024
-      })
+      if (testData.value?.output) {
+        throughputHistory.value.push({
+          time: new Date().toLocaleTimeString(),
+          files: testData.value.output?.recent_files ?? 0,
+          mb: (testData.value.output?.recent_bytes ?? 0) / 1024 / 1024
+        })
+      }
       if (throughputHistory.value.length > 30) {
         throughputHistory.value.shift()
       }
