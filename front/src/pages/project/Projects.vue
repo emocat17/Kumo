@@ -121,7 +121,7 @@
                   浏览
                 </button>
             </div>
-            <small class="form-hint">所建议选择:data,目前在docker中完成文件映射---/data:/Data/</small>
+            <small class="form-hint">建议使用 /data 目录下的路径，如 /data/my_project_output（容器内路径会自动映射到宿主机）</small>
         </div>
 
         <div v-if="!isEditing" class="form-group">
