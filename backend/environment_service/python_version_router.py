@@ -179,17 +179,13 @@ def get_default_conda_env_dir():
 
 @router.post("/create-conda-env")
 async def create_conda_env(request: CondaCreateRequest, db: Session = Depends(get_db)):
-    # Get default conda envs directory
-    base_env_path = get_default_conda_env_dir()
+    # Always use explicit path to ensure environment is created in the mapped volume
+    # This prevents environment loss after container restart
+    base_env_path = os.path.abspath(os.path.join(os.getcwd(), "envs"))
 
-    if not base_env_path:
-        # Fallback to local if we can't find global (unlikely if conda is installed)
-        base_env_path = os.path.abspath(os.path.join(os.getcwd(), "envs"))
-        if not os.path.exists(base_env_path):
-            os.makedirs(base_env_path)
-        use_named_env = False
-    else:
-        use_named_env = True
+    # Ensure the envs directory exists
+    if not os.path.exists(base_env_path):
+        os.makedirs(base_env_path)
 
     # Sanitize environment name to prevent command injection
     # Only allow alphanumeric, dash, underscore
@@ -208,11 +204,9 @@ async def create_conda_env(request: CondaCreateRequest, db: Session = Depends(ge
     if os.path.exists(env_path):
         raise HTTPException(status_code=400, detail=f"Environment path already exists: {env_path}")
 
-    # Use list form for command (security: prevent shell injection)
-    if use_named_env:
-        command = ["conda", "create", "-n", safe_name, f"python={safe_version}", "-y"]
-    else:
-        command = ["conda", "create", "--prefix", env_path, f"python={safe_version}", "-y"]
+    # Always use --prefix to ensure environment is created in the mapped volume
+    # This ensures persistence across container restarts
+    command = ["conda", "create", "--prefix", env_path, f"python={safe_version}", "-y"]
 
     if platform.system() == "Windows":
         python_exe = os.path.join(env_path, "python.exe")
