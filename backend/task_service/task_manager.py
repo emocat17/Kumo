@@ -23,9 +23,9 @@ from system_service import models as system_models
 from core.security import decrypt_value
 
 # Setup logging
-logging.basicConfig()
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('apscheduler')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)  # 改为 INFO 级别，减少日志输出
 
 class TaskManager:
     _instance = None
@@ -287,7 +287,7 @@ class TaskManager:
             except Exception as e:
                 print(f"Error in resource monitor loop: {e}")
                 
-            time.sleep(1) # Check every second
+            time.sleep(2)  # Check every 2 seconds - reduced from 1s for better performance
 
     def load_jobs_from_db(self):
         db = SessionLocal()

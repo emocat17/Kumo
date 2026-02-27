@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from core.database import init_db, engine
 from sqlalchemy import text
 from environment_service import models as env_models # Import models to ensure they are registered with Base
@@ -79,15 +80,107 @@ from task_service.task_router import router as task_router
 from log_service.logs_router import router as logs_router
 from audit_service.audit_router import router as audit_router
 
-app = FastAPI(title="Kumo Backend", lifespan=lifespan)
+app = FastAPI(title="Kumo Backend", version="1.0.0", lifespan=lifespan)
+
+# CORS 配置 - 生产环境应该限制具体域名
+# 开发环境允许本地端口
+cors_origins = [
+    "http://localhost:18080",  # 前端开发服务器
+    "http://localhost:5173",   # Vite 默认端口
+    "http://127.0.0.1:18080",
+    "http://127.0.0.1:5173",
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:18080", "http://localhost:5173", "*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 健康检查端点
+@app.get("/api/health")
+async def health_check():
+    """系统健康检查"""
+    health_status = {
+        "status": "healthy",
+        "database": "unknown",
+        "scheduler": "unknown",
+    }
+    
+    # 检查数据库
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        health_status["database"] = "connected"
+    except Exception as e:
+        health_status["database"] = f"error: {str(e)}"
+        health_status["status"] = "unhealthy"
+    
+    # 检查调度器
+    if task_manager.scheduler and task_manager.scheduler.running:
+        health_status["scheduler"] = "running"
+    else:
+        health_status["scheduler"] = "stopped"
+    
+    status_code = 200 if health_status["status"] == "healthy" else 503
+    return JSONResponse(content=health_status, status_code=status_code)
+
+# 版本信息端点
+@app.get("/api/version")
+async def get_version():
+    """获取系统版本信息"""
+    return {
+        "version": "1.0.0",
+        "name": "Kumo",
+        "description": "Python 任务调度与全栈环境管理平台"
+    }
+
+# 全局异常处理器
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """全局异常处理 - 提供统一的错误响应格式"""
+    import traceback
+    
+    # 返回安全的错误信息，不暴露内部细节
+    error_message = str(exc)
+    
+    # 对于常见错误类型，提供友好提示
+    if "unique constraint" in error_message.lower():
+        detail = "数据已存在，请检查输入是否重复"
+    elif "foreign key constraint" in error_message.lower():
+        detail = "关联数据不存在，请检查引用的资源"
+    elif "timeout" in error_message.lower():
+        detail = "操作超时，请稍后重试"
+    else:
+        detail = "服务器内部错误，请稍后重试"
+    
+    # 记录完整错误到日志（不在响应中返回）
+    print(f"[ERROR] {request.method} {request.url.path}: {error_message}")
+    print(f"[TRACE] {traceback.format_exc()}")
+    
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal Server Error",
+            "detail": detail,
+            "path": str(request.url.path)
+        }
+    )
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """HTTP 异常处理 - 统一格式"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": exc.status_code,
+            "detail": exc.detail,
+            "path": str(request.url.path)
+        }
+    )
 
 app.include_router(python_version_router, prefix="/api/python/versions")
 app.include_router(env_router, prefix="/api/python/environments")
