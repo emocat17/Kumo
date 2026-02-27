@@ -110,11 +110,24 @@ interface DashboardStats {
 
 const props = defineProps<{
   systemStats: SystemStats
+  dashboardStats?: {
+    total_tasks: number
+    active_tasks: number
+    running_executions: number
+    total_executions?: number
+    success_rate_7d?: number
+    daily_stats: Array<{ date: string; success: number; failed: number }>
+    failure_stats?: Array<{ task_id: number; task_name: string; failure_count: number }>
+    recent_executions?: Array<any>
+  }
 }>()
+
+// Use props if provided, otherwise fallback to local state
+const dashboardStats = computed(() => props.dashboardStats || localDashboardStats.value)
 
 // Local State
 const selectedProjectId = ref<number | null>(null)
-const dashboardStats = ref<DashboardStats>({
+const localDashboardStats = ref<DashboardStats>({
     total_tasks: 0,
     active_tasks: 0,
     running_executions: 0,
@@ -154,11 +167,24 @@ const fetchDashboardStats = async () => {
         }
         const res = await fetch(url)
         if (res.ok) {
-            dashboardStats.value = await res.json()
+            const data = await res.json()
+            // Ensure all required fields exist with defaults
+            localDashboardStats.value = {
+                total_tasks: data.total_tasks ?? 0,
+                active_tasks: data.active_tasks ?? 0,
+                running_executions: data.running_executions ?? 0,
+                total_executions: data.total_executions ?? 0,
+                success_rate_7d: data.success_rate_7d ?? 0,
+                daily_stats: data.daily_stats ?? [],
+                failure_stats: data.failure_stats ?? [],
+                recent_executions: data.recent_executions ?? []
+            }
             initChart()
+        } else {
+            console.error('Failed to fetch dashboard stats:', res.status)
         }
     } catch (e) {
-        console.error(e)
+        console.error('Error fetching dashboard stats:', e)
     }
 }
 
