@@ -500,7 +500,8 @@ class DirListRequest(BaseModel):
 # Define allowed base directories for browsing
 ALLOWED_BROWSE_DIRS = [
     PROJECTS_DIR,  # Project uploads directory
-    os.path.abspath(os.path.join(os.getcwd(), "..", "Data")),  # Data directory
+    os.path.abspath(os.path.join(os.getcwd(), "..", "Data")),  # Data directory (uppercase)
+    os.path.abspath("/data"),  # Data directory (lowercase, docker volume mount)
     os.path.abspath(os.path.join(os.getcwd(), "envs")),  # Environments directory
     os.path.abspath(os.path.join(os.getcwd(), "logs")),  # Logs directory
 ]

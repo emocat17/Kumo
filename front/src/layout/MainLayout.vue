@@ -51,6 +51,10 @@
           <FileTextIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">日志管理</span>
         </router-link>
+        <router-link to="/files" class="nav-item" active-class="active">
+          <HardDriveIcon :size="20" class="nav-icon" />
+          <span v-if="!isCollapsed">输出文件</span>
+        </router-link>
         <router-link to="/settings" class="nav-item" active-class="active">
           <SettingsIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">设置</span>
@@ -89,7 +93,8 @@ import {
   BoxIcon, 
   Code2Icon, 
   FileTextIcon, 
-  SettingsIcon 
+  SettingsIcon,
+  HardDriveIcon
 } from 'lucide-vue-next'
 
 const isCollapsed = ref(false)
