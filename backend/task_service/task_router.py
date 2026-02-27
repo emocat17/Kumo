@@ -225,6 +225,13 @@ def resolve_output_dir(project: project_models.Project):
         
     return None
 
+def resolve_test_output_dir():
+    """Resolve the test output directory: /data/test"""
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    root_dir = os.path.dirname(backend_dir)
+    test_dir = os.path.join(root_dir, "Data", "test")
+    return test_dir
+
 def parse_task_ids(task_ids: str):
     if not task_ids:
         return []
@@ -254,7 +261,13 @@ async def get_test_metrics_overview(project_id: int = None, task_ids: str = None
         raise HTTPException(status_code=404, detail="Project not found or could not be inferred from tasks")
     project_id = project.id
 
-    output_dir = resolve_output_dir(project)
+    # Use test output directory: /data/test
+    output_dir = resolve_test_output_dir()
+
+    # Ensure test output directory exists
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
+
     now_ts = datetime.datetime.now().timestamp()
     max_scan = 20000
     scanned = 0
@@ -424,6 +437,55 @@ async def get_test_metrics_overview(project_id: int = None, task_ids: str = None
             "log_files": log_files
         }
     }
+
+@router.post("/test-metrics/clear-output")
+async def clear_test_output():
+    """Clear the test output directory /data/test"""
+    import shutil
+
+    test_dir = resolve_test_output_dir()
+
+    if not test_dir:
+        raise HTTPException(status_code=500, detail="Cannot resolve test output directory")
+
+    deleted_count = 0
+    deleted_size = 0
+
+    try:
+        if os.path.exists(test_dir):
+            for root, dirs, files in os.walk(test_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    try:
+                        deleted_size += os.path.getsize(file_path)
+                        os.remove(file_path)
+                        deleted_count += 1
+                    except Exception:
+                        pass
+                # Remove empty directories
+                for dir in dirs:
+                    dir_path = os.path.join(root, dir)
+                    try:
+                        os.rmdir(dir_path)
+                    except Exception:
+                        pass
+
+        return {
+            "success": True,
+            "message": f"已清理 {deleted_count} 个文件，共 {format_bytes(deleted_size)}",
+            "deleted_count": deleted_count,
+            "deleted_size": deleted_size
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"清理失败: {str(e)}")
+
+def format_bytes(size):
+    """Format bytes to human readable string"""
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size < 1024:
+            return f"{size:.2f} {unit}"
+        size /= 1024
+    return f"{size:.2f} PB"
 
 @router.get("/test-metrics/export")
 async def export_test_metrics(project_id: int = None, task_ids: str = None, window_seconds: int = 10, sample_limit: int = 10000, format: str = "json", db: Session = Depends(get_db)):
