@@ -87,25 +87,11 @@ def _is_progress_only_line(line: str) -> bool:
 # Global dictionary to store output buffers for each process
 _process_buffers = {}
 
-def _read_output_thread(version_id: int, process: subprocess.Popen):
-    """Thread function to read process output"""
-    try:
-        for line in process.stdout:
-            if line:
-                append_log(version_id, line.strip())
-    except Exception as e:
-        append_log(version_id, f"Output reading error: {e}")
-    finally:
-        try:
-            process.stdout.close()
-        except:
-            pass
-
 # Helper to run command in background (modified to accept list for security)
 def run_conda_create(command: list, version_id: int):
     """
     Run conda create in a background thread with proper process management.
-    Uses communicate() instead of poll() to properly handle conda's output behavior.
+    Uses communicate() to properly handle conda's output behavior.
     """
     db = SessionLocal()
     import threading
@@ -124,36 +110,26 @@ def run_conda_create(command: list, version_id: int):
             text=True,
             encoding="utf-8",
             errors="replace",
-            cwd=os.getcwd(),
-            bufsize=1  # Line buffered
+            cwd=os.getcwd()
         )
         
         append_log(version_id, f"Process started with PID: {process.pid}")
 
-        # Start a thread to read output in real-time (for better UX)
-        output_thread = threading.Thread(target=_read_output_thread, args=(version_id, process))
-        output_thread.daemon = True
-        output_thread.start()
-        
-        append_log(version_id, "Output reader thread started")
-
-        # Use communicate() instead of poll() - this properly waits for process to finish
-        # and handles the case where conda doesn't close stdout properly
         import time
         start_time = time.time()
         
         try:
-            # communicate() waits for process to terminate and collects all output
+            # communicate() reads stdout/stderr and waits for process to finish
             stdout, stderr = process.communicate(timeout=600)  # 10 minute timeout
             return_code = process.returncode
             
-            append_log(version_id, f"Process completed with return code: {return_code}")
-            
-            # Any remaining output should have been read by the thread, but let's make sure
+            # Log all output
             if stdout:
                 for line in stdout.splitlines():
                     if line.strip():
                         append_log(version_id, line.strip())
+            
+            append_log(version_id, f"Process completed with return code: {return_code}")
                         
         except subprocess.TimeoutExpired:
             append_log(version_id, "Installation timeout (600s), terminating process...")
@@ -168,8 +144,8 @@ def run_conda_create(command: list, version_id: int):
             append_log(version_id, "Process terminated due to timeout")
             return
 
-        # Wait for output thread to finish (with timeout)
-        output_thread.join(timeout=5)
+        # Wait for any remaining output to be captured
+        time.sleep(1)
 
         version_record = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
 

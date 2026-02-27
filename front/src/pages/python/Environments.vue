@@ -31,7 +31,7 @@
         
         <div class="card-body">
           <div class="info-row">
-            <span class="label">Version:</span>
+            <span class="label">版本:</span>
             <span class="value">
                 {{ env.version }}
                 <span v-if="env.is_conda" class="badge-conda">Conda</span>
@@ -462,7 +462,7 @@ onMounted(() => {
   
   // Poll for status updates if any env is installing or configuring
   pollingInterval.value = window.setInterval(() => {
-      const hasActiveOps = environments.value.some(e => e.status === 'installing' || e.status === 'configuring')
+      const hasActiveOps = environments.value.some(e => e.status === 'installing' || e.status === 'configuring' || e.status === 'deleting')
       if (hasActiveOps) {
           fetchEnvironments()
       }
@@ -497,9 +497,10 @@ const filteredPackages = computed(() => {
 const getStatusLabel = (status: string) => {
   const map: Record<string, string> = {
     ready: '就绪',
-    installing: '配置中...',
+    installing: '安装中',
+    configuring: '配置中',
     error: '错误',
-    deleting: '删除中...'
+    deleting: '删除中'
   }
   return map[status] || status
 }
