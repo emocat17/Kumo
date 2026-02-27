@@ -28,14 +28,14 @@
 
     <!-- Tasks List -->
     <div class="task-list">
-      <div v-if="tasks.length === 0" class="empty-state">
+      <div v-if="filteredTasks.length === 0" class="empty-state">
         <div class="empty-icon">⏱️</div>
         <h3>暂无定时任务</h3>
         <p>点击右上角“新建任务”开始创建一个自动运行的任务。</p>
       </div>
 
       <div v-else class="task-cards">
-        <div v-for="task in tasks" :key="task.id" class="task-card card">
+        <div v-for="task in filteredTasks" :key="task.id" class="task-card card">
           <!-- Top Row: Title, Status, Actions -->
           <div class="task-header-row">
             <div class="task-title-group">
@@ -340,7 +340,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, watch, computed } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
 import TaskHistoryModal from '@/components/task/TaskHistoryModal.vue'
@@ -386,6 +386,16 @@ const tasks = ref<Task[]>([])
 const projects = ref<Project[]>([])
 const environments = ref<Env[]>([])
 const searchQuery = ref('')
+
+const filteredTasks = computed(() => {
+  if (!searchQuery.value) return tasks.value
+  const query = searchQuery.value.toLowerCase()
+  return tasks.value.filter(t => 
+    t.name.toLowerCase().includes(query) ||
+    (t.description && t.description.toLowerCase().includes(query)) ||
+    t.command.toLowerCase().includes(query)
+  )
+})
 const isRefreshing = ref(false)
 const showModal = ref(false)
 const showHistoryModal = ref(false)
