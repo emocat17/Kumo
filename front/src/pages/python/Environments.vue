@@ -26,7 +26,7 @@
       <div v-for="env in filteredEnvironments" :key="env.id" class="card env-card">
         <div class="card-header">
           <h3 class="card-title env-name" :title="env.path">{{ env.name || 'Default' }}</h3>
-          <span :class="['status-badge', env.status]">{{ getStatusLabel(env.status) }}</span>
+          <span :class="['status-badge', statusClass(env.status)]">{{ getStatusLabel(env.status) }}</span>
         </div>
         
         <div class="card-body">
@@ -49,7 +49,10 @@
           </div>
           
           <div class="actions-row">
-            <button class="btn btn-primary btn-edit" @click="openInstallModal(env)">
+            <button 
+              class="btn btn-primary btn-edit" 
+              :disabled="env.status === 'installing' || env.status === 'configuring'"
+              @click="openInstallModal(env)">
               {{ env.status === 'installing' || env.status === 'configuring' ? '配置中' : '编辑' }}
             </button>
           </div>
@@ -503,6 +506,18 @@ const getStatusLabel = (status: string) => {
     deleting: '删除中'
   }
   return map[status] || status
+}
+
+// 样式映射：configuring 使用 installing 的样式
+const statusClass = (status: string) => {
+  const map: Record<string, string> = {
+    ready: 'ready',
+    installing: 'installing',
+    configuring: 'installing', // 复用 installing 的绿色样式
+    error: 'error',
+    deleting: 'deleting'
+  }
+  return map[status] || 'ready'
 }
 
 const formatDate = (dateStr?: string) => {

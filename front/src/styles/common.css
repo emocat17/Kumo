@@ -331,7 +331,7 @@
 }
 
 .status-badge.ready, .status-badge.active, .status-badge.success { background: #d1fae5; color: #047857; }
-.status-badge.installing, .status-badge.running { background: #dbeafe; color: #1e40af; }
+.status-badge.installing, .status-badge.configuring, .status-badge.running { background: #dbeafe; color: #1e40af; }
 .status-badge.error, .status-badge.failed, .status-badge.deleting { background: #fee2e2; color: #b91c1c; }
 .status-badge.paused { background: #fff7ed; color: #d97706; }
 .status-badge.finished { background: #f3f4f6; color: #4b5563; }
