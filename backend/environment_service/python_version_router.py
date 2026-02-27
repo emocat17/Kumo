@@ -55,6 +55,9 @@ def run_conda_create(command: list, version_id: int):
     try:
         cmd_str = " ".join(command)
         append_log(version_id, f"Starting conda creation with command: {cmd_str}")
+
+        # Use communicate() to properly wait for process to complete
+        # and read all output from both stdout and stderr
         process = subprocess.Popen(
             command,
             shell=False,
@@ -64,24 +67,32 @@ def run_conda_create(command: list, version_id: int):
             encoding="utf-8",
             errors="replace"
         )
-        if process.stdout:
-            for line in process.stdout:
+
+        # Read all output using communicate() - this ensures we get all output
+        # and the process fully completes before we proceed
+        stdout, _ = process.communicate()
+
+        # Write output to log file
+        if stdout:
+            for line in stdout.splitlines():
                 append_log(version_id, line.strip())
-        process.wait()
-        
+
+        # Now check return code
+        return_code = process.returncode
+
         version_record = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
-        
+
         if not version_record:
             append_log(version_id, f"Version record {version_id} not found.")
             return
 
-        if process.returncode == 0:
+        if return_code == 0:
             append_log(version_id, "Conda environment created successfully.")
             version_record.status = "ready"
         else:
-            append_log(version_id, f"Conda environment creation failed with code {process.returncode}")
+            append_log(version_id, f"Conda environment creation failed with code {return_code}")
             version_record.status = "error"
-            
+
         db.commit()
             
     except Exception as e:
@@ -400,125 +411,105 @@ def background_delete_version(version_id: int):
         path_to_delete = version.path
         is_conda_env = version.is_conda
         env_name = version.name
-        
+
+        append_log(version_id, f"Starting deletion for: {path_to_delete}")
+
         if is_conda_env and path_to_delete:
             try:
                 env_dir = os.path.dirname(path_to_delete)
                 if platform.system() != "Windows" and os.path.basename(env_dir) == "bin":
                     env_dir = os.path.dirname(env_dir)
-                
-                # Check if it's in default envs location to decide removal strategy
-                default_envs_dir = get_default_conda_env_dir()
-                is_named_env = False
-                if default_envs_dir and os.path.abspath(env_dir).startswith(os.path.abspath(default_envs_dir)):
-                    is_named_env = True
-                
-                cwd_envs = os.path.abspath(os.path.join(os.getcwd(), "envs"))
-                is_managed_local = os.path.abspath(env_dir).startswith(cwd_envs)
-                
-                # Safety check: Only delete if it looks like a conda env we manage
-                # (Either in our local folder or in standard conda envs folder)
-                if is_managed_local or is_named_env or "envs" in os.path.abspath(env_dir).lower():
-                    print(f"Deleting conda environment: {env_dir}")
-                    
-                    # 0. Kill any running processes in this env
+
+                append_log(version_id, f"Environment directory: {env_dir}")
+
+                # Check if directory exists first
+                if not os.path.exists(env_dir):
+                    append_log(version_id, "Environment directory does not exist, skipping file deletion")
+                else:
+                    # 0. Kill any running processes in this env (simplified)
                     try:
-                        print("Scanning for processes to kill...")
+                        append_log(version_id, "Checking for running processes...")
                         target_dir_lower = os.path.abspath(env_dir).lower()
+                        killed_any = False
                         for proc in psutil.process_iter(['pid', 'name', 'exe']):
                             try:
                                 exe_path = proc.info['exe']
                                 if exe_path:
-                                    # Normalize paths for comparison
                                     exe_path = os.path.abspath(exe_path).lower()
                                     if exe_path.startswith(target_dir_lower):
-                                        print(f"Killing process {proc.info['name']} (PID: {proc.info['pid']})")
+                                        append_log(version_id, f"Killing process: {proc.info['name']} (PID: {proc.info['pid']})")
                                         proc.kill()
+                                        killed_any = True
                             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                                 pass
+                        if not killed_any:
+                            append_log(version_id, "No running processes found in environment")
                     except Exception as e:
-                        print(f"Error killing processes: {e}")
+                        append_log(version_id, f"Warning: Process scan error: {e}")
 
-                    # 1. Try conda remove (use list form for security)
-                    # Use -n if it's a named env, otherwise -p
-                    if is_named_env and env_name:
-                         # Sanitize env_name
-                         safe_env_name = "".join(c for c in env_name if c.isalnum() or c in '-_')
-                         command_list = ["conda", "remove", "-n", safe_env_name, "--all", "-y"]
-                    else:
-                         command_list = ["conda", "remove", "--prefix", env_dir, "--all", "-y"]
+                    # Skip conda remove - it's slow and we will delete the directory anyway
+                    # Just verify the environment exists before deletion
+                    append_log(version_id, "Skipping conda remove, proceeding with directory deletion...")
 
-                    print(f"Executing: {' '.join(command_list)}")
-                    process = subprocess.run(command_list, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                    
-                    if process.returncode != 0:
-                        print(f"Conda remove warning: {process.stderr}")
-                    else:
-                        print("Conda remove successful")
-                    
-                    # 2. Rename folder to unblock the name immediately (Windows Trick)
-                    if os.path.exists(env_dir):
-                        try:
-                            timestamp = int(time.time())
-                            trash_dir = f"{env_dir}_trash_{timestamp}"
-                            print(f"Renaming {env_dir} to {trash_dir} for deletion...")
-                            os.rename(env_dir, trash_dir)
-                            env_dir = trash_dir # Target the trash dir for deletion
-                        except Exception as e:
-                            print(f"Rename failed (might be locked at root): {e}")
+                    # 1. Try to rename folder first (Windows trick to handle locked files)
+                    try:
+                        timestamp = int(time.time())
+                        trash_dir = f"{env_dir}_trash_{timestamp}"
+                        append_log(version_id, f"Attempting to rename: {env_dir}")
+                        os.rename(env_dir, trash_dir)
+                        env_dir = trash_dir
+                        append_log(version_id, "Rename successful")
+                    except Exception as e:
+                        append_log(version_id, f"Rename failed (continuing with original path): {e}")
+                        # Continue with original path
 
-                    # 3. Robust cleanup loop
-                    max_retries = 10
+                    # 2. Delete directory with reduced retry count
+                    max_retries = 3  # Reduced from 10
                     for i in range(max_retries):
                         if not os.path.exists(env_dir):
+                            append_log(version_id, "Directory already deleted")
                             break
-                            
-                        print(f"Cleanup attempt {i+1}/{max_retries} for {env_dir}")
-                        
+
+                        append_log(version_id, f"Cleanup attempt {i+1}/{max_retries}...")
+
                         try:
-                            # Try standard python removal first
                             shutil.rmtree(env_dir, onerror=remove_readonly)
                         except Exception as e:
-                            print(f"shutil.rmtree failed: {e}")
+                            append_log(version_id, f"shutil.rmtree error: {e}")
 
                         if not os.path.exists(env_dir):
+                            append_log(version_id, "Directory deleted successfully")
                             break
 
-                        # Fallback to Windows native commands which are more powerful
-                        if platform.system() == "Windows":
-                            try:
-                                print("Attempting Windows force delete...")
-                                # 1. Grant full permissions to Everyone
-                                subprocess.run(f'icacls "{env_dir}" /grant Everyone:F /T /C /Q', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                                
-                                # 2. Force delete all files
-                                subprocess.run(f'del /f /s /q /a "{env_dir}"', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                                
-                                # 3. Force remove directory
-                                subprocess.run(f'rmdir /s /q "{env_dir}"', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                            except Exception as e:
-                                print(f"Windows force delete failed: {e}")
-                                
-                        time.sleep(3) # Wait longer for file locks to release
-                    
-                    # 4. Final check (No renaming)
+                        # Short wait for file locks to release
+                        time.sleep(2)
+
+                    # 3. Final check
                     if os.path.exists(env_dir):
-                        print(f"Warning: Failed to completely delete {env_dir} after {max_retries} attempts.")
+                        append_log(version_id, f"Warning: Failed to delete {env_dir} after {max_retries} attempts")
+                    else:
+                        append_log(version_id, "Cleanup completed")
 
             except Exception as e:
-                print(f"Error in background deletion: {e}")
-                pass
-        
+                append_log(version_id, f"Error in background deletion: {e}")
+
         # Finally delete the record
-        # Re-query to ensure we have the latest session state
         version = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
         if version:
             db.delete(version)
             db.commit()
-            print(f"Version {version_id} deleted from DB")
+            append_log(version_id, "Database record deleted")
 
     except Exception as e:
         print(f"Fatal error in background_delete_version: {e}")
+        try:
+            # Try to mark as error
+            version = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
+            if version:
+                version.status = "error"
+                db.commit()
+        except:
+            pass
     finally:
         db.close()
 

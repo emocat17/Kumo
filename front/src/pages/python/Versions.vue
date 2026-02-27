@@ -25,14 +25,18 @@
             
             <div class="form-group">
               <label for="conda-version">Python 版本</label>
-              <input 
-                id="conda-version" 
-                v-model="condaForm.version" 
-                type="text" 
-                placeholder="例如: 3.10" 
+              <input
+                id="conda-version"
+                v-model="condaForm.version"
+                type="text"
+                placeholder="例如: 3.10"
                 class="form-input"
+                list="common-versions"
                 required
               />
+              <datalist id="common-versions">
+                <option v-for="v in commonVersions" :key="v" :value="v" />
+              </datalist>
             </div>
 
             <div class="form-actions">
@@ -60,19 +64,26 @@
                 <tr>
                   <th>名称</th>
                   <th>版本号</th>
+                  <th>类型</th>
+                  <th>路径</th>
                   <th>状态</th>
                   <th>操作</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-if="versions.length === 0">
-                  <td colspan="4" class="empty-cell">暂无 Python 版本，请在左侧添加。</td>
+                  <td colspan="6" class="empty-cell">暂无 Python 版本，请在左侧添加。</td>
                 </tr>
                 <tr v-for="ver in versions" :key="ver.id">
                   <td>
                      <div class="ver-name">{{ ver.name || 'Python' }}</div>
                   </td>
                   <td>{{ ver.version || '-' }}</td>
+                  <td>
+                    <span v-if="ver.is_conda" class="ver-source conda">Conda</span>
+                    <span v-else class="ver-source">System</span>
+                  </td>
+                  <td class="ver-path" :title="ver.path">{{ truncatePath(ver.path) }}</td>
                   <td>
                     <span :class="['status-badge', ver.status]">
                       {{ statusMap[ver.status] || ver.status }}
@@ -83,9 +94,18 @@
                       <button class="btn btn-secondary btn-sm" title="查看详情" @click="showVersionInfo(ver)">
                          <FileText :size="16" />
                       </button>
-                      <button 
-                        class="btn btn-danger btn-sm" 
-                        title="删除" 
+                      <button
+                        class="btn btn-secondary btn-sm"
+                        title="打开终端"
+                        :disabled="ver.status !== 'ready'"
+                        @click="openTerminal(ver)"
+                      >
+                         <Terminal :size="16" />
+                      </button>
+                      <button
+                        class="btn btn-danger btn-sm"
+                        title="删除"
+                        :disabled="ver.status === 'deleting'"
                         @click="deleteVersion(ver)"
                       >
                          <Trash2 :size="16" />
@@ -100,9 +120,9 @@
       </div>
     </div>
 
-    <BaseModal 
-      v-model="isInfoModalOpen" 
-      title="安装日志" 
+    <BaseModal
+      v-model="isInfoModalOpen"
+      :title="selectedVersion?.status === 'deleting' ? '删除日志' : '安装日志'"
       width="900px"
     >
       <div v-if="selectedVersion" class="log-content">
@@ -127,7 +147,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import BaseModal from '@/components/common/BaseModal.vue'
-import { Trash2, FileText } from 'lucide-vue-next'
+import { Trash2, FileText, Terminal } from 'lucide-vue-next'
 
 interface PythonVersion {
   id: number
@@ -150,6 +170,8 @@ const statusMap: Record<string, string> = {
   error: '错误',
   deleting: '删除中'
 }
+
+const commonVersions = ['3.8', '3.9', '3.10', '3.11', '3.12']
 
 const isCreatingConda = ref(false)
 const condaMessage = ref('')
@@ -262,14 +284,42 @@ const stopLogPolling = () => {
   }
 }
 
+const truncatePath = (path: string, maxLength: number = 30) => {
+  if (!path) return '-'
+  if (path.length <= maxLength) return path
+  return '...' + path.slice(-maxLength)
+}
+
 const showVersionInfo = (ver: PythonVersion) => {
   selectedVersion.value = ver
   isInfoModalOpen.value = true
   logContent.value = ''
   logError.value = ''
   fetchLogs(ver.id)
-  if (ver.status === 'installing') {
+  // Poll logs during installing or deleting
+  if (ver.status === 'installing' || ver.status === 'deleting') {
     startLogPolling(ver.id)
+  }
+}
+
+const openTerminal = async (ver: PythonVersion) => {
+  if (ver.status !== 'ready') {
+    alert('只有就绪状态的环境才能打开终端')
+    return
+  }
+  try {
+    const response = await fetch('/api/python/versions/open-terminal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: ver.path })
+    })
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}))
+      alert(`打开终端失败: ${data.detail || 'Unknown error'}`)
+    }
+  } catch (error) {
+    console.error('Failed to open terminal:', error)
+    alert('打开终端失败')
   }
 }
 
@@ -331,7 +381,7 @@ const deleteVersion = async (ver: PythonVersion) => {
       const response = await fetch(`/api/python/versions/${ver.id}`, {
         method: 'DELETE'
       })
-      
+
       if (!response.ok) {
         let message = '删除失败'
         try {
@@ -348,16 +398,15 @@ const deleteVersion = async (ver: PythonVersion) => {
           message = '删除失败'
         }
         alert(`删除失败: ${message}`)
+      } else {
+        // Start polling to wait for deletion to complete
+        startPolling()
+        // Immediately fetch to show "deleting" status
+        await fetchVersions()
       }
     } catch (error) {
       console.error('Failed to delete:', error)
       alert('删除失败')
-    } finally {
-      try {
-        await fetchVersions()
-      } catch (error) {
-        console.error('Failed to refresh versions:', error)
-      }
     }
   }
 }
@@ -408,6 +457,16 @@ onUnmounted(() => {
 .ver-name {
   font-weight: 500;
   color: #111827;
+}
+
+.ver-path {
+  font-family: monospace;
+  font-size: 11px;
+  color: #6b7280;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ver-source {

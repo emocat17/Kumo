@@ -88,12 +88,15 @@ def run_install_background(version_id: int, cmd: list):
             errors='replace'
         )
         
-        # Stream output to log file
-        for line in process.stdout:
-            append_log(version_id, line.strip())
-            
-        process.wait()
-        
+        # Use communicate() to properly wait for process to complete
+        # and read all output from stdout
+        stdout, _ = process.communicate()
+
+        # Write output to log file
+        if stdout:
+            for line in stdout.splitlines():
+                append_log(version_id, line.strip())
+
         if process.returncode == 0:
             append_log(version_id, "Installation completed successfully.")
             # Reset status to ready and update timestamp
