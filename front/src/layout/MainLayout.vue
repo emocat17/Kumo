@@ -19,7 +19,7 @@
       </div>
 
       <nav class="sidebar-nav">
-        <router-link to="/" class="nav-item" active-class="active">
+        <router-link to="/" class="nav-item" :class="{ active: route.path === '/' }">
           <LayoutDashboardIcon :size="20" class="nav-icon" />
           <span v-if="!isCollapsed">仪表盘</span>
         </router-link>
@@ -85,7 +85,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { 
   LayoutDashboardIcon, 
   ClockIcon, 
@@ -97,7 +98,11 @@ import {
   HardDriveIcon
 } from 'lucide-vue-next'
 
+const route = useRoute()
 const isCollapsed = ref(false)
+
+// 仪表盘需要精确匹配 /
+const isDashboardActive = computed(() => route.path === '/')
 
 const toggleCollapse = () => {
   isCollapsed.value = !isCollapsed.value
