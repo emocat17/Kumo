@@ -85,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { 
   LayoutDashboardIcon, 
@@ -100,9 +100,6 @@ import {
 
 const route = useRoute()
 const isCollapsed = ref(false)
-
-// 仪表盘需要精确匹配 /
-const isDashboardActive = computed(() => route.path === '/')
 
 const toggleCollapse = () => {
   isCollapsed.value = !isCollapsed.value
