@@ -9,6 +9,7 @@ import requests # Added
 import psutil # Added
 import threading
 import time
+import signal
 from sqlalchemy.orm import Session
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.executors.pool import ThreadPoolExecutor, ProcessPoolExecutor
@@ -145,13 +146,27 @@ class TaskManager:
 
     def stop_execution(self, execution_id: int):
         """
-        Terminates a running execution process.
+        Terminates a running execution process and all its child processes.
+        Uses process group to ensure all children are killed.
         """
         if execution_id in self.running_processes:
             process = self.running_processes[execution_id]
             try:
-                process.terminate() # Or kill()
-                print(f"Terminated execution {execution_id}")
+                # Kill the entire process group to ensure child processes are terminated
+                pgid = self.process_groups.get(execution_id)
+                if pgid:
+                    try:
+                        # Kill the whole process group
+                        os.killpg(pgid, signal.SIGTERM)
+                        print(f"Terminated process group {pgid} for execution {execution_id}")
+                    except ProcessLookupError:
+                        # Process group may already be gone
+                        pass
+                else:
+                    # Fallback to single process kill
+                    process.terminate()
+                    print(f"Terminated execution {execution_id}")
+
                 return True
             except Exception as e:
                 print(f"Failed to terminate execution {execution_id}: {e}")
@@ -159,6 +174,7 @@ class TaskManager:
         return False
 
     running_processes = {} # execution_id -> subprocess.Popen
+    process_groups = {}  # execution_id -> process group ID (pgid)
     execution_stats = {} # execution_id -> {'max_cpu': 0.0, 'max_mem': 0.0}
     psutil_processes = {} # execution_id -> psutil.Process (cached)
 
@@ -393,13 +409,31 @@ def run_task_execution(task_id: int, attempt: int = 1, execution_id: int = None)
             env_vars["OUTPUT_DIR"] = project.output_dir
             env_vars["DATA_DIR"] = project.output_dir
             env_vars["BASE_DATA_DIR"] = project.output_dir
-            
+
             # Ensure the directory exists (in container context)
             if not os.path.exists(project.output_dir):
                 try:
                     os.makedirs(project.output_dir, exist_ok=True)
                 except Exception as e:
                     print(f"Warning: Could not create output dir {project.output_dir}: {e}")
+
+        # Inject Rate Limiting Config (for爬虫高频请求控制)
+        if task.request_interval and task.request_interval > 0:
+            env_vars["REQUEST_INTERVAL_MS"] = str(task.request_interval)
+            print(f" injected REQUEST_INTERVAL_MS: {task.request_interval}ms")
+
+        if task.max_requests_per_second and task.max_requests_per_second > 0:
+            env_vars["MAX_REQUESTS_PER_SECOND"] = str(task.max_requests_per_second)
+            print(f" injected MAX_REQUESTS_PER_SECOND: {task.max_requests_per_second}/s")
+
+        # Inject Resource Limits Config
+        if task.max_cpu_percent and task.max_cpu_percent > 0:
+            env_vars["MAX_CPU_PERCENT"] = str(task.max_cpu_percent)
+            print(f" injected MAX_CPU_PERCENT: {task.max_cpu_percent}%")
+
+        if task.max_memory_mb and task.max_memory_mb > 0:
+            env_vars["MAX_MEMORY_MB"] = str(task.max_memory_mb)
+            print(f" injected MAX_MEMORY_MB: {task.max_memory_mb}MB")
 
         python_path = "python" # Default
         
@@ -453,7 +487,9 @@ def run_task_execution(task_id: int, attempt: int = 1, execution_id: int = None)
             with open(log_file_path, "w", encoding="utf-8") as f:
                 # Parse command string to list for shell=False safety
                 args = shlex.split(cmd)
-                
+
+                # Create new process group for proper subprocess cleanup
+                # This ensures all child processes (like chromedriver) are terminated together
                 process = subprocess.Popen(
                     args,
                     shell=False,
@@ -463,11 +499,14 @@ def run_task_execution(task_id: int, attempt: int = 1, execution_id: int = None)
                     stderr=subprocess.STDOUT,
                     text=True,
                     encoding='utf-8',
-                    errors='replace'
+                    errors='replace',
+                    start_new_session=True  # Create process group for proper cleanup
                 )
-                
-                # Store process handle
+
+                # Store process handle and PID
                 task_manager.running_processes[execution.id] = process
+                # Also store the process group ID for killing all children
+                task_manager.process_groups[execution.id] = process.pid
                 
                 try:
                     # Wait with timeout
@@ -488,6 +527,9 @@ def run_task_execution(task_id: int, attempt: int = 1, execution_id: int = None)
                 # Remove from running processes
                 if execution.id in task_manager.running_processes:
                     del task_manager.running_processes[execution.id]
+                # Clean up process group
+                if execution.id in task_manager.process_groups:
+                    del task_manager.process_groups[execution.id]
                 
             execution.end_time = datetime.datetime.now()
             execution.duration = (execution.end_time - execution.start_time).total_seconds()
@@ -516,12 +558,23 @@ def run_task_execution(task_id: int, attempt: int = 1, execution_id: int = None)
 
             # Retry Logic
             if execution.status in ["failed", "timeout"]:
+                # Update consecutive failures count
+                task.consecutive_failures = (task.consecutive_failures or 0) + 1
+                db.commit()
+
+                # Circuit breaker: auto-pause task if too many consecutive failures
+                failure_threshold = task.failure_threshold or 5
+                if task.consecutive_failures >= failure_threshold:
+                    task.status = "paused"
+                    db.commit()
+                    print(f"[CIRCUIT BREAKER] Task {task.id} paused due to {task.consecutive_failures} consecutive failures (threshold: {failure_threshold})")
+
                 retry_count = task.retry_count or 0
                 if attempt <= retry_count:
                     delay = task.retry_delay or 60
                     next_run = datetime.datetime.now() + datetime.timedelta(seconds=delay)
                     print(f"Task {task.id} failed. Scheduling retry {attempt + 1}/{retry_count + 1} in {delay}s.")
-                    
+
                     # Schedule retry
                     task_manager.scheduler.add_job(
                         run_task_execution,
@@ -530,6 +583,12 @@ def run_task_execution(task_id: int, attempt: int = 1, execution_id: int = None)
                         args=[task.id, attempt + 1],
                         id=f"retry_{task.id}_{execution.id}"
                     )
+            else:
+                # Reset consecutive failures on success
+                if task.consecutive_failures and task.consecutive_failures > 0:
+                    task.consecutive_failures = 0
+                    db.commit()
+                    print(f"Task {task.id} succeeded. Reset consecutive failures count.")
 
         except Exception as e:
             raise e

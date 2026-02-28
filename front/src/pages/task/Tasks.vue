@@ -276,37 +276,130 @@
         <div class="form-section-title" style="margin-top: 20px; margin-bottom: 10px; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 5px;">
           可靠性配置 (Reliability)
         </div>
-        
+
         <div class="form-row">
            <div class="form-group third">
               <label for="retry_count">重试次数</label>
-              <input 
-                id="retry_count" 
-                v-model.number="form.retry_count" 
-                type="number" 
-                min="0" 
-                class="form-input" 
+              <input
+                id="retry_count"
+                v-model.number="form.retry_count"
+                type="number"
+                min="0"
+                class="form-input"
               />
            </div>
            <div class="form-group third">
               <label for="retry_delay">重试间隔 (秒)</label>
-              <input 
-                id="retry_delay" 
-                v-model.number="form.retry_delay" 
-                type="number" 
-                min="0" 
-                class="form-input" 
+              <input
+                id="retry_delay"
+                v-model.number="form.retry_delay"
+                type="number"
+                min="0"
+                class="form-input"
               />
            </div>
            <div class="form-group third">
               <label for="timeout">超时时间 (秒)</label>
-              <input 
-                id="timeout" 
-                v-model.number="form.timeout" 
-                type="number" 
-                min="0" 
-                class="form-input" 
+              <input
+                id="timeout"
+                v-model.number="form.timeout"
+                type="number"
+                min="0"
+                class="form-input"
               />
+           </div>
+        </div>
+
+        <!-- Rate Limiting Config -->
+        <div class="form-section-title" style="margin-top: 20px; margin-bottom: 10px; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+          速率限制配置 (Rate Limiting)
+        </div>
+        <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
+          用于控制爬虫请求频率，防止被目标网站封禁或导致请求失败
+        </p>
+
+        <div class="form-row">
+           <div class="form-group half">
+              <label for="request_interval">请求间隔 (毫秒)</label>
+              <input
+                id="request_interval"
+                v-model.number="form.request_interval"
+                type="number"
+                min="0"
+                class="form-input"
+                placeholder="0 表示不限制"
+              />
+              <span style="font-size: 11px; color: #999;">每次请求之间的等待时间</span>
+           </div>
+           <div class="form-group half">
+              <label for="max_requests_per_second">每秒最大请求数</label>
+              <input
+                id="max_requests_per_second"
+                v-model.number="form.max_requests_per_second"
+                type="number"
+                min="0"
+                class="form-input"
+                placeholder="0 表示不限制"
+              />
+              <span style="font-size: 11px; color: #999;">每秒允许的最大请求数</span>
+           </div>
+        </div>
+
+        <div class="form-row">
+           <div class="form-group half">
+              <label for="failure_threshold">熔断阈值 (次)</label>
+              <input
+                id="failure_threshold"
+                v-model.number="form.failure_threshold"
+                type="number"
+                min="1"
+                class="form-input"
+              />
+              <span style="font-size: 11px; color: #999;">连续失败多少次后自动暂停任务</span>
+           </div>
+           <div class="form-group half">
+              <label for="priority">任务优先级</label>
+              <select id="priority" v-model.number="form.priority" class="form-select">
+                <option :value="0">普通 (Normal)</option>
+                <option :value="1">高 (High)</option>
+                <option :value="2">紧急 (Critical)</option>
+              </select>
+           </div>
+        </div>
+
+        <!-- Resource Limits Config -->
+        <div class="form-section-title" style="margin-top: 20px; margin-bottom: 10px; font-weight: bold; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+          资源限制配置 (Resource Limits)
+        </div>
+        <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
+          用于限制任务使用的系统资源，防止资源耗尽影响系统稳定性
+        </p>
+
+        <div class="form-row">
+           <div class="form-group half">
+              <label for="max_cpu_percent">CPU 限制 (%)</label>
+              <input
+                id="max_cpu_percent"
+                v-model.number="form.max_cpu_percent"
+                type="number"
+                min="0"
+                max="100"
+                class="form-input"
+                placeholder="0 表示不限制"
+              />
+              <span style="font-size: 11px; color: #999;">0-100，0 表示不限制</span>
+           </div>
+           <div class="form-group half">
+              <label for="max_memory_mb">内存限制 (MB)</label>
+              <input
+                id="max_memory_mb"
+                v-model.number="form.max_memory_mb"
+                type="number"
+                min="0"
+                class="form-input"
+                placeholder="0 表示不限制"
+              />
+              <span style="font-size: 11px; color: #999;">0 表示不限制</span>
            </div>
         </div>
 
@@ -369,6 +462,19 @@ interface Task {
   retry_count?: number
   retry_delay?: number
   timeout?: number
+  priority?: number
+
+  // Rate limiting config
+  request_interval?: number
+  max_requests_per_second?: number
+
+  // Circuit breaker config
+  failure_threshold?: number
+  consecutive_failures?: number
+
+  // Resource limits
+  max_cpu_percent?: number
+  max_memory_mb?: number
 }
 
 interface Project {
@@ -420,7 +526,19 @@ const form = reactive({
   trigger_value_cron: '* * * * *',
   retry_count: 0,
   retry_delay: 60,
-  timeout: 3600
+  timeout: 3600,
+  priority: 0,
+
+  // Rate limiting config
+  request_interval: 0,
+  max_requests_per_second: 0,
+
+  // Circuit breaker config
+  failure_threshold: 5,
+
+  // Resource limits
+  max_cpu_percent: 0,
+  max_memory_mb: 0
 })
 
 const statusText: Record<string, string> = {
@@ -496,7 +614,19 @@ const editTask = (task: Task) => {
   form.retry_count = task.retry_count || 0
   form.retry_delay = task.retry_delay || 60
   form.timeout = task.timeout || 3600
-  
+  form.priority = task.priority || 0
+
+  // Rate limiting config
+  form.request_interval = task.request_interval || 0
+  form.max_requests_per_second = task.max_requests_per_second || 0
+
+  // Circuit breaker config
+  form.failure_threshold = task.failure_threshold || 5
+
+  // Resource limits
+  form.max_cpu_percent = task.max_cpu_percent || 0
+  form.max_memory_mb = task.max_memory_mb || 0
+
   // Parse trigger info back to form
   form.trigger_type = task.trigger_type
   if (task.trigger_type === 'interval') {

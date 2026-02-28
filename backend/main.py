@@ -46,6 +46,30 @@ def run_migrations():
             conn.execute(text("ALTER TABLE task_executions ADD COLUMN max_cpu_percent FLOAT DEFAULT NULL"))
             conn.execute(text("ALTER TABLE task_executions ADD COLUMN max_memory_mb FLOAT DEFAULT NULL"))
 
+        # Check if rate limiting columns exist
+        try:
+            conn.execute(text("SELECT request_interval FROM tasks LIMIT 1"))
+        except Exception:
+            print("Migrating tasks table: adding rate limiting columns")
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN request_interval INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN max_requests_per_second INTEGER DEFAULT 0"))
+
+        # Check if circuit breaker columns exist
+        try:
+            conn.execute(text("SELECT consecutive_failures FROM tasks LIMIT 1"))
+        except Exception:
+            print("Migrating tasks table: adding circuit breaker columns")
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN consecutive_failures INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN failure_threshold INTEGER DEFAULT 5"))
+
+        # Check if resource limit columns exist
+        try:
+            conn.execute(text("SELECT max_cpu_percent FROM tasks LIMIT 1"))
+        except Exception:
+            print("Migrating tasks table: adding resource limit columns")
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN max_cpu_percent INTEGER DEFAULT 0"))
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN max_memory_mb INTEGER DEFAULT 0"))
+
         conn.commit()
 
 @asynccontextmanager

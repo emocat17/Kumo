@@ -14,16 +14,28 @@ class Task(Base):
     env_id = Column(Integer, ForeignKey("python_versions.id"), nullable=True)
     node_id = Column(String, nullable=True) # For distributed nodes
     description = Column(String, default="")
-    
+
     # Trigger config
     trigger_type = Column(String) # interval, date, cron, immediate
     trigger_value = Column(String) # JSON string storing details
-    
+
     # Reliability config
     retry_count = Column(Integer, default=0)
     retry_delay = Column(Integer, default=60) # seconds
     timeout = Column(Integer, default=3600) # seconds
     priority = Column(Integer, default=0, index=True) # 0=Normal, 1=High, 2=Critical - 添加索引
+
+    # Rate limiting config (for爬虫高频请求控制)
+    request_interval = Column(Integer, default=0)  # 请求间隔（毫秒），0表示不限制
+    max_requests_per_second = Column(Integer, default=0)  # 每秒最大请求数，0表示不限制
+
+    # Circuit breaker config
+    consecutive_failures = Column(Integer, default=0)  # 当前连续失败次数
+    failure_threshold = Column(Integer, default=5)  # 连续失败多少次后自动暂停（熔断）
+
+    # Resource limits
+    max_cpu_percent = Column(Integer, default=0)  # CPU限制百分比，0表示不限制
+    max_memory_mb = Column(Integer, default=0)  # 内存限制MB，0表示不限制
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

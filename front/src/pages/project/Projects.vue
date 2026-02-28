@@ -167,6 +167,30 @@
       @close="isPathSelectorOpen = false" 
       @select="onOutputDirSelected" 
     />
+
+    <!-- Error Modal -->
+    <BaseModal v-model="showErrorModal" title="操作失败" width="400px">
+      <div class="error-modal-content">
+        <div class="error-icon">⚠️</div>
+        <p class="error-message">{{ errorMessage }}</p>
+      </div>
+      <template #footer>
+        <button class="btn btn-primary" @click="showErrorModal = false">确定</button>
+      </template>
+    </BaseModal>
+
+    <!-- Confirm Delete Modal -->
+    <BaseModal v-model="showConfirmModal" title="确认删除" width="400px">
+      <div class="confirm-modal-content">
+        <div class="confirm-icon">⚠️</div>
+        <p>确定要删除项目 <strong>{{ deleteTarget?.name }}</strong> 吗？</p>
+        <p class="confirm-warning">这将会删除服务器上的项目文件，且不可恢复！</p>
+      </div>
+      <template #footer>
+        <button class="btn btn-secondary" @click="showConfirmModal = false">取消</button>
+        <button class="btn btn-danger" @click="confirmDelete">确认删除</button>
+      </template>
+    </BaseModal>
   </div>
 </template>
 
@@ -202,6 +226,12 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const selectedFile = ref<File | null>(null)
 
 const isPathSelectorOpen = ref(false)
+
+// Delete confirmation and error modal states
+const showConfirmModal = ref(false)
+const showErrorModal = ref(false)
+const errorMessage = ref('')
+const deleteTarget = ref<Project | null>(null)
 
 const filteredProjects = computed(() => {
   if (!searchQuery.value) return projects.value
@@ -353,21 +383,36 @@ const closeEditor = () => {
 }
 
 const deleteProject = async (proj: Project) => {
+    // Check if project is used by tasks
     if (proj.used_by_tasks && proj.used_by_tasks.length > 0) {
-      alert(`该项目正在被以下任务使用，无法删除：\n${proj.used_by_tasks.join('\n')}`)
+      errorMessage.value = `该项目正在被以下任务使用，请先删除这些任务后再删除项目：\n${proj.used_by_tasks.join('\n')}`
+      showErrorModal.value = true
       return
     }
-    if(!confirm(`确定要删除项目 "${proj.name}" 吗？这将会删除服务器上的文件。`)) return
+    // Set delete target and show confirm modal
+    deleteTarget.value = proj
+    showConfirmModal.value = true
+}
+
+const confirmDelete = async () => {
+    if (!deleteTarget.value) return
+    
+    const proj = deleteTarget.value
+    showConfirmModal.value = false
     
     try {
         const res = await fetch(`${API_BASE}/projects/${proj.id}`, { method: 'DELETE' })
         if(res.ok) {
             fetchProjects()
         } else {
-            alert('删除失败')
+            const errorData = await res.json().catch(() => ({}))
+            errorMessage.value = errorData.detail || '删除失败，请稍后重试'
+            showErrorModal.value = true
         }
     } catch(e) {
         console.error(e)
+        errorMessage.value = '删除失败：网络错误，请检查网络连接'
+        showErrorModal.value = true
     }
 }
 
@@ -485,5 +530,84 @@ onMounted(() => {
 
 .browse-btn {
   white-space: nowrap;
+}
+
+/* Error Modal Styles */
+.error-modal-content {
+  text-align: center;
+  padding: 10px 0;
+}
+
+.error-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.error-message {
+  color: #374151;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  text-align: left;
+  background: #fef2f2;
+  padding: 16px;
+  border-radius: 8px;
+  border-left: 4px solid #ef4444;
+}
+
+/* Confirm Modal Styles */
+.confirm-modal-content {
+  text-align: center;
+  padding: 10px 0;
+}
+
+.confirm-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.confirm-modal-content p {
+  margin-bottom: 12px;
+  color: #374151;
+}
+
+.confirm-warning {
+  color: #dc2626 !important;
+  font-size: 13px;
+  background: #fef2f2;
+  padding: 12px;
+  border-radius: 6px;
+  border-left: 4px solid #ef4444;
+}
+
+/* Button styles */
+.btn-danger {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-danger:hover {
+  background: #b91c1c;
+}
+
+.btn-secondary {
+  background: #6b7280;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.btn-secondary:hover {
+  background: #4b5563;
 }
 </style>

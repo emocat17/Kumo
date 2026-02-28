@@ -57,8 +57,12 @@
 
 .charts-grid {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: 1fr;
     gap: 24px;
+}
+
+.chart-card.full-width {
+    width: 100%;
 }
 
 .chart-card {

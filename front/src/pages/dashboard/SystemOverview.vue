@@ -60,29 +60,9 @@
     <!-- Charts Grid -->
     <div class="charts-grid">
       <!-- Task Statistics Chart -->
-      <div class="card chart-card">
+      <div class="card chart-card full-width">
         <h3 class="chart-title">每日调度任务执行统计</h3>
         <div ref="chartRef" class="chart-container"></div>
-      </div>
-
-      <!-- Failure Top 5 -->
-      <div class="card chart-card">
-          <h3 class="chart-title">失败任务 TOP 5</h3>
-          <div class="failure-list">
-              <div v-for="(item, index) in dashboardStats.failure_stats" :key="item.task_id" class="failure-item">
-                  <div class="failure-info">
-                      <span class="failure-rank" :class="'rank-' + (index + 1)">{{ index + 1 }}</span>
-                      <span class="failure-name" :title="item.task_name">{{ item.task_name }}</span>
-                  </div>
-                  <div class="failure-bar-wrapper">
-                       <div class="failure-bar" :style="{ width: getFailureBarWidth(item.failure_count) + '%' }"></div>
-                       <span class="failure-count">{{ item.failure_count }}次</span>
-                  </div>
-              </div>
-              <div v-if="!dashboardStats.failure_stats?.length" class="empty-state">
-                  暂无失败记录
-              </div>
-          </div>
       </div>
     </div>
   </section>
@@ -155,12 +135,6 @@ const getMainDiskUsage = computed(() => {
     const d = props.systemStats.disk.partitions[0]
     return `${d.used} / ${d.total}`
 })
-
-const getFailureBarWidth = (count: number) => {
-    if (!dashboardStats.value.failure_stats?.length) return 0
-    const max = Math.max(...dashboardStats.value.failure_stats.map(s => s.failure_count))
-    return max ? (count / max) * 100 : 0
-}
 
 // Methods
 const fetchDashboardStats = async () => {

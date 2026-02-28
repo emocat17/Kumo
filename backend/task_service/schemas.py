@@ -16,6 +16,18 @@ class TaskBase(BaseModel):
     timeout: Optional[int] = 3600
     priority: Optional[int] = 0
 
+    # Rate limiting config (for爬虫高频请求控制)
+    request_interval: Optional[int] = 0  # 请求间隔（毫秒），0表示不限制
+    max_requests_per_second: Optional[int] = 0  # 每秒最大请求数，0表示不限制
+
+    # Circuit breaker config
+    consecutive_failures: Optional[int] = 0  # 当前连续失败次数（只读）
+    failure_threshold: Optional[int] = 5  # 连续失败多少次后自动暂停（熔断）
+
+    # Resource limits
+    max_cpu_percent: Optional[int] = 0  # CPU限制百分比，0表示不限制
+    max_memory_mb: Optional[int] = 0  # 内存限制MB，0表示不限制
+
 class TaskCreate(TaskBase):
     pass
 
@@ -32,6 +44,18 @@ class TaskUpdate(BaseModel):
     retry_delay: Optional[int] = None
     timeout: Optional[int] = None
     priority: Optional[int] = None
+
+    # Rate limiting config
+    request_interval: Optional[int] = None
+    max_requests_per_second: Optional[int] = None
+
+    # Circuit breaker config
+    failure_threshold: Optional[int] = None
+    consecutive_failures: Optional[int] = None  # Allow reset
+
+    # Resource limits
+    max_cpu_percent: Optional[int] = None
+    max_memory_mb: Optional[int] = None
 
 class Task(TaskBase):
     id: int
