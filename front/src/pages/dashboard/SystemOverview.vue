@@ -69,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import ProjectSelector from '@/components/common/ProjectSelector.vue'
 import * as echarts from 'echarts'
 import { CpuIcon, MemoryStickIcon, HardDriveIcon, ListTodoIcon } from 'lucide-vue-next'
@@ -106,8 +106,15 @@ const props = defineProps<{
   }
 }>()
 
-// Use props if provided, otherwise fallback to local state
-const dashboardStats = computed(() => props.dashboardStats || localDashboardStats.value)
+// Use props if provided and has data, otherwise fallback to local state
+const dashboardStats = computed(() => {
+    // If props.dashboardStats exists and has daily_stats data, use it
+    if (props.dashboardStats && props.dashboardStats.daily_stats && props.dashboardStats.daily_stats.length > 0) {
+        return props.dashboardStats
+    }
+    // Otherwise use local state (which is fetched by this component)
+    return localDashboardStats.value
+})
 
 // Local State
 const selectedProjectId = ref<number | null>(null)
@@ -166,8 +173,13 @@ const fetchDashboardStats = async () => {
     }
 }
 
-const initChart = () => {
-    if (!chartRef.value) return
+const initChart = async () => {
+    // Wait for DOM to be ready
+    await nextTick()
+    if (!chartRef.value) {
+        console.warn('Chart ref not ready')
+        return
+    }
     
     if (chartInstance) {
         chartInstance.dispose()
@@ -242,6 +254,13 @@ const handleResize = () => {
 watch(selectedProjectId, () => {
     fetchDashboardStats()
 })
+
+// Watch dashboardStats changes to update chart
+watch(() => dashboardStats.value.daily_stats, () => {
+    if (chartRef.value && dashboardStats.value.daily_stats.length > 0) {
+        initChart()
+    }
+}, { deep: true })
 
 // Lifecycle
 onMounted(() => {

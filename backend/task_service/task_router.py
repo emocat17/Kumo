@@ -80,6 +80,9 @@ async def get_dashboard_stats(
     end_date = datetime.date.today()
     start_date = end_date - datetime.timedelta(days=14)
     
+    # Convert date to datetime for proper comparison with DateTime column
+    start_datetime = datetime.datetime.combine(start_date, datetime.time.min)
+    
     date_col = func.date(models.TaskExecution.start_time)
     
     daily_results = db.query(
@@ -87,7 +90,7 @@ async def get_dashboard_stats(
         models.TaskExecution.status,
         func.count(models.TaskExecution.id).label("count")
     ).filter(
-        models.TaskExecution.start_time >= start_date
+        models.TaskExecution.start_time >= start_datetime
     )
     if project_id:
         daily_results = daily_results.join(models.Task).filter(models.Task.project_id == project_id)
@@ -1200,6 +1203,9 @@ async def get_daily_task_stats(days: int = 14, db: Session = Depends(get_db)):
     end_date = datetime.date.today()
     start_date = end_date - datetime.timedelta(days=days)
     
+    # Convert date to datetime for proper comparison with DateTime column
+    start_datetime = datetime.datetime.combine(start_date, datetime.time.min)
+    
     # Query for daily counts grouped by date and status
     # SQLAlchemy logic for SQLite date grouping
     date_col = func.date(models.TaskExecution.start_time)
@@ -1209,7 +1215,7 @@ async def get_daily_task_stats(days: int = 14, db: Session = Depends(get_db)):
         models.TaskExecution.status,
         func.count(models.TaskExecution.id).label("count")
     ).filter(
-        models.TaskExecution.start_time >= start_date
+        models.TaskExecution.start_time >= start_datetime
     ).group_by(
         date_col,
         models.TaskExecution.status
@@ -1227,7 +1233,11 @@ async def get_daily_task_stats(days: int = 14, db: Session = Depends(get_db)):
         current += datetime.timedelta(days=1)
         
     for r in results:
-        date_str = r.date
+        # Handle both string and date object from SQLite
+        if hasattr(r.date, 'strftime'):
+            date_str = r.date.strftime("%Y-%m-%d")
+        else:
+            date_str = str(r.date)
         status = r.status
         count = r.count
         
