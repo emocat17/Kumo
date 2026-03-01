@@ -11,11 +11,13 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 from core.database import get_db, SessionLocal
+from core.logging import get_logger
 from environment_service import models, schemas
 from system_service import models as system_models
 from audit_service.service import create_audit_log
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 # --- Schemas for Package Management ---
 class PackageInfo(BaseModel):
@@ -71,7 +73,7 @@ def append_log(version_id: int, message: str):
                 if line and not _is_progress_only_line(line):
                     f.write(f"[{timestamp}] {line}\n")
     except Exception as e:
-        print(f"Error writing log: {e}")
+        logger.error(f"Error writing log: {e}")
 
 def _is_progress_only_line(line: str) -> bool:
     """Check if a line is only progress bar characters"""
@@ -161,7 +163,7 @@ def run_install_background(version_id: int, cmd: list):
                     append_log(version_id, line.strip())
                 else:
                     time.sleep(0.5)
-            except:
+            except Exception:
                 time.sleep(0.5)
                 continue
         
@@ -199,7 +201,7 @@ def run_install_background(version_id: int, cmd: list):
              if version:
                  version.status = "error"
                  db.commit()
-        except:
+        except Exception:
             pass
     finally:
         db.close()
@@ -231,10 +233,10 @@ async def list_packages(version_id: int, db: Session = Depends(get_db)):
                 data = json.loads(result.stdout)
                 for item in data:
                     packages.append(PackageInfo(name=item['name'], version=item['version']))
-            except:
+            except Exception:
                 pass
         else:
-             print(f"pip list failed: {result.stderr}")
+             logger.warning(f"pip list failed: {result.stderr}")
              # Fallback to conda list if it's a conda env?
              if version.is_conda:
                  # Try conda list
@@ -252,10 +254,10 @@ async def list_packages(version_id: int, db: Session = Depends(get_db)):
                          packages = [] # Reset
                          for item in data:
                              packages.append(PackageInfo(name=item['name'], version=item['version']))
-                     except:
+                     except Exception:
                          pass
     except Exception as e:
-        print(f"Error listing packages: {e}")
+        logger.error(f"Error listing packages: {e}")
         
     return packages
 

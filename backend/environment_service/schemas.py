@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
@@ -15,9 +15,8 @@ class PythonVersionCreate(PythonVersionBase):
     pass
 
 class PythonVersion(PythonVersionBase):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True

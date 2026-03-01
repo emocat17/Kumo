@@ -57,9 +57,8 @@
           <div class="actions-row">
             <button 
               class="btn btn-primary btn-edit" 
-              :disabled="env.status === 'installing' || env.status === 'configuring'"
               @click="openInstallModal(env)">
-              {{ env.status === 'installing' || env.status === 'configuring' ? '配置中' : '编辑' }}
+              {{ env.status === 'installing' || env.status === 'configuring' ? '配置中' : '编辑环境依赖' }}
             </button>
           </div>
         </div>
@@ -119,10 +118,10 @@
                         <textarea 
                             v-model="installForm.packages" 
                             class="form-textarea" 
-                            :class="{ 'readonly': isFileUploaded }"
+                            :class="{ 'readonly': isFileUploaded || selectedEnv?.status === 'installing' || selectedEnv?.status === 'configuring' }"
                             rows="5" 
                             placeholder="numpy&#10;pandas>=1.5.0"
-                            :readonly="isFileUploaded"
+                            :readonly="isFileUploaded || selectedEnv?.status === 'installing' || selectedEnv?.status === 'configuring'"
                             required
                         ></textarea>
                         <div v-if="isFileUploaded" class="upload-badge">
@@ -147,7 +146,7 @@
                         <button 
                             type="button" 
                             class="btn btn-upload" 
-                            :disabled="installing || isFileUploaded"
+                            :disabled="installing || isFileUploaded || selectedEnv?.status === 'installing' || selectedEnv?.status === 'configuring'"
                             @click="triggerFileUpload"
                         >
                             上传 requirements.txt
@@ -160,8 +159,11 @@
                     </label>
                 </div> -->
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary" :disabled="installing">
-                        {{ installing ? '提交中...' : '开始安装' }}
+                    <button 
+                        type="submit" 
+                        class="btn btn-primary" 
+                        :disabled="installing || selectedEnv?.status === 'installing' || selectedEnv?.status === 'configuring'">
+                        {{ installing ? '提交中...' : (selectedEnv?.status === 'installing' || selectedEnv?.status === 'configuring' ? '配置中，请稍候...' : '开始安装') }}
                     </button>
                 </div>
             </form>

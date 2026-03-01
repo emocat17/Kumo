@@ -1,5 +1,5 @@
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
@@ -16,11 +16,10 @@ class AuditLogCreate(AuditLogBase):
     pass
 
 class AuditLogOut(AuditLogBase):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     created_at: datetime
-
-    class Config:
-        orm_mode = True
 
 class AuditLogList(BaseModel):
     total: int

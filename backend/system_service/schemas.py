@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 
@@ -14,10 +14,9 @@ class SystemConfigUpdate(SystemConfigBase):
     pass
 
 class SystemConfig(SystemConfigBase):
+    model_config = ConfigDict(from_attributes=True)
+    
     updated_at: datetime
-
-    class Config:
-        orm_mode = True
 
 # --- Environment Variables ---
 
@@ -37,6 +36,8 @@ class EnvVarUpdate(BaseModel):
     is_secret: Optional[bool] = None
 
 class EnvVarResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     key: str
     value: str # Masked if secret
@@ -44,6 +45,3 @@ class EnvVarResponse(BaseModel):
     is_secret: bool
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        orm_mode = True

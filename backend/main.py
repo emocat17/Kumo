@@ -2,97 +2,71 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from core.database import init_db, engine
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from pydantic import ValidationError as PydanticValidationError
+from core.database import init_db, engine
+from core.logging import get_logger, setup_logging
+from core.config import settings
+from core.exceptions import KumoException
+from core.connection_monitor import connection_monitor
+from core.error_handlers import (
+    kumo_exception_handler,
+    http_exception_handler,
+    sqlalchemy_exception_handler,
+    pydantic_validation_exception_handler,
+    value_error_handler,
+    global_exception_handler
+)
 from environment_service import models as env_models # Import models to ensure they are registered with Base
 from project_service import models as project_models # Register Project models
 from system_service import models as system_models # Register System models
 from audit_service import models as audit_models # Register Audit models
 from task_service import models as task_models # Register Task models
 from task_service.task_manager import task_manager
-from system_service.system_scheduler import SystemScheduler
+from system_service.system_scheduler import get_system_scheduler
+from migrations.manager import migration_manager
 
-def run_migrations():
-    print("Checking for schema migrations...")
-    with engine.connect() as conn:
-        # Check if retry_count exists in tasks
-        try:
-            conn.execute(text("SELECT retry_count FROM tasks LIMIT 1"))
-        except Exception:
-            print("Migrating tasks table: adding reliability columns")
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN retry_count INTEGER DEFAULT 0"))
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN retry_delay INTEGER DEFAULT 60"))
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN timeout INTEGER DEFAULT 3600"))
-            
-        # Check if attempt exists in task_executions
-        try:
-            conn.execute(text("SELECT attempt FROM task_executions LIMIT 1"))
-        except Exception:
-            print("Migrating task_executions table: adding attempt column")
-            conn.execute(text("ALTER TABLE task_executions ADD COLUMN attempt INTEGER DEFAULT 1"))
-            
-        # Check if priority exists in tasks
-        try:
-            conn.execute(text("SELECT priority FROM tasks LIMIT 1"))
-        except Exception:
-            print("Migrating tasks table: adding priority column")
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN priority INTEGER DEFAULT 0"))
-
-        # Check if max_cpu_percent exists in task_executions
-        try:
-            conn.execute(text("SELECT max_cpu_percent FROM task_executions LIMIT 1"))
-        except Exception:
-            print("Migrating task_executions table: adding resource columns")
-            conn.execute(text("ALTER TABLE task_executions ADD COLUMN max_cpu_percent FLOAT DEFAULT NULL"))
-            conn.execute(text("ALTER TABLE task_executions ADD COLUMN max_memory_mb FLOAT DEFAULT NULL"))
-
-        # Check if rate limiting columns exist
-        try:
-            conn.execute(text("SELECT request_interval FROM tasks LIMIT 1"))
-        except Exception:
-            print("Migrating tasks table: adding rate limiting columns")
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN request_interval INTEGER DEFAULT 0"))
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN max_requests_per_second INTEGER DEFAULT 0"))
-
-        # Check if circuit breaker columns exist
-        try:
-            conn.execute(text("SELECT consecutive_failures FROM tasks LIMIT 1"))
-        except Exception:
-            print("Migrating tasks table: adding circuit breaker columns")
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN consecutive_failures INTEGER DEFAULT 0"))
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN failure_threshold INTEGER DEFAULT 5"))
-
-        # Check if resource limit columns exist
-        try:
-            conn.execute(text("SELECT max_cpu_percent FROM tasks LIMIT 1"))
-        except Exception:
-            print("Migrating tasks table: adding resource limit columns")
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN max_cpu_percent INTEGER DEFAULT 0"))
-            conn.execute(text("ALTER TABLE tasks ADD COLUMN max_memory_mb INTEGER DEFAULT 0"))
-
-        conn.commit()
+# 初始化日志系统
+setup_logging()
+logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print("Starting up...")
+    logger.info("Starting up Kumo backend...")
     try:
         init_db()
-        run_migrations()
-        print("Database initialized.")
+        logger.info("Database tables initialized")
+        
+        # 运行迁移
+        migration_manager.run_migrations()
+        logger.info("Database migrations completed")
+        
         task_manager.start()
         task_manager.load_jobs_from_db()
-        print("Task manager started.")
-        SystemScheduler().start()
-        print("System scheduler started.")
+        logger.info("Task manager started")
+        
+        system_scheduler = get_system_scheduler()
+        system_scheduler.start()
+        logger.info("System scheduler started")
+        
+        # 启动连接监控器
+        connection_monitor.start()
+        logger.info("Connection monitor started")
+        
+        logger.info("Kumo backend started successfully")
     except Exception as e:
-        print(f"Startup failed: {e}")
+        logger.error(f"Startup failed: {e}", exc_info=True)
         raise e
     yield
     # Shutdown
-    print("Shutting down...")
+    logger.info("Shutting down Kumo backend...")
+    connection_monitor.stop()
     task_manager.shutdown()
-    SystemScheduler().shutdown()
+    system_scheduler = get_system_scheduler()
+    system_scheduler.shutdown()
+    logger.info("Kumo backend shutdown complete")
 
 from environment_service.python_version_router import router as python_version_router
 from environment_service.env_router import router as env_router
@@ -148,6 +122,14 @@ async def health_check():
     else:
         health_status["scheduler"] = "stopped"
     
+    # 添加连接池统计信息
+    try:
+        pool_stats = connection_monitor.get_pool_stats()
+        if pool_stats:
+            health_status["connection_pool"] = pool_stats
+    except Exception:
+        pass
+    
     status_code = 200 if health_status["status"] == "healthy" else 503
     return JSONResponse(content=health_status, status_code=status_code)
 
@@ -161,50 +143,38 @@ async def get_version():
         "description": "Python 任务调度与全栈环境管理平台"
     }
 
-# 全局异常处理器
+# 统一异常处理器注册
+# 注意：异常处理器的注册顺序很重要，应该从最具体到最通用
 
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """全局异常处理 - 提供统一的错误响应格式"""
-    import traceback
-    
-    # 返回安全的错误信息，不暴露内部细节
-    error_message = str(exc)
-    
-    # 对于常见错误类型，提供友好提示
-    if "unique constraint" in error_message.lower():
-        detail = "数据已存在，请检查输入是否重复"
-    elif "foreign key constraint" in error_message.lower():
-        detail = "关联数据不存在，请检查引用的资源"
-    elif "timeout" in error_message.lower():
-        detail = "操作超时，请稍后重试"
-    else:
-        detail = "服务器内部错误，请稍后重试"
-    
-    # 记录完整错误到日志（不在响应中返回）
-    print(f"[ERROR] {request.method} {request.url.path}: {error_message}")
-    print(f"[TRACE] {traceback.format_exc()}")
-    
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "Internal Server Error",
-            "detail": detail,
-            "path": str(request.url.path)
-        }
-    )
+@app.exception_handler(KumoException)
+async def handle_kumo_exception(request: Request, exc: KumoException):
+    """Kumo 自定义异常处理器"""
+    return await kumo_exception_handler(request, exc)
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    """HTTP 异常处理 - 统一格式"""
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error": exc.status_code,
-            "detail": exc.detail,
-            "path": str(request.url.path)
-        }
-    )
+async def handle_http_exception(request: Request, exc: HTTPException):
+    """HTTP 异常处理器"""
+    return await http_exception_handler(request, exc)
+
+@app.exception_handler(SQLAlchemyError)
+async def handle_sqlalchemy_exception(request: Request, exc: SQLAlchemyError):
+    """SQLAlchemy 异常处理器"""
+    return await sqlalchemy_exception_handler(request, exc)
+
+@app.exception_handler(PydanticValidationError)
+async def handle_pydantic_validation_exception(request: Request, exc: PydanticValidationError):
+    """Pydantic 验证异常处理器"""
+    return await pydantic_validation_exception_handler(request, exc)
+
+@app.exception_handler(ValueError)
+async def handle_value_error(request: Request, exc: ValueError):
+    """ValueError 异常处理器"""
+    return await value_error_handler(request, exc)
+
+@app.exception_handler(Exception)
+async def handle_global_exception(request: Request, exc: Exception):
+    """全局异常处理器 - 捕获所有未处理的异常"""
+    return await global_exception_handler(request, exc)
 
 app.include_router(python_version_router, prefix="/api/python/versions")
 app.include_router(env_router, prefix="/api/python/environments")

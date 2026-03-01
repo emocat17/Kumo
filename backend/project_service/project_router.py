@@ -11,6 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, R
 from sqlalchemy.orm import Session
 from typing import List
 from core.database import get_db
+from core.config import settings
+from core.logging import get_logger
 from project_service import models, schemas
 from task_service.models import Task
 import datetime
@@ -18,41 +20,13 @@ from pydantic import BaseModel
 from audit_service.service import create_audit_log
 
 router = APIRouter()
+logger = get_logger(__name__)
 
-PROJECTS_DIR = os.path.abspath(os.path.join(os.getcwd(), "projects"))
+# 使用配置中的项目目录
+PROJECTS_DIR = settings.projects_dir
 
 if not os.path.exists(PROJECTS_DIR):
     os.makedirs(PROJECTS_DIR)
-
-# Helper to run DB migration for output_dir
-def ensure_project_columns():
-    db_path = "backend/data/TaskManage.db" # Hardcoded relative path, should be config based
-    # Better to rely on SQLALCHEMY_DATABASE_URL but that's in app.database
-    # Let's import it
-    from core.database import SQLALCHEMY_DATABASE_URL
-    import sqlite3
-    
-    db_path = SQLALCHEMY_DATABASE_URL.replace("sqlite:///", "")
-    if not os.path.exists(db_path):
-        return
-        
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    try:
-        cursor.execute("PRAGMA table_info(projects)")
-        columns = [info[1] for info in cursor.fetchall()]
-        
-        if "output_dir" not in columns:
-            print("Migrating: Adding 'output_dir' column to projects")
-            cursor.execute("ALTER TABLE projects ADD COLUMN output_dir VARCHAR DEFAULT NULL")
-            
-        conn.commit()
-    except Exception as e:
-        print(f"Project migration warning: {e}")
-    finally:
-        conn.close()
-
-ensure_project_columns()
 
 def get_archive_extension(filename: str):
     if not filename:
@@ -93,7 +67,68 @@ def read_text_file(path: str):
 
 @router.get("", response_model=List[schemas.Project])
 def list_projects(db: Session = Depends(get_db)):
+    """
+    获取所有项目列表
+    
+    返回系统中所有已创建的项目，包括项目的基本信息：
+    - id: 项目 ID
+    - name: 项目名称
+    - path: 项目文件路径
+    - work_dir: 工作目录（相对路径）
+    - output_dir: 输出目录
+    - description: 项目描述
+    - created_at: 创建时间
+    - updated_at: 更新时间
+    
+    **返回示例**:
+    ```json
+    [
+        {
+            "id": 1,
+            "name": "MyProject",
+            "path": "/path/to/projects/MyProject",
+            "work_dir": "./",
+            "output_dir": "/data/output",
+            "description": "项目描述",
+            "created_at": "2024-01-01T00:00:00",
+            "updated_at": "2024-01-01T00:00:00"
+        }
+    ]
+    ```
+    """
     return db.query(models.Project).all()
+
+@router.get("/{project_id}", response_model=schemas.Project)
+def get_project(project_id: int, db: Session = Depends(get_db)):
+    """
+    获取指定项目的详细信息
+    
+    **参数**:
+    - **project_id**: 项目 ID（路径参数）
+    
+    **返回**: 项目详细信息
+    
+    **错误响应**:
+    - `404`: 项目不存在
+    
+    **返回示例**:
+    ```json
+    {
+        "id": 1,
+        "name": "MyProject",
+        "path": "/path/to/projects/MyProject",
+        "work_dir": "./",
+        "output_dir": "/data/output",
+        "description": "项目描述",
+        "created_at": "2024-01-01T00:00:00",
+        "updated_at": "2024-01-01T00:00:00"
+    }
+    ```
+    """
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
 
 @router.post("/create", response_model=schemas.Project)
 def create_project(
@@ -105,6 +140,46 @@ def create_project(
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
+    """
+    创建新项目（上传并解压项目文件）
+    
+    通过上传压缩包（ZIP、7Z、RAR）创建新项目。系统会自动解压文件并创建项目记录。
+    
+    **参数**:
+    - **name**: 项目名称（必填，不能重复）
+    - **work_dir**: 工作目录相对路径（默认: "./"）
+    - **output_dir**: 输出目录（可选）
+    - **description**: 项目描述（可选）
+    - **file**: 项目压缩包文件（必填，支持 .zip, .7z, .rar）
+    
+    **支持的压缩格式**:
+    - ZIP (.zip)
+    - 7Z (.7z)
+    - RAR (.rar)
+    
+    **流程**:
+    1. 验证项目名称唯一性
+    2. 创建项目目录
+    3. 保存并解压上传的文件
+    4. 创建数据库记录
+    5. 记录审计日志
+    
+    **错误响应**:
+    - `400`: 项目名称已存在、目录已存在、不支持的压缩格式
+    - `500`: 文件处理失败
+    
+    **返回**: 创建的项目对象
+    
+    **示例请求**:
+    ```bash
+    curl -X POST "http://localhost:8000/api/projects/create" \\
+      -F "name=MyProject" \\
+      -F "work_dir=./" \\
+      -F "output_dir=/data/output" \\
+      -F "description=项目描述" \\
+      -F "file=@project.zip"
+    ```
+    """
     # 1. Check if name exists
     if db.query(models.Project).filter(models.Project.name == name).first():
         raise HTTPException(status_code=400, detail="Project name already exists")
@@ -166,6 +241,41 @@ def create_project(
 
 @router.get("/{project_id}/detect", response_model=dict)
 def detect_project_framework(project_id: int, db: Session = Depends(get_db)):
+    """
+    检测项目的框架类型和推荐执行命令
+    
+    自动检测项目使用的框架（Scrapy、Playwright、Selenium、DrissionPage 等），
+    并返回推荐的任务执行命令。
+    
+    **参数**:
+    - **project_id**: 项目 ID
+    
+    **检测逻辑**:
+    1. **Scrapy**: 检测 `scrapy.cfg` 文件，自动查找 spider 名称
+    2. **其他框架**: 扫描 `requirements.txt` 和 Python 文件中的导入语句
+    3. **通用 Python**: 检测 `main.py` 或 `app.py` 文件
+    
+    **返回**:
+    ```json
+    {
+        "framework": "scrapy|playwright|selenium|drissionpage|python|unknown",
+        "command": "推荐执行命令",
+        "description": "检测结果描述"
+    }
+    ```
+    
+    **示例返回**:
+    ```json
+    {
+        "framework": "scrapy",
+        "command": "scrapy crawl myspider",
+        "description": "Detected Scrapy project"
+    }
+    ```
+    
+    **错误响应**:
+    - `404`: 项目不存在
+    """
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -198,7 +308,7 @@ def detect_project_framework(project_id: int, db: Session = Depends(get_db)):
                                 if match:
                                     spider_name = match.group(1)
                                     break
-                        except:
+                        except Exception:
                             pass
                 break
                 
@@ -219,7 +329,7 @@ def detect_project_framework(project_id: int, db: Session = Depends(get_db)):
                 for k in keywords:
                     if k.lower() in content:
                         return k
-        except:
+        except Exception:
             pass
         return None
 
@@ -301,6 +411,38 @@ def update_project(
     request: Request,
     db: Session = Depends(get_db)
 ):
+    """
+    更新项目信息
+    
+    更新项目的名称、工作目录、输出目录和描述等信息。
+    
+    **参数**:
+    - **project_id**: 项目 ID（路径参数）
+    - **project_in**: 项目更新数据（请求体）
+      - name: 项目名称（可选）
+      - work_dir: 工作目录（可选）
+      - output_dir: 输出目录（可选）
+      - description: 项目描述（可选）
+    
+    **验证规则**:
+    - 如果更新名称，会检查新名称是否已存在（排除当前项目）
+    
+    **返回**: 更新后的项目对象
+    
+    **错误响应**:
+    - `404`: 项目不存在
+    - `400`: 项目名称已存在
+    
+    **示例请求**:
+    ```json
+    {
+        "name": "UpdatedProjectName",
+        "work_dir": "./src",
+        "output_dir": "/data/new_output",
+        "description": "更新后的描述"
+    }
+    ```
+    """
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -344,6 +486,38 @@ def remove_readonly(func, path, excinfo):
 
 @router.delete("/{project_id}")
 def delete_project(project_id: int, request: Request, db: Session = Depends(get_db)):
+    """
+    删除项目
+    
+    删除项目及其文件目录。如果项目被任务引用，则无法删除。
+    
+    **参数**:
+    - **project_id**: 项目 ID（路径参数）
+    
+    **删除流程**:
+    1. 检查项目是否被任务引用
+    2. 记录审计日志
+    3. 删除项目文件目录（支持 Windows 和 Linux）
+    4. 删除数据库记录
+    
+    **安全措施**:
+    - 防止删除被任务使用的项目
+    - 使用安全的文件删除方法（处理只读文件）
+    - Windows 系统使用重命名 + 多次重试策略
+    
+    **返回**:
+    ```json
+    {
+        "message": "Project deleted"
+    }
+    ```
+    
+    **错误响应**:
+    - `404`: 项目不存在
+    - `400`: 项目正在被任务使用，无法删除
+    
+    **注意**: 删除操作不可逆，请谨慎操作。
+    """
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -370,7 +544,7 @@ def delete_project(project_id: int, request: Request, db: Session = Depends(get_
 
     # Remove directory with robust logic
     if os.path.exists(project.path):
-        print(f"Deleting project directory: {project.path}")
+        logger.info(f"Deleting project directory: {project.path}")
         
         # 1. Rename to trash (Windows trick to unlock name immediately)
         target_dir = project.path
@@ -380,7 +554,7 @@ def delete_project(project_id: int, request: Request, db: Session = Depends(get_
             os.rename(project.path, trash_dir)
             target_dir = trash_dir
         except Exception as e:
-            print(f"Rename failed: {e}")
+            logger.warning(f"Rename failed: {e}")
             
         # 2. Robust cleanup loop
         max_retries = 5
@@ -391,7 +565,7 @@ def delete_project(project_id: int, request: Request, db: Session = Depends(get_
             try:
                 shutil.rmtree(target_dir, onerror=remove_readonly)
             except Exception as e:
-                print(f"shutil.rmtree failed: {e}")
+                logger.warning(f"shutil.rmtree failed: {e}")
                 
             if not os.path.exists(target_dir):
                 break
@@ -402,7 +576,7 @@ def delete_project(project_id: int, request: Request, db: Session = Depends(get_
                     subprocess.run(f'icacls "{target_dir}" /grant Everyone:F /T /C /Q', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     subprocess.run(f'del /f /s /q /a "{target_dir}"', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     subprocess.run(f'rmdir /s /q "{target_dir}"', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                except:
+                except Exception:
                     pass
             
             time.sleep(1)
@@ -442,6 +616,57 @@ def build_file_tree(base_path, rel_path=""):
 
 @router.get("/{project_id}/files")
 def get_project_files(project_id: int, db: Session = Depends(get_db)):
+    """
+    获取项目的文件树结构
+    
+    返回项目的文件树结构，用于前端展示项目文件列表。
+    
+    **参数**:
+    - **project_id**: 项目 ID（路径参数）
+    
+    **返回格式**:
+    返回树形结构，每个节点包含：
+    - label: 文件/目录名称
+    - path: 相对路径
+    - type: "dir" 或 "file"
+    - children: 子节点数组（仅目录有）
+    
+    **过滤规则**:
+    - 自动跳过 `__pycache__` 目录
+    - 自动跳过以 `.` 开头的隐藏文件/目录
+    
+    **排序规则**:
+    - 目录优先，文件在后
+    - 按名称字母顺序排序（不区分大小写）
+    
+    **返回示例**:
+    ```json
+    [
+        {
+            "label": "src",
+            "path": "src",
+            "type": "dir",
+            "children": [
+                {
+                    "label": "main.py",
+                    "path": "src/main.py",
+                    "type": "file"
+                }
+            ]
+        },
+        {
+            "label": "README.md",
+            "path": "README.md",
+            "type": "file"
+        }
+    ]
+    ```
+    
+    **错误响应**:
+    - `404`: 项目不存在
+    
+    **注意**: 如果项目目录不存在，返回空数组。
+    """
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -453,6 +678,43 @@ def get_project_files(project_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{project_id}/files/content")
 def get_file_content(project_id: int, path: str, db: Session = Depends(get_db)):
+    """
+    获取项目文件的内容
+    
+    读取项目中的文本文件内容，支持多种编码格式自动检测。
+    
+    **参数**:
+    - **project_id**: 项目 ID（路径参数）
+    - **path**: 文件相对路径（查询参数）
+    
+    **编码支持**:
+    按顺序尝试以下编码：
+    1. UTF-8
+    2. UTF-8 with BOM
+    3. GB18030（中文）
+    4. UTF-8 with error replacement（最后兜底）
+    
+    **安全措施**:
+    - 路径穿透保护：确保文件路径在项目目录内
+    - 仅允许读取文件，不允许目录
+    
+    **返回**:
+    ```json
+    {
+        "content": "文件内容..."
+    }
+    ```
+    
+    **错误响应**:
+    - `404`: 项目不存在或文件不存在
+    - `403`: 路径穿透尝试（安全拒绝）
+    - `500`: 文件读取错误
+    
+    **示例请求**:
+    ```
+    GET /api/projects/1/files/content?path=src/main.py
+    ```
+    """
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -477,6 +739,45 @@ async def save_file_content(
     body: schemas.FileSaveRequest,
     db: Session = Depends(get_db)
 ):
+    """
+    保存项目文件内容
+    
+    将内容写入到项目的指定文件中。用于在线编辑项目文件。
+    
+    **参数**:
+    - **project_id**: 项目 ID（路径参数）
+    - **body**: 文件保存请求（请求体）
+      - path: 文件相对路径
+      - content: 文件内容
+    
+    **安全措施**:
+    - 路径穿透保护：确保文件路径在项目目录内
+    - 使用 UTF-8 编码保存
+    
+    **返回**:
+    ```json
+    {
+        "status": "success"
+    }
+    ```
+    
+    **错误响应**:
+    - `404`: 项目不存在
+    - `403`: 路径穿透尝试（安全拒绝）
+    - `500`: 文件写入错误
+    
+    **示例请求**:
+    ```json
+    {
+        "path": "src/main.py",
+        "content": "print('Hello, World!')"
+    }
+    ```
+    
+    **注意**: 
+    - 文件会被完全覆盖，请确保内容完整
+    - 如果文件不存在，会自动创建
+    """
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -517,6 +818,60 @@ def is_path_allowed(target_path: str) -> bool:
 
 @router.post("/browse-dirs")
 def browse_server_directories(request: DirListRequest):
+    """
+    浏览服务器允许的目录列表
+    
+    用于前端选择输出目录等功能，仅允许浏览指定的安全目录。
+    
+    **允许浏览的目录**:
+    - 项目上传目录 (`projects`)
+    - 数据目录 (`Data` 或 `/data`)
+    - 环境目录 (`envs`)
+    - 日志目录 (`logs`)
+    
+    **参数**:
+    - **request**: 目录浏览请求（请求体）
+      - path: 要浏览的路径（默认: 项目目录）
+    
+    **安全措施**:
+    - 严格限制可浏览的目录范围
+    - 路径穿透保护
+    - 仅返回目录列表，不返回文件
+    - 自动添加父目录（如果在允许范围内）
+    
+    **返回**:
+    ```json
+    {
+        "current_path": "/path/to/directory",
+        "items": [
+            {
+                "name": "..",
+                "path": "/path/to/parent",
+                "type": "dir"
+            },
+            {
+                "name": "subdir",
+                "path": "/path/to/directory/subdir",
+                "type": "dir"
+            }
+        ]
+    }
+    ```
+    
+    **错误响应**:
+    - `403`: 路径不在允许的目录范围内
+    - `404`: 路径不存在
+    - `500`: 目录读取错误
+    
+    **示例请求**:
+    ```json
+    {
+        "path": "/data"
+    }
+    ```
+    
+    **注意**: 此接口仅用于浏览，不提供文件修改功能。
+    """
     # Only allow browsing, no modification
     target_path = request.path
 
@@ -561,7 +916,7 @@ def browse_server_directories(request: DirListRequest):
                         "path": entry.path,
                         "type": "dir"
                     })
-                except:
+                except Exception:
                     pass
     except Exception as e:
          raise HTTPException(status_code=500, detail=f"Error reading directory: {str(e)}")

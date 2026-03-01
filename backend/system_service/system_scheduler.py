@@ -1,34 +1,38 @@
 import os
 import shutil
 import datetime
-import logging
+import threading
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy.orm import Session
-from core.database import SessionLocal, SQLALCHEMY_DATABASE_URL
+from core.database import get_db, SQLALCHEMY_DATABASE_URL
+from core.config import settings
+from core.logging import get_logger
 from system_service import models as system_models
 
-logger = logging.getLogger("system_scheduler")
+logger = get_logger(__name__)
 
-# Define Paths
-BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BACKUP_DIR = os.path.join(BACKEND_DIR, "data", "backups")
-LOG_DIR = os.path.join(BACKEND_DIR, "logs")
-TASK_LOG_DIR = os.path.join(LOG_DIR, "tasks")
-INSTALL_LOG_DIR = os.path.join(LOG_DIR, "install")
+# 使用配置中的路径
+BACKUP_DIR = settings.backup_dir
+TASK_LOG_DIR = settings.task_log_dir
+INSTALL_LOG_DIR = settings.install_log_dir
 
 DB_PATH = SQLALCHEMY_DATABASE_URL.replace("sqlite:///", "")
 if DB_PATH.startswith("./"):
     DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), DB_PATH[2:])
 
 class SystemScheduler:
+    """系统调度器 - 线程安全的单例"""
     _instance = None
+    _lock = threading.Lock()
     scheduler = None
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(SystemScheduler, cls).__new__(cls)
-            cls._instance.scheduler = BackgroundScheduler()
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super(SystemScheduler, cls).__new__(cls)
+                    cls._instance.scheduler = BackgroundScheduler()
         return cls._instance
 
     def start(self):
@@ -47,7 +51,9 @@ class SystemScheduler:
         logger.info("Refreshing system jobs...")
         self.scheduler.remove_all_jobs()
 
-        db: Session = SessionLocal()
+        # 使用依赖注入方式获取数据库会话
+        db_gen = get_db()
+        db = next(db_gen)
         try:
             # Load Config - Backup
             enabled = self._get_config(db, "backup.enabled", "false") == "true"
@@ -100,7 +106,7 @@ class SystemScheduler:
         except Exception as e:
             logger.error(f"Error refreshing system jobs: {e}")
         finally:
-            db.close()
+            db_gen.close()
 
     def _get_config(self, db: Session, key: str, default: str) -> str:
         config = db.query(system_models.SystemConfig).filter(system_models.SystemConfig.key == key).first()
@@ -109,7 +115,8 @@ class SystemScheduler:
     def _backup_job(self):
         """Execute Backup Logic"""
         logger.info("Executing auto-backup...")
-        db: Session = SessionLocal()
+        db_gen = get_db()
+        db = next(db_gen)
         try:
             # 1. Ensure backup dir exists
             if not os.path.exists(BACKUP_DIR):
@@ -134,7 +141,7 @@ class SystemScheduler:
         except Exception as e:
             logger.error(f"Backup failed: {e}")
         finally:
-            db.close()
+            db_gen.close()
 
     def _cleanup_old_backups(self, retention_count: int):
         """Keep only the latest N backups"""
@@ -160,7 +167,8 @@ class SystemScheduler:
     def _cleanup_logs_job(self):
         """Clean up old task and install logs"""
         logger.info("Executing log cleanup...")
-        db: Session = SessionLocal()
+        db_gen = get_db()
+        db = next(db_gen)
         try:
             # Get retention days from config
             days = int(self._get_config(db, "log_cleanup.days", "7"))
@@ -199,14 +207,15 @@ class SystemScheduler:
         except Exception as e:
             logger.error(f"Log cleanup failed: {e}")
         finally:
-            db.close()
+            db_gen.close()
 
     def _cleanup_executions_job(self):
         """Clean up old task execution records"""
         logger.info("Executing execution cleanup...")
         from task_service import models as task_models
 
-        db: Session = SessionLocal()
+        db_gen = get_db()
+        db = next(db_gen)
         try:
             # Get retention days from config
             days = int(self._get_config(db, "exec_cleanup.days", "30"))
@@ -238,4 +247,12 @@ class SystemScheduler:
             logger.error(f"Execution cleanup failed: {e}")
             db.rollback()
         finally:
-            db.close()
+            db_gen.close()
+
+
+# 模块级单例获取函数
+_system_scheduler = SystemScheduler()
+
+def get_system_scheduler() -> SystemScheduler:
+    """获取系统调度器单例"""
+    return _system_scheduler

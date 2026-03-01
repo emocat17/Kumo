@@ -9,6 +9,8 @@ from pydantic import BaseModel
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from core.database import get_db, SQLALCHEMY_DATABASE_URL, SessionLocal
+from core.config import settings
+from core.logging import get_logger
 from environment_service import models, schemas
 from task_service.models import Task
 from audit_service.service import create_audit_log
@@ -19,6 +21,7 @@ import psutil
 import datetime
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 class PathRequest(BaseModel):
     path: str
@@ -46,9 +49,9 @@ def clean_ansi(text: str) -> str:
     return text
 
 def get_log_path(version_id: int):
-    log_dir = os.path.abspath(os.path.join(os.getcwd(), "logs", "install"))
+    log_dir = settings.install_log_dir
     if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+        os.makedirs(log_dir, exist_ok=True)
     return os.path.join(log_dir, f"install_v{version_id}.log")
 
 def append_log(version_id: int, message: str):
@@ -186,7 +189,7 @@ def run_conda_create(command: list, version_id: int):
             if version_record:
                 version_record.status = "error"
                 db.commit()
-        except:
+        except Exception:
             pass
     finally:
         db.close()
@@ -196,62 +199,8 @@ def remove_readonly(func, path, excinfo):
     os.chmod(path, stat.S_IWRITE)
     func(path)
 
-# Database Migration Helper (Safe add column)
-def ensure_columns():
-    db_path = SQLALCHEMY_DATABASE_URL.replace("sqlite:///", "")
-    if not os.path.exists(db_path):
-        return
-        
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    try:
-        cursor.execute("PRAGMA table_info(python_versions)")
-        columns = [info[1] for info in cursor.fetchall()]
-        
-        if "name" not in columns:
-            print("Migrating: Adding 'name' column to python_versions")
-            cursor.execute("ALTER TABLE python_versions ADD COLUMN name VARCHAR DEFAULT ''")
-            
-        if "is_conda" not in columns:
-            print("Migrating: Adding 'is_conda' column to python_versions")
-            cursor.execute("ALTER TABLE python_versions ADD COLUMN is_conda BOOLEAN DEFAULT 0")
-
-        if "created_at" not in columns:
-            print("Migrating: Adding 'created_at' column to python_versions")
-            cursor.execute("ALTER TABLE python_versions ADD COLUMN created_at DATETIME")
-            cursor.execute("UPDATE python_versions SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")
-            
-        if "updated_at" not in columns:
-            print("Migrating: Adding 'updated_at' column to python_versions")
-            cursor.execute("ALTER TABLE python_versions ADD COLUMN updated_at DATETIME")
-            cursor.execute("UPDATE python_versions SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL")
-
-        # Double check for NULLs (in case columns existed but were NULL)
-        cursor.execute("UPDATE python_versions SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL")
-        cursor.execute("UPDATE python_versions SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL")
-
-        # Check and Drop Unique Index on version (Fix for duplicate versions)
-        cursor.execute("PRAGMA index_list('python_versions')")
-        indexes = cursor.fetchall()
-        for idx in indexes:
-            # idx: (seq, name, unique, origin, partial)
-            index_name = idx[1]
-            is_unique = idx[2]
-            if is_unique:
-                cursor.execute(f"PRAGMA index_info('{index_name}')")
-                col_info = cursor.fetchall()
-                # col_info: (seqno, cid, name)
-                if len(col_info) == 1 and col_info[0][2] == 'version':
-                    print(f"Migrating: Dropping unique index '{index_name}' on 'version' column")
-                    cursor.execute(f"DROP INDEX {index_name}")
-
-        conn.commit()
-    except Exception as e:
-        print(f"Migration warning: {e}")
-    finally:
-        conn.close()
-
-ensure_columns()
+# 迁移逻辑已移至 migrations/manager.py
+# 不再需要在此处执行迁移
 
 import json
 
@@ -265,7 +214,7 @@ def get_default_conda_env_dir():
             if "envs_dirs" in info and len(info["envs_dirs"]) > 0:
                 return info["envs_dirs"][0]
     except Exception as e:
-        print(f"Error getting conda info: {e}")
+        logger.error(f"Error getting conda info: {e}")
     
     # Fallback: assume standard location relative to conda executable if possible, 
     # or just return None and let the code fail gracefully or use a default.
@@ -303,32 +252,25 @@ async def create_conda_env(request: CondaCreateRequest, db: Session = Depends(ge
             # Mark for deletion in background, then proceed
             # For now, let's try to delete it directly
             try:
-                import shutil as sh
-                import subprocess as sp
-                result = sp.run(['rm', '-rf', env_path], capture_output=True, text=True, timeout=30)
-                if result.returncode == 0:
-                    append_log(existing.id if existing else 0, f"Successfully cleaned up residual directory: {env_path}")
-                else:
-                    append_log(existing.id if existing else 0, f"Failed to clean residual directory: {result.stderr}")
-                    # Try harder with conda clean
-                    sp.run(['conda', 'clean', '-afy'], capture_output=True, text=True, timeout=60)
-                    # Try rm again
-                    result2 = sp.run(['rm', '-rf', env_path], capture_output=True, text=True, timeout=30)
-                    if result2.returncode != 0:
-                        raise HTTPException(status_code=400, detail=f"Cannot clean residual directory: {env_path}. Please delete manually.")
-            except Exception as clean_err:
-                append_log(existing.id if existing else 0, f"Error during cleanup: {clean_err}")
-                raise HTTPException(status_code=400, detail=f"Failed to clean residual directory: {clean_err}")
+                shutil.rmtree(env_path)
+                append_log(existing.id if existing else 0, f"Successfully cleaned up residual directory: {env_path}")
+            except Exception as e:
+                append_log(existing.id if existing else 0, f"Failed to clean residual directory: {str(e)}")
+                # Try harder with conda clean
+                try:
+                    subprocess.run(['conda', 'clean', '-afy'], capture_output=True, text=True, timeout=60)
+                    # Try rmtree again
+                    shutil.rmtree(env_path)
+                    append_log(existing.id if existing else 0, f"Successfully cleaned up residual directory after conda clean: {env_path}")
+                except Exception as clean_err:
+                    append_log(existing.id if existing else 0, f"Error during cleanup: {clean_err}")
+                    raise HTTPException(status_code=400, detail=f"Failed to clean residual directory: {clean_err}")
         elif existing and existing.status == "ready":
             raise HTTPException(status_code=400, detail=f"Environment path already exists: {env_path}")
         else:
             # No DB record but directory exists - likely leftover, try to clean
             try:
-                import shutil as sh
-                import subprocess as sp
-                result = sp.run(['rm', '-rf', env_path], capture_output=True, text=True, timeout=30)
-                if result.returncode != 0:
-                    raise HTTPException(status_code=400, detail=f"Cannot clean unknown directory: {env_path}. Please delete manually.")
+                shutil.rmtree(env_path)
             except Exception as clean_err:
                 raise HTTPException(status_code=400, detail=f"Failed to clean unknown directory: {clean_err}")
 
@@ -338,15 +280,14 @@ async def create_conda_env(request: CondaCreateRequest, db: Session = Depends(ge
     
     # First, ensure conda channels are configured correctly (fix potential URL format issues)
     try:
-        import subprocess as sp
         # Set correct channel URLs (with proper https:// prefix)
-        sp.run(["conda", "config", "--add", "channels", "https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge"], 
+        subprocess.run(["conda", "config", "--add", "channels", "https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge"], 
                capture_output=True, timeout=30)
-        sp.run(["conda", "config", "--add", "channels", "https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free"], 
+        subprocess.run(["conda", "config", "--add", "channels", "https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free"], 
                capture_output=True, timeout=30)
-        sp.run(["conda", "config", "--add", "channels", "https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main"], 
+        subprocess.run(["conda", "config", "--add", "channels", "https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main"], 
                capture_output=True, timeout=30)
-        sp.run(["conda", "config", "--set", "show_channel_urls", "yes"], 
+        subprocess.run(["conda", "config", "--set", "show_channel_urls", "yes"], 
                capture_output=True, timeout=30)
     except Exception as e:
         append_log(0, f"Warning: Failed to configure conda channels: {e}")
@@ -604,27 +545,14 @@ def background_delete_version(version_id: int):
                     # Just verify the environment exists before deletion
                     append_log(version_id, "Skipping conda remove, proceeding with directory deletion...")
 
-                    # Use system command for faster and more reliable deletion in containers
-                    # This is more reliable than shutil.rmtree for locked files
+                    # Use shutil.rmtree for cross-platform compatibility
                     env_deleted = False
                     try:
-                        # Try using rm -rf first (works best in Linux containers)
-                        import subprocess as sp
-                        result = sp.run(
-                            ['rm', '-rf', env_dir],
-                            capture_output=True,
-                            text=True,
-                            timeout=60  # 60 second timeout
-                        )
-                        if result.returncode == 0:
-                            append_log(version_id, "Directory deleted successfully via rm -rf")
-                            env_deleted = True
-                        else:
-                            append_log(version_id, f"rm -rf failed: {result.stderr}")
-                    except sp.TimeoutExpired:
-                        append_log(version_id, "Delete command timed out after 60 seconds")
+                        shutil.rmtree(env_dir)
+                        append_log(version_id, "Directory deleted successfully via shutil.rmtree")
+                        env_deleted = True
                     except Exception as e:
-                        append_log(version_id, f"Error using system delete: {e}")
+                        append_log(version_id, f"Error using shutil.rmtree: {e}")
 
                     # Fallback to Python shutil if system command failed
                     if not env_deleted and os.path.exists(env_dir):
@@ -682,14 +610,14 @@ def background_delete_version(version_id: int):
             append_log(version_id, "Database record deleted")
 
     except Exception as e:
-        print(f"Fatal error in background_delete_version: {e}")
+        logger.error(f"Fatal error in background_delete_version: {e}")
         try:
             # Try to mark as error
             version = db.query(models.PythonVersion).filter(models.PythonVersion.id == version_id).first()
             if version:
                 version.status = "error"
                 db.commit()
-        except:
+        except Exception:
             pass
     finally:
         db.close()
@@ -725,7 +653,7 @@ async def delete_version(version_id: int, req: Request, db: Session = Depends(ge
             abs_path = os.path.abspath(version.path)
             if abs_path.startswith(cwd_envs):
                 is_managed_path = True
-        except:
+        except Exception:
             pass
     
     # If it's a conda environment OR it's in our managed directory, do it in background
@@ -882,7 +810,7 @@ async def cleanup_conda_cache(req: Request, db: Session = Depends(get_db)):
                             import shutil
                             shutil.rmtree(pkgs_dir)
                             cleaned_count += 1
-                        except:
+                        except Exception:
                             pass
             append_log(0, f"Cleaned {cleaned_count} package caches")
         
@@ -936,13 +864,9 @@ async def cleanup_residual_environments(req: Request, db: Session = Depends(get_
             
         if item not in registered_names:
             try:
-                import subprocess as sp
-                result = sp.run(['rm', '-rf', item_path], capture_output=True, text=True, timeout=60)
-                if result.returncode == 0:
-                    cleaned.append(item)
-                    append_log(0, f"Cleaned residual directory: {item}")
-                else:
-                    errors.append(f"{item}: {result.stderr}")
+                shutil.rmtree(item_path)
+                cleaned.append(item)
+                append_log(0, f"Cleaned residual directory: {item}")
             except Exception as e:
                 errors.append(f"{item}: {str(e)}")
     
@@ -976,10 +900,7 @@ async def reset_stuck_environment(version_id: int, req: Request, db: Session = D
     env_path = os.path.dirname(version.path)
     if os.path.exists(env_path):
         try:
-            import subprocess as sp
-            result = sp.run(['rm', '-rf', env_path], capture_output=True, text=True, timeout=60)
-            if result.returncode != 0:
-                append_log(version_id, f"Warning: Could not clean env directory: {result.stderr}")
+            shutil.rmtree(env_path)
         except Exception as e:
             append_log(version_id, f"Warning: Error cleaning env directory: {e}")
     

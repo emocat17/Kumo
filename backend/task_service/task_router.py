@@ -2,12 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, WebSocke
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func, cast, Date
+from sqlalchemy import func, cast, Date, desc, select
 from typing import List
 from core.database import get_db
+from core.logging import get_logger
+from core.cache import query_cache
 from task_service import models, schemas
 from project_service import models as project_models
-from task_service.task_manager import task_manager, run_task_execution
+from task_service.task_manager import task_manager
+from task_service.task_executor import run_task_execution
 from audit_service.service import create_audit_log
 from apscheduler.triggers.cron import CronTrigger
 import json
@@ -18,12 +21,26 @@ import os
 import asyncio
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 @router.get("/dashboard/stats", response_model=schemas.DashboardStats)
 async def get_dashboard_stats(
     db: Session = Depends(get_db),
     project_id: int = Query(None, description="Filter by project ID")
 ):
+    """
+    获取任务仪表板统计数据
+    
+    - **project_id**: 可选，按项目 ID 过滤统计信息
+    
+    返回包括：
+    - 任务总数和活跃任务数
+    - 执行总数和正在运行的任务数
+    - 最近7天的成功率
+    - 最近5次执行记录
+    - 最近14天的每日统计
+    - 失败次数最多的前5个任务
+    """
     # Base filters
     task_filter = []
     if project_id:
@@ -143,6 +160,22 @@ async def get_dashboard_stats(
 
 @router.post("", response_model=schemas.Task)
 async def create_task(task: schemas.TaskCreate, request: Request, db: Session = Depends(get_db)):
+    """
+    创建新任务
+    
+    - **name**: 任务名称
+    - **command**: 执行命令
+    - **project_id**: 关联的项目 ID
+    - **trigger_type**: 触发器类型（interval/cron/date/immediate）
+    - **trigger_value**: 触发器配置（JSON 字符串）
+    - **env_id**: 可选，Python 环境 ID
+    - **retry_count**: 重试次数
+    - **retry_delay**: 重试延迟（秒）
+    - **timeout**: 超时时间（秒）
+    - **priority**: 优先级
+    
+    创建后会自动添加到调度器中（如果状态为 active）
+    """
     db_task = models.Task(**task.model_dump())
     db.add(db_task)
     db.commit()
@@ -169,29 +202,79 @@ async def create_task(task: schemas.TaskCreate, request: Request, db: Session = 
             db_task.priority or 0
         )
     except Exception as e:
-        print(f"Error scheduling task {db_task.id}: {e}")
+        logger.error(f"Error scheduling task {db_task.id}: {e}")
         
     return db_task
 
 @router.get("", response_model=List[schemas.Task])
 async def list_tasks(skip: int = 0, limit: int = 100, project_id: int = None, db: Session = Depends(get_db)):
+    """
+    获取任务列表
+    
+    - **skip**: 跳过的记录数（分页）
+    - **limit**: 返回的最大记录数（默认100）
+    - **project_id**: 可选，按项目 ID 过滤
+    
+    返回的任务包含运行时信息：
+    - next_run: 下次运行时间
+    - last_execution_status: 最后一次执行状态
+    - latest_execution_id: 最新执行 ID
+    - latest_execution_time: 最新执行时间
+    """
+    # 构建缓存键
+    cache_key = f"tasks_list_{skip}_{limit}_{project_id}"
+    
+    # 尝试从缓存获取
+    cached_result = query_cache.get(cache_key)
+    if cached_result is not None:
+        return cached_result
+    
     query = db.query(models.Task)
     if project_id:
         query = query.filter(models.Task.project_id == project_id)
     tasks = query.offset(skip).limit(limit).all()
-    # Update runtime status
+    
+    if not tasks:
+        return tasks
+    
+    # 批量查询最新执行记录，避免 N+1 查询问题
+    task_ids = [t.id for t in tasks]
+    
+    # 使用子查询获取每个任务的最新执行记录
+    subquery = select(
+        models.TaskExecution.task_id,
+        models.TaskExecution.id.label('exec_id'),
+        models.TaskExecution.status.label('exec_status'),
+        models.TaskExecution.start_time.label('exec_start_time'),
+        func.row_number().over(
+            partition_by=models.TaskExecution.task_id,
+            order_by=desc(models.TaskExecution.start_time)
+        ).label('rn')
+    ).where(models.TaskExecution.task_id.in_(task_ids)).subquery()
+    
+    latest_executions = db.query(subquery).filter(subquery.c.rn == 1).all()
+    
+    # 构建执行记录映射
+    exec_map = {row.task_id: {
+        'id': row.exec_id,
+        'status': row.exec_status,
+        'start_time': row.exec_start_time
+    } for row in latest_executions}
+    
+    # 更新任务运行时信息
     for t in tasks:
         t.next_run = task_manager.get_next_run_time(t.id)
-        # Get latest execution info
-        latest_exec = db.query(models.TaskExecution).filter(
-            models.TaskExecution.task_id == t.id
-        ).order_by(models.TaskExecution.start_time.desc()).first()
         
-        if latest_exec:
-            t.last_execution_status = latest_exec.status
-            t.latest_execution_id = latest_exec.id
-            t.latest_execution_time = latest_exec.start_time
-            
+        # 从映射中获取最新执行记录
+        latest_exec_info = exec_map.get(t.id)
+        if latest_exec_info:
+            t.last_execution_status = latest_exec_info['status']
+            t.latest_execution_id = latest_exec_info['id']
+            t.latest_execution_time = latest_exec_info['start_time']
+    
+    # 缓存结果（TTL 5秒，因为任务状态可能频繁变化）
+    query_cache.set(cache_key, tasks, ttl=5)
+    
     return tasks
 
 def resolve_output_dir(project: project_models.Project):
@@ -240,6 +323,22 @@ def parse_task_ids(task_ids: str):
 
 @router.get("/test-metrics/overview", response_model=schemas.TestMetricsOverview)
 async def get_test_metrics_overview(project_id: int = None, task_ids: str = None, window_seconds: int = 10, sample_limit: int = 50, db: Session = Depends(get_db)):
+    """
+    获取测试指标概览
+    
+    - **project_id**: 可选，项目 ID
+    - **task_ids**: 可选，逗号分隔的任务 ID 列表（如 "1,2,3"）
+    - **window_seconds**: 时间窗口（秒），用于统计最近的文件产出和执行情况（默认10秒）
+    - **sample_limit**: 返回的文件样本数量限制（默认50）
+    
+    返回包括：
+    - 产出文件统计（总数、大小、类型分布）
+    - 执行窗口统计（开始、完成、成功、失败、运行中）
+    - 最新执行记录
+    - 时间序列数据（持续时间、CPU、内存）
+    - 输出延迟统计
+    - 文件样本和日志文件列表
+    """
     ids = parse_task_ids(task_ids)
     project = None
     tasks = []
@@ -440,7 +539,12 @@ async def get_test_metrics_overview(project_id: int = None, task_ids: str = None
 
 @router.post("/test-metrics/clear-output")
 async def clear_test_output():
-    """Clear the test output directory /data/test"""
+    """
+    清理测试输出目录
+    
+    删除 /data/test 目录下的所有文件和空目录。
+    返回删除的文件数量和总大小。
+    """
     import shutil
 
     test_dir = resolve_test_output_dir()
@@ -489,6 +593,24 @@ def format_bytes(size):
 
 @router.get("/test-metrics/export")
 async def export_test_metrics(project_id: int = None, task_ids: str = None, window_seconds: int = 10, sample_limit: int = 10000, format: str = "json", db: Session = Depends(get_db)):
+    """
+    导出测试指标数据
+    
+    - **project_id**: 可选，项目 ID
+    - **task_ids**: 可选，逗号分隔的任务 ID 列表
+    - **window_seconds**: 时间窗口（秒）
+    - **sample_limit**: 文件样本数量限制（默认10000）
+    - **format**: 导出格式，支持 "json" 或 "csv"（默认json）
+    
+    返回文件流，包含完整的测试报告：
+    - 元数据（项目信息、导出时间）
+    - 汇总统计（文件数、吞吐量）
+    - 性能指标（CPU峰值、内存峰值、平均耗时）
+    - 执行详情
+    - 时间序列数据
+    - 吞吐量趋势
+    - 产出样本
+    """
     metrics = await get_test_metrics_overview(project_id, task_ids, window_seconds, sample_limit, db)
     payload = jsonable_encoder(metrics)
     fmt = (format or "json").lower()
@@ -510,7 +632,7 @@ async def export_test_metrics(project_id: int = None, task_ids: str = None, wind
                     throughput_series[key] = {"files": 0, "bytes": 0}
                 throughput_series[key]["files"] += 1
                 throughput_series[key]["bytes"] += sample.get("size", 0)
-            except:
+            except Exception:
                 pass
     
     sorted_throughput = [{"time": k, "files": v["files"], "bytes": v["bytes"]} for k, v in sorted(throughput_series.items())]
@@ -606,6 +728,13 @@ async def export_test_metrics(project_id: int = None, task_ids: str = None, wind
 
 @router.get("/{task_id}", response_model=schemas.Task)
 async def get_task(task_id: int, db: Session = Depends(get_db)):
+    """
+    获取单个任务的详细信息
+    
+    - **task_id**: 任务 ID
+    
+    返回任务对象，包含 next_run 字段（下次运行时间）
+    """
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -614,6 +743,15 @@ async def get_task(task_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{task_id}", response_model=schemas.Task)
 async def update_task(task_id: int, task_update: schemas.TaskUpdate, request: Request, db: Session = Depends(get_db)):
+    """
+    更新任务配置
+    
+    - **task_id**: 任务 ID
+    - **task_update**: 要更新的字段（部分更新，只传需要修改的字段）
+    
+    如果更新了关键字段（trigger_type, trigger_value, command, env_id, project_id, status, timeout, retry_count, retry_delay），
+    会自动重新调度任务。
+    """
     db_task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not db_task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -659,6 +797,14 @@ async def update_task(task_id: int, task_update: schemas.TaskUpdate, request: Re
 
 @router.post("/{task_id}/pause")
 async def pause_task(task_id: int, request: Request, db: Session = Depends(get_db)):
+    """
+    暂停任务
+    
+    - **task_id**: 任务 ID
+    
+    将任务状态设置为 paused，并从调度器中暂停该任务。
+    正在运行的任务不会被停止，但不会触发新的执行。
+    """
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -682,6 +828,14 @@ async def pause_task(task_id: int, request: Request, db: Session = Depends(get_d
 
 @router.post("/{task_id}/resume")
 async def resume_task(task_id: int, request: Request, db: Session = Depends(get_db)):
+    """
+    恢复任务
+    
+    - **task_id**: 任务 ID
+    
+    将任务状态设置为 active，并重新添加到调度器中。
+    如果任务在调度器中不存在，会重新创建调度任务。
+    """
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -721,6 +875,14 @@ async def resume_task(task_id: int, request: Request, db: Session = Depends(get_
 
 @router.delete("/{task_id}")
 async def delete_task(task_id: int, request: Request, db: Session = Depends(get_db)):
+    """
+    删除任务
+    
+    - **task_id**: 任务 ID
+    
+    从调度器中移除任务，并从数据库中删除。
+    注意：此操作不可恢复，但不会删除任务的执行历史记录。
+    """
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -745,6 +907,14 @@ async def delete_task(task_id: int, request: Request, db: Session = Depends(get_
 
 @router.post("/{task_id}/run")
 async def run_task(task_id: int, request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """
+    手动触发任务执行
+    
+    - **task_id**: 任务 ID
+    
+    立即创建一个执行记录并在后台运行任务。
+    返回执行 ID，可用于跟踪执行状态和查看日志。
+    """
     task = db.query(models.Task).filter(models.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -778,6 +948,14 @@ async def run_task(task_id: int, request: Request, background_tasks: BackgroundT
 
 @router.post("/executions/{execution_id}/stop")
 async def stop_execution(execution_id: int, request: Request, db: Session = Depends(get_db)):
+    """
+    停止正在运行的任务执行
+    
+    - **execution_id**: 执行 ID
+    
+    终止正在运行的进程，并将执行状态更新为 stopped。
+    如果执行已完成或不存在，返回相应提示。
+    """
     execution = db.query(models.TaskExecution).filter(models.TaskExecution.id == execution_id).first()
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
@@ -813,6 +991,14 @@ async def stop_execution(execution_id: int, request: Request, db: Session = Depe
 
 @router.delete("/executions/{execution_id}")
 async def delete_execution(execution_id: int, request: Request, db: Session = Depends(get_db)):
+    """
+    删除任务执行记录
+    
+    - **execution_id**: 执行 ID
+    
+    如果执行正在运行，会先尝试停止。
+    删除执行记录和关联的日志文件。
+    """
     execution = db.query(models.TaskExecution).filter(models.TaskExecution.id == execution_id).first()
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
@@ -825,7 +1011,7 @@ async def delete_execution(execution_id: int, request: Request, db: Session = De
     if execution.log_file and os.path.exists(execution.log_file):
         try:
             os.remove(execution.log_file)
-        except:
+        except Exception:
             pass
             
     # Audit Log
@@ -848,10 +1034,25 @@ async def delete_execution(execution_id: int, request: Request, db: Session = De
 
 @router.get("/{task_id}/executions", response_model=List[schemas.TaskExecution])
 async def list_executions(task_id: int, db: Session = Depends(get_db)):
+    """
+    获取任务的所有执行记录
+    
+    - **task_id**: 任务 ID
+    
+    返回该任务的执行历史记录，按开始时间倒序排列，最多返回100条。
+    """
     return db.query(models.TaskExecution).filter(models.TaskExecution.task_id == task_id).order_by(models.TaskExecution.start_time.desc()).limit(100).all()
 
 @router.get("/executions/{execution_id}/log")
 async def get_execution_log(execution_id: int, tail_kb: int = Query(None), db: Session = Depends(get_db)):
+    """
+    获取任务执行的日志内容
+    
+    - **execution_id**: 执行 ID
+    - **tail_kb**: 可选，只返回最后 N KB 的日志（用于大日志文件）
+    
+    如果日志文件不存在，返回数据库中存储的 output 字段内容。
+    """
     execution = db.query(models.TaskExecution).filter(models.TaskExecution.id == execution_id).first()
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
@@ -879,6 +1080,15 @@ async def get_execution_log(execution_id: int, tail_kb: int = Query(None), db: S
 
 @router.get("/executions/{execution_id}/log/search")
 async def search_execution_log(execution_id: int, q: str = Query(..., min_length=1), limit: int = 100, db: Session = Depends(get_db)):
+    """
+    在任务执行日志中搜索关键词
+    
+    - **execution_id**: 执行 ID
+    - **q**: 搜索关键词（至少1个字符）
+    - **limit**: 返回的最大结果数（默认100）
+    
+    返回匹配的行号和内容，不区分大小写。
+    """
     execution = db.query(models.TaskExecution).filter(models.TaskExecution.id == execution_id).first()
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
@@ -905,6 +1115,15 @@ async def search_execution_log(execution_id: int, q: str = Query(..., min_length
 
 @router.websocket("/ws/logs/{execution_id}")
 async def websocket_log(websocket: WebSocket, execution_id: int, db: Session = Depends(get_db)):
+    """
+    WebSocket 实时日志流
+    
+    - **execution_id**: 执行 ID
+    
+    建立 WebSocket 连接后，实时推送日志内容。
+    初始发送最后50KB的日志，然后持续推送新产生的日志行。
+    适用于实时查看正在运行的任务日志。
+    """
     await websocket.accept()
     
     execution = db.query(models.TaskExecution).filter(models.TaskExecution.id == execution_id).first()
@@ -964,12 +1183,12 @@ async def websocket_log(websocket: WebSocket, execution_id: int, db: Session = D
                     await asyncio.sleep(0.05) # 50ms latency
                     
     except WebSocketDisconnect:
-        print(f"Client disconnected from log {execution_id}")
+        logger.info(f"Client disconnected from log {execution_id}")
     except Exception as e:
-        print(f"WebSocket error: {e}")
+        logger.error(f"WebSocket error: {e}")
         try:
             await websocket.send_text(f"Error: {str(e)}")
-        except:
+        except Exception:
             pass
 
 @router.get("/stats/daily")
@@ -1031,6 +1250,13 @@ async def get_daily_task_stats(days: int = 14, db: Session = Depends(get_db)):
 
 @router.post("/cron/preview", response_model=schemas.CronPreviewResponse)
 async def preview_cron(request: schemas.CronPreviewRequest):
+    """
+    预览 Cron 表达式的下次执行时间
+    
+    - **cron_expression**: Cron 表达式（如 "0 0 * * *"）
+    
+    返回接下来5次的执行时间，用于验证 Cron 表达式是否正确。
+    """
     try:
         trigger = CronTrigger.from_crontab(request.cron_expression)
         now = datetime.datetime.now()

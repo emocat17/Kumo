@@ -2,12 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from core.database import get_db
+from core.logging import get_logger
 from task_service import models as task_models
 import os
 import datetime
 import shutil
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 # Use relative path to ensure we find the logs regardless of CWD
 # .../backend/log_service/logs_router.py -> .../backend/logs/tasks
@@ -61,7 +63,7 @@ async def list_logs(
                     else:
                         if project_id: continue # Skip unknown files when filtering
                         task_name = "Unknown Task"
-                except:
+                except Exception:
                     if project_id: continue
                     task_name = "Unknown Task"
 
@@ -202,6 +204,6 @@ async def cleanup_logs(days: int = Query(..., description="Delete logs older tha
                         os.remove(path)
                         count += 1
             except Exception as e:
-                print(f"Error deleting {f}: {e}")
+                logger.error(f"Error deleting {f}: {e}")
                 
     return {"message": f"Deleted {count} log files"}

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List, Any
 from datetime import datetime
 import json
@@ -58,6 +58,8 @@ class TaskUpdate(BaseModel):
     max_memory_mb: Optional[int] = None
 
 class Task(TaskBase):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     status: str
     created_at: datetime
@@ -67,9 +69,6 @@ class Task(TaskBase):
     last_execution_status: Optional[str] = None
     latest_execution_id: Optional[int] = None
     latest_execution_time: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
 
 class TaskExecutionBase(BaseModel):
     status: str
@@ -82,12 +81,11 @@ class TaskExecutionBase(BaseModel):
     max_memory_mb: Optional[float] = None
 
 class TaskExecution(TaskExecutionBase):
+    model_config = ConfigDict(from_attributes=True)
+    
     id: int
     task_id: int
     log_file: Optional[str] = None
-
-    class Config:
-        from_attributes = True
 
 class OutputTypeStat(BaseModel):
     ext: str

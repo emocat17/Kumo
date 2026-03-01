@@ -4,6 +4,9 @@
 import os
 import re
 import datetime
+from core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def clean_ansi(text: str) -> str:
@@ -76,4 +79,4 @@ def append_log(log_file: str, message: str, add_timestamp: bool = True):
                     else:
                         f.write(f"{line}\n")
     except Exception as e:
-        print(f"Error writing log: {e}")
+        logger.error(f"Error writing log: {e}")
